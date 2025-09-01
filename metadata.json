@@ -1,0 +1,8 @@
+{
+  "name": "Tire Storage CRM",
+  "description": "A CRM application for managing tire storage clients, sending notifications, and viewing dashboard analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "prompt": ""
+}
