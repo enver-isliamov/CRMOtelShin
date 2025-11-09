@@ -32,13 +32,18 @@ const useAuth = () => {
         return storedUser ? JSON.parse(storedUser) : null;
     });
 
-    const login = async (username: string, pass: string) => {
+    const login = async (username: string, pass: string, remember: boolean = false) => {
         // This is a simple mock authentication.
         // In a real app, you'd call an API.
         if (username === 'Admin' && pass === 'Admin123') {
             const userData = { username: 'Admin', role: UserRole.Admin };
             setUser(userData);
             sessionStorage.setItem('user', JSON.stringify(userData));
+             if (remember) {
+                localStorage.setItem('credentials', JSON.stringify({ username, pass }));
+            } else {
+                localStorage.removeItem('credentials');
+            }
             return true;
         }
         return false;
@@ -47,8 +52,25 @@ const useAuth = () => {
     const logout = () => {
         setUser(null);
         sessionStorage.removeItem('user');
+        localStorage.removeItem('credentials'); // Clear stored credentials on logout
         window.location.hash = '/login'; // Redirect to login
     };
+    
+    useEffect(() => {
+        const attemptAutoLogin = async () => {
+            const storedCredentials = localStorage.getItem('credentials');
+            if (storedCredentials && !user) {
+                try {
+                    const { username, pass } = JSON.parse(storedCredentials);
+                    await login(username, pass, true);
+                } catch (e) {
+                    console.error("Failed to parse stored credentials", e);
+                    localStorage.removeItem('credentials');
+                }
+            }
+        };
+        attemptAutoLogin();
+    }, []); // Run only once on initial component mount
 
     return { user, login, logout };
 };

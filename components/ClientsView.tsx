@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, Fragment, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Client, MessageTemplate, ClientEvent, SavedView, formatDateForDisplay } from '../types';
@@ -206,6 +207,7 @@ const ClientDetailModal: React.FC<{
                                 <DetailItem label="Статус сделки" value={formData['Статус сделки']} />
                                 <DetailItem label="Номер Авто" value={formData['Номер Авто']} />
                                 <DetailItem label="Размер шин" value={formData['Размер шин']} />
+                                <DetailItem label="DOT-код" value={formData['DOT-код']} />
                                 <DetailItem label="Кол-во шин" value={`${formData['Кол-во шин']} шт.`} />
                                 <DetailItem label="Сезон" value={formData['Сезон']} />
                                 <DetailItem label="Наличие дисков" value={formData['Наличие дисков']} />
