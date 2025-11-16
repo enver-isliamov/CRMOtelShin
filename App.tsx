@@ -1,8 +1,6 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ClientsView } from './components/ClientsView';
 import { Settings } from './components/Settings';
@@ -26,62 +24,6 @@ const getInitialSettings = (): SettingsType => {
     return defaults;
 };
 
-const useAuth = () => {
-    const [user, setUser] = useState<{ username: string; role: UserRole } | null>(() => {
-        const storedUser = sessionStorage.getItem('user');
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
-
-    const login = async (username: string, pass: string, remember: boolean = false) => {
-        // This is a simple mock authentication.
-        // In a real app, you'd call an API.
-        if (username === 'Admin' && pass === 'Admin123') {
-            const userData = { username: 'Admin', role: UserRole.Admin };
-            setUser(userData);
-            sessionStorage.setItem('user', JSON.stringify(userData));
-             if (remember) {
-                localStorage.setItem('credentials', JSON.stringify({ username, pass }));
-            } else {
-                localStorage.removeItem('credentials');
-            }
-            return true;
-        }
-        return false;
-    };
-
-    const logout = () => {
-        setUser(null);
-        sessionStorage.removeItem('user');
-        localStorage.removeItem('credentials'); // Clear stored credentials on logout
-        window.location.hash = '/login'; // Redirect to login
-    };
-    
-    useEffect(() => {
-        const attemptAutoLogin = async () => {
-            const storedCredentials = localStorage.getItem('credentials');
-            if (storedCredentials && !user) {
-                try {
-                    const { username, pass } = JSON.parse(storedCredentials);
-                    await login(username, pass, true);
-                } catch (e) {
-                    console.error("Failed to parse stored credentials", e);
-                    localStorage.removeItem('credentials');
-                }
-            }
-        };
-        attemptAutoLogin();
-    }, []); // Run only once on initial component mount
-
-    return { user, login, logout };
-};
-
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user } = useAuth();
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
-    return <>{children}</>;
-};
 
 // --- ICONS ---
 const DashboardIcon: React.FC<{className?: string}> = ({ className="h-5 w-5" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -212,7 +154,11 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
 };
 
 export const App: React.FC = () => {
-    const { user, login, logout } = useAuth();
+    const user = { username: 'Admin', role: UserRole.Admin };
+    const logout = () => {
+        console.log("Logout clicked. Authentication is disabled.");
+    };
+    
     const [clients, setClients] = useState<Client[]>([]);
     const [archive, setArchive] = useState<Client[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
@@ -283,10 +229,8 @@ export const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (user) {
-            fetchData();
-        }
-    }, [user, fetchData]);
+        fetchData();
+    }, [fetchData]);
 
     const refreshData = useCallback(async () => {
         await fetchData();
@@ -303,24 +247,15 @@ export const App: React.FC = () => {
         <HashRouter>
             <DevViewToggle />
             {appToast && <Toast key={appToast.id} message={appToast.message} type={appToast.type} onClose={() => setAppToast(null)} />}
-            <Routes>
-                <Route path="/login" element={<Login onLogin={login} />} />
-                <Route path="/*" element={
-                    <ProtectedRoute>
-                        {user && (
-                            <Layout user={user} onLogout={logout} navDisabled={needsSetup}>
-                                <Routes>
-                                    <Route path="/" element={needsSetup ? <Navigate to="/settings" replace /> : <Dashboard clients={clients} archive={archive} templates={templates} />} />
-                                    <Route path="/clients" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientsView clients={clients} headers={headers} templates={templates} refreshData={refreshData} savedViews={savedViews} onSaveViews={handleSaveViews} />} />
-                                    <Route path="/add-client" element={needsSetup ? <Navigate to="/settings" replace /> : <AddClient settings={settings} onClientAdd={refreshData} />} />
-                                    <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={refreshData} needsSetup={needsSetup} />} />
-                                    <Route path="*" element={<Navigate to="/" replace />} />
-                                </Routes>
-                            </Layout>
-                        )}
-                    </ProtectedRoute>
-                } />
-            </Routes>
+            <Layout user={user} onLogout={logout} navDisabled={needsSetup}>
+                <Routes>
+                    <Route path="/" element={needsSetup ? <Navigate to="/settings" replace /> : <Dashboard clients={clients} archive={archive} templates={templates} />} />
+                    <Route path="/clients" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientsView clients={clients} headers={headers} templates={templates} refreshData={refreshData} savedViews={savedViews} onSaveViews={handleSaveViews} />} />
+                    <Route path="/add-client" element={needsSetup ? <Navigate to="/settings" replace /> : <AddClient settings={settings} onClientAdd={refreshData} />} />
+                    <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={refreshData} needsSetup={needsSetup} />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </Layout>
         </HashRouter>
     );
 };
