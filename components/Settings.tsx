@@ -446,7 +446,7 @@ const MastersTab: React.FC<{
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     const scriptText = `
 // --- НАСТРОЙКИ ---
-const SCRIPT_VERSION = "2.0.0";
+const SCRIPT_VERSION = "2.5.0";
 const SHEET_NAME_CLIENTS = "WebBase";
 const SHEET_NAME_TEMPLATES = "Шаблоны сообщений";
 const SHEET_NAME_MASTERS = "мастера";
@@ -467,25 +467,45 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   let payload;
+  let rawContent = "empty";
   try {
-    let requestBody;
-    
-    // Check for FormData payload first, as this is the primary method used by the app.
-    if (e && e.parameter && e.parameter.payload) {
-      requestBody = e.parameter.payload;
-    } 
-    // Fallback for raw JSON POST requests.
-    else if (e && e.postData && e.postData.contents) {
-      requestBody = e.postData.contents;
+    // Robust parsing logic
+    if (e && e.postData && e.postData.contents) {
+       rawContent = e.postData.contents;
+       try {
+          payload = JSON.parse(rawContent);
+       } catch (jsonErr) {
+          // If simple parse fails, try to handle cases where it might be url-encoded or just a string
+          Logger.log("JSON parse failed, raw content: " + rawContent);
+          throw new Error("Invalid JSON format");
+       }
+    } else if (e && e.parameter && e.parameter.payload) {
+       // Fallback for form-data if used
+       try {
+         payload = JSON.parse(e.parameter.payload);
+       } catch (pErr) {
+         throw new Error("Invalid payload parameter JSON");
+       }
     }
 
-    // If no data is found in either property, the request is invalid.
-    if (!requestBody) {
+    if (!payload) {
         Logger.log('Invalid request structure received: ' + JSON.stringify(e));
         throw new Error("Неверный запрос: данные не получены. Проверьте URL и убедитесь, что скрипт развернут с доступом для 'Всех'.");
     }
     
-    payload = JSON.parse(requestBody);
+    // Explicitly handle testconnection here to ensure it works even if routeAction fails
+    if (payload.action === 'testconnection') {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        return ContentService
+          .createTextOutput(JSON.stringify({ 
+             status: 'success', 
+             message: 'Соединение успешно установлено!', 
+             version: SCRIPT_VERSION, 
+             spreadsheetName: ss.getName() 
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+    }
+
     const result = routeAction(payload);
     
     // Ensure the response is always a valid JSON object with a status.
@@ -499,10 +519,18 @@ function doPost(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const user = payload ? (payload.user || "System") : "System";
     const action = payload ? (payload.action || "Parse Error") : "Parse Error";
+    
+    // Log detailed error
+    Logger.log("Error: " + error.message + " | Stack: " + error.stack);
     logError(ss, user, action, error);
     
     return ContentService
-      .createTextOutput(JSON.stringify({ status: 'error', message: 'Критическая ошибка сервера: ' + error.message, stack: error.stack }))
+      .createTextOutput(JSON.stringify({ 
+          status: 'error', 
+          message: 'Ошибка скрипта: ' + error.message, 
+          receivedAction: action,
+          debug: rawContent.substring(0, 100) // Return start of content for debug
+      }))
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
@@ -540,7 +568,7 @@ function routeAction(payload) {
       case 'sendMessage': return sendMessage(payload.chatId, payload.message);
       case 'bulksend': return bulkSendMessage(ss, payload.clientIds, payload.templateName);
       case 'uploadfile': return { status: 'success', fileUrl: uploadFile(payload), message: 'Файл загружен' };
-      default: return { status: 'error', message: 'Unknown action: ' + action };
+      default: return { status: 'error', message: 'Неверное действие (Unknown action): ' + action };
     }
   } catch(err) {
     Logger.log("Error in routeAction for " + action + ": " + err.message + " Stack: " + err.stack);
@@ -1212,6 +1240,26 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
     );
 }
 
+const Expander: React.FC<{
+    title: string;
+    isExpanded: boolean;
+    setExpanded: (v: boolean) => void;
+    children: React.ReactNode;
+}> = ({ title, isExpanded, setExpanded, children }) => (
+    <div className="border-t dark:border-gray-700 pt-4 mt-4">
+        <button 
+            onClick={() => setExpanded(!isExpanded)}
+            className="flex justify-between items-center w-full text-left font-semibold text-lg text-gray-800 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+        >
+            <span>{title}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+        </button>
+        {isExpanded && <div className="mt-4 prose prose-sm dark:prose-invert max-w-none animate-slide-in-bottom">{children}</div>}
+    </div>
+);
+
 const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
     const [description, setDescription] = useState('');
     const [prompt, setPrompt] = useState('');
@@ -1261,23 +1309,7 @@ const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
     };
 
     const formattedDescription = formatMarkdownToHtml(description);
-    const formattedPrompt = formatMarkdownToHtml(prompt);
-
-    const Expander: React.FC<{title: string, isExpanded: boolean, setExpanded: (v: boolean), children: React.ReactNode}> = 
-    ({ title, isExpanded, setExpanded, children }) => (
-        <div className="border-t dark:border-gray-700 pt-4 mt-4">
-            <button 
-                onClick={() => setExpanded(!isExpanded)}
-                className="flex justify-between items-center w-full text-left font-semibold text-lg text-gray-800 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-            >
-                <span>{title}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-            </button>
-            {isExpanded && <div className="mt-4 prose prose-sm dark:prose-invert max-w-none animate-slide-in-bottom">{children}</div>}
-        </div>
-    );
+    // const formattedPrompt = formatMarkdownToHtml(prompt); // Removed unused variable
 
     return (
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
