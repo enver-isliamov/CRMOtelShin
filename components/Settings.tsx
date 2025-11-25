@@ -46,7 +46,7 @@ const GeneralSettingsTab: React.FC<{
                 throw new Error(result.message || 'Неизвестная ошибка от скрипта.');
             }
         } catch (e: any) {
-            showToast(`Ошибка: ${e.message}. Проверьте URL и настройки доступа в Apps Script.`, 'error');
+            showToast(`Ошибка: ${e.message}`, 'error');
         } finally {
             setIsTesting(false);
         }
@@ -446,7 +446,7 @@ const MastersTab: React.FC<{
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     const scriptText = `
 // --- НАСТРОЙКИ ---
-const SCRIPT_VERSION = "2.5.0";
+const SCRIPT_VERSION = "2.7.0";
 const SHEET_NAME_CLIENTS = "WebBase";
 const SHEET_NAME_TEMPLATES = "Шаблоны сообщений";
 const SHEET_NAME_MASTERS = "мастера";
@@ -466,34 +466,40 @@ function doGet(e) {
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
-  let payload;
+  let payload = null;
   let rawContent = "empty";
+  
   try {
-    // Robust parsing logic
-    if (e && e.postData && e.postData.contents) {
-       rawContent = e.postData.contents;
-       try {
-          payload = JSON.parse(rawContent);
-       } catch (jsonErr) {
-          // If simple parse fails, try to handle cases where it might be url-encoded or just a string
-          Logger.log("JSON parse failed, raw content: " + rawContent);
-          throw new Error("Invalid JSON format");
-       }
-    } else if (e && e.parameter && e.parameter.payload) {
-       // Fallback for form-data if used
+    // 1. Try to get payload from e.parameter (Form Data)
+    if (e.parameter && e.parameter.payload) {
        try {
          payload = JSON.parse(e.parameter.payload);
        } catch (pErr) {
-         throw new Error("Invalid payload parameter JSON");
+         Logger.log("Failed to parse e.parameter.payload");
        }
     }
 
+    // 2. Try to get payload from raw body (JSON or text/plain)
+    if (!payload && e.postData && e.postData.contents) {
+        rawContent = e.postData.contents;
+        try {
+           payload = JSON.parse(rawContent);
+        } catch (jsonErr) {
+           // Handle cases where body is "payload=%7B...%7D" even with text/plain header
+           if (rawContent.indexOf('payload=') === 0) {
+               try {
+                  const decoded = decodeURIComponent(rawContent.substring(8).replace(/\\+/g, ' '));
+                  payload = JSON.parse(decoded);
+               } catch (e2) {}
+           }
+        }
+    }
+
     if (!payload) {
-        Logger.log('Invalid request structure received: ' + JSON.stringify(e));
-        throw new Error("Неверный запрос: данные не получены. Проверьте URL и убедитесь, что скрипт развернут с доступом для 'Всех'.");
+        throw new Error("Неверный формат запроса. Сервер не смог распознать JSON. Raw: " + rawContent.substring(0, 50));
     }
     
-    // Explicitly handle testconnection here to ensure it works even if routeAction fails
+    // Explicit testconnection check
     if (payload.action === 'testconnection') {
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         return ContentService
@@ -507,8 +513,6 @@ function doPost(e) {
     }
 
     const result = routeAction(payload);
-    
-    // Ensure the response is always a valid JSON object with a status.
     const finalResult = (result && result.status) ? result : { status: 'success', ...result };
     
     return ContentService
@@ -520,16 +524,14 @@ function doPost(e) {
     const user = payload ? (payload.user || "System") : "System";
     const action = payload ? (payload.action || "Parse Error") : "Parse Error";
     
-    // Log detailed error
-    Logger.log("Error: " + error.message + " | Stack: " + error.stack);
+    Logger.log("Error: " + error.message);
     logError(ss, user, action, error);
     
     return ContentService
       .createTextOutput(JSON.stringify({ 
           status: 'error', 
           message: 'Ошибка скрипта: ' + error.message, 
-          receivedAction: action,
-          debug: rawContent.substring(0, 100) // Return start of content for debug
+          receivedAction: action
       }))
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
@@ -544,7 +546,7 @@ function routeAction(payload) {
 
   try {
     switch (action) {
-      case 'testconnection': return testConnection(ss);
+      case 'testconnection': return testConnection(ss); // Redundant but safe
       case 'getclients': return getClientsAndArchive(ss);
       case 'gettemplates': return getTemplatesWithDefaults(ss);
       case 'getmasters': return getFullSheetData(ss, SHEET_NAME_MASTERS, 'masters');
@@ -568,7 +570,7 @@ function routeAction(payload) {
       case 'sendMessage': return sendMessage(payload.chatId, payload.message);
       case 'bulksend': return bulkSendMessage(ss, payload.clientIds, payload.templateName);
       case 'uploadfile': return { status: 'success', fileUrl: uploadFile(payload), message: 'Файл загружен' };
-      default: return { status: 'error', message: 'Неверное действие (Unknown action): ' + action };
+      default: return { status: 'error', message: 'Неверное действие (Unknown action): ' + action + '. Payload: ' + JSON.stringify(payload) };
     }
   } catch(err) {
     Logger.log("Error in routeAction for " + action + ": " + err.message + " Stack: " + err.stack);
@@ -1261,30 +1263,50 @@ const Expander: React.FC<{
 );
 
 const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
-    const [description, setDescription] = useState('');
-    const [prompt, setPrompt] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    // Hardcoded descriptions from the prompt/DESCRIPTION.md context to ensure they appear
+    const descriptionText = `
+### 2.1. Дашборд (Панель мониторинга)
+Централизованное представление ключевых бизнес-метрик:
+- **Финансовые показатели:** Отображение общей выручки, текущего месячного дохода (в реальном времени) и общей суммы задолженностей.
+- **Клиентская база:** Общее количество активных клиентов.
+- **Список должников:** Быстрый доступ к клиентам с просроченной оплатой с возможностью отправки напоминания в один клик.
+- **Список "напоминаний":** Отображение клиентов, у которых срок хранения подходит к концу в ближайшие 30 дней.
+
+### 2.2. Управление клиентами
+- **Единая база:** Просмотр, поиск и фильтрация всех клиентов в удобной табличной форме.
+- **Карточка клиента:** Детальная информация о каждом клиенте, включая контактные данные, информацию об автомобиле, историю всех заказов и прикрепленные фотографии.
+- **Массовые действия:** Возможность выбора нескольких клиентов для массовой рассылки или удаления.
+- **Сохраненные виды:** Пользователи могут сохранять свои настройки фильтров и сортировки для быстрого доступа к нужным сегментам базы.
+
+### 2.3. Создание и управление заказами
+- **Гибкая форма:** Удобная форма для добавления нового клиента или оформления нового заказа для уже существующего.
+- **Автоматические расчеты:** Система автоматически рассчитывает стоимость хранения, дату окончания и дату напоминания на основе введенных данных.
+- **Управление услугами:** Легкое добавление дополнительных услуг (мойка, упаковка, вывоз) к заказу.
+- **Архивация:** При оформлении нового заказа для старого клиента, предыдущий заказ автоматически переносится в архив, сохраняя полную историю взаимодействия.
+
+### 2.4. Фотографии
+- **Визуальное подтверждение:** Возможность загружать фотографии шин клиента через drag-and-drop или напрямую с камеры устройства.
+- **Интеграция с Google Drive:** Все фотографии надежно хранятся в специальной папке на Google Диске пользователя, структурированные по номеру договора.
+
+### 2.5. Автоматизация и уведомления
+- **Интеграция с Telegram:** Настройка и отправка автоматических уведомлений клиентам и менеджерам через Telegram-бота.
+- **Шаблоны сообщений:** Создание и редактирование шаблонов для различных типов уведомлений (напоминание о долге, об окончании хранения и т.д.).
+`;
+
+    const promptText = `
+System Prompt:
+You are a world-class senior frontend engineer specializing in React, TypeScript, and Google Cloud integrations. Your task is to build a comprehensive CRM application for a tire storage business from scratch.
+
+**Название Приложения:** Tire Storage CRM
+
+**Основные Технологии:**
+*   **Frontend:** React, TypeScript, React Router, Tailwind CSS.
+*   **Backend:** Google Sheets acting as a database, accessed via a Google Apps Script (GAS) deployed as a web app.
+*   **API Communication:** The frontend communicates with the GAS URL by sending \`POST\` requests with a JSON payload specifying the desired \`action\`.
+`;
+
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isPromptExpanded, setIsPromptExpanded] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetch('/DESCRIPTION.md')
-            .then(response => {
-                if (!response.ok) throw new Error('Не удалось загрузить файл описания.');
-                return response.text();
-            })
-            .then(text => {
-                const parts = text.split('---PROMPT_SEPARATOR---');
-                setDescription(parts[0] || '');
-                setPrompt(parts[1] || 'Промт не найден.');
-            })
-            .catch(err => {
-                setError(err.message);
-                console.error(err);
-            })
-            .finally(() => setIsLoading(false));
-    }, []);
 
     const formatMarkdownToHtml = (markdown: string) => {
         let html = markdown
@@ -1293,8 +1315,6 @@ const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
             .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-4 border-b-2 pb-2 dark:border-gray-500">$1</h1>')
             .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
             .replace(/__(.*?)__/gim, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-            .replace(/_(.*?)_/gim, '<em>$1</em>')
             .replace(/`([^`]+)`/gim, '<code class="font-mono bg-gray-200 dark:bg-gray-700 p-1 rounded text-sm">$1</code>');
             
         html = html.replace(/^\s*[-*] (.*)/gim, '<li>$1</li>');
@@ -1308,8 +1328,7 @@ const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
         }).join('');
     };
 
-    const formattedDescription = formatMarkdownToHtml(description);
-    // const formattedPrompt = formatMarkdownToHtml(prompt); // Removed unused variable
+    const formattedDescription = formatMarkdownToHtml(descriptionText);
 
     return (
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
@@ -1318,18 +1337,16 @@ const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
             <p><b>Версия приложения:</b> 1.2.0</p>
             
             <Expander title="Подробное описание функций" isExpanded={isDescriptionExpanded} setExpanded={setIsDescriptionExpanded}>
-                {isLoading ? <p>Загрузка...</p> : error ? <p className="text-red-500">{error}</p> : <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />}
+                <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />
             </Expander>
 
             <Expander title="Промт для воссоздания CRM" isExpanded={isPromptExpanded} setExpanded={setIsPromptExpanded}>
-                 {isLoading ? <p>Загрузка...</p> : error ? <p className="text-red-500">{error}</p> : 
                     <div className="relative">
                         <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[60vh]">
-                            <code>{prompt.trim()}</code>
+                            <code>{promptText.trim()}</code>
                         </pre>
-                        <button onClick={() => onCopy(prompt)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
+                        <button onClick={() => onCopy(promptText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
                     </div>
-                }
             </Expander>
         </div>
     );

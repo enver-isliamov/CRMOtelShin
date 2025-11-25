@@ -30,7 +30,7 @@ export const getClientHeaders = (): string[] => {
 // Google Sheets API interaction
 async function postToGoogleSheet(payload: object, customUrl?: string) {
     const settings = getSettingsFromStorage();
-    const url = customUrl || settings.googleSheetId;
+    const url = customUrl ? customUrl.trim() : settings.googleSheetId.trim();
     
     if (!url) {
         throw new Error("Google Sheet URL не настроен.");
@@ -46,9 +46,8 @@ async function postToGoogleSheet(payload: object, customUrl?: string) {
     
     const response = await fetch(url, {
         method: 'POST',
-        mode: 'cors',
         headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
+            'Content-Type': 'text/plain;charset=utf-8',
         },
         body: JSON.stringify(payloadWithContext),
     });
@@ -56,7 +55,7 @@ async function postToGoogleSheet(payload: object, customUrl?: string) {
     const responseText = await response.text();
     if (!response.ok) {
         console.error("Google Script Network Error Response:", responseText);
-        throw new Error(`Сетевая ошибка: ${response.status} ${response.statusText}. Возможно, неверный URL или проблема с доступом к скрипту.`);
+        throw new Error(`Сетевая ошибка: ${response.status} ${response.statusText}.`);
     }
     
     let result;
@@ -64,7 +63,7 @@ async function postToGoogleSheet(payload: object, customUrl?: string) {
         result = JSON.parse(responseText);
     } catch (e) {
         console.error("Failed to parse Google Script JSON response:", responseText);
-        throw new Error("Не удалось обработать ответ от Google Script. Ответ не является корректным JSON. Проверьте URL и настройки доступа к скрипту.");
+        throw new Error("Не удалось обработать ответ от Google Script. Ответ не является корректным JSON.");
     }
 
     if (result.status !== 'success' && !result.success) { 
