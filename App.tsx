@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
@@ -9,7 +8,7 @@ import { AddClient } from './components/AddClient';
 import { UserRole, Client, MessageTemplate, Settings as SettingsType, Master, SavedView } from './types';
 import { api, getClientHeaders } from './services/api';
 import { ThemeSwitcher } from './components/ui/ThemeSwitcher';
-import { Toast } from './components/ui/Toast';
+import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 const getInitialSettings = (): SettingsType => {
     const data = localStorage.getItem('crm_settings');
@@ -166,7 +165,9 @@ export const App: React.FC = () => {
     const [templates, setTemplates] = useState<MessageTemplate[]>([]);
     const [masters, setMasters] = useState<Master[]>([]);
     const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-    const [appToast, setAppToast] = useState<{ id: number, message: string, type: 'success' | 'error' } | null>(null);
+    
+    // Updated Toast State: Array of messages
+    const [toasts, setToasts] = useState<ToastMessage[]>([]);
     
     // Theme logic
     useEffect(() => {
@@ -178,12 +179,24 @@ export const App: React.FC = () => {
         }
     }, []);
 
-    const showAppToast = (message: string, type: 'success' | 'error') => {
-        setAppToast({ id: Date.now(), message, type });
+    const addToast = (message: string, type: 'success' | 'error', title?: string) => {
+        const id = Date.now().toString() + Math.random().toString();
+        // Errors (unless overridden) don't auto-dismiss (duration 0). Success dismisses in 4000ms.
+        const duration = type === 'error' ? 0 : 4000; 
+        
+        setToasts(prev => [...prev, { id, message, type, title, duration }]);
+    };
+
+    const removeToast = (id: string) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
     };
 
     const fetchData = useCallback(async () => {
-        showAppToast("Синхронизация данных...", 'success');
+        // We only show a toast if we are doing a manual refresh or initial load, handled by the caller mostly
+        // But here we can use a "silent" load or a less intrusive indicator if needed.
+        // For now, let's just log.
+        // addToast("Синхронизация данных...", 'success'); 
+        
         try {
             // Step 1: Always fetch settings from local storage first to update the state.
             const settingsData = await api.fetchSettings();
@@ -194,13 +207,13 @@ export const App: React.FC = () => {
 
             // Step 2: Check if the Google Sheet URL is configured.
             if (!settingsData.googleSheetId) {
-                // If not, enter "setup mode": don't fetch from API, set empty data.
                 setClients([]);
                 setArchive([]);
                 setHeaders(getClientHeaders());
                 setTemplates([]);
                 setMasters([]);
-                showAppToast("Требуется настройка Google Sheets", "error");
+                // Only show this error if we actually tried to fetch but couldn't because of config
+                // addToast("Требуется настройка Google Sheets URL в настройках.", "error");
             } else {
                 // If it is configured, fetch all data from Google Sheets.
                 const [clientsData, templatesData, mastersData] = await Promise.all([
@@ -213,13 +226,13 @@ export const App: React.FC = () => {
                 setHeaders(clientsData.headers.length > 0 ? clientsData.headers : getClientHeaders());
                 setTemplates(templatesData);
                 setMasters(mastersData);
-                showAppToast("Данные успешно обновлены", "success");
+                // addToast("Данные успешно обновлены", "success");
             }
         } catch (error: any) {
             console.error("Failed to fetch data:", error);
-            showAppToast(`Ошибка загрузки: ${error.message}`, 'error');
-            // In case of error, we might be in a state with a valid Sheet ID but no data.
-            // Clear data to avoid using stale information.
+            addToast(`Ошибка синхронизации: ${error.message}`, 'error', 'Сбой сети или API');
+            
+            // In case of error, clear sensitive data to avoid stale state confusion
             setClients([]);
             setArchive([]);
             setHeaders(getClientHeaders());
@@ -233,6 +246,7 @@ export const App: React.FC = () => {
     }, [fetchData]);
 
     const refreshData = useCallback(async () => {
+        addToast("Обновление данных...", "success");
         await fetchData();
     }, [fetchData]);
 
@@ -243,9 +257,14 @@ export const App: React.FC = () => {
     
     const needsSetup = !settings.googleSheetId;
 
+    // Helper to pass showToast to children (adapter for old signature)
+    const showToastAdapter = (message: string, type: 'success' | 'error') => {
+        addToast(message, type);
+    }
+
     return (
         <HashRouter>
-            {appToast && <Toast key={appToast.id} message={appToast.message} type={appToast.type} onClose={() => setAppToast(null)} />}
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
             <Layout user={user} onLogout={logout} navDisabled={needsSetup}>
                 <Routes>
                     <Route path="/" element={needsSetup ? <Navigate to="/settings" replace /> : <Dashboard clients={clients} archive={archive} templates={templates} />} />

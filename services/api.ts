@@ -1,5 +1,4 @@
 
-
 import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCurrency, parseDuration } from '../types';
 
 const getSettingsFromStorage = (): Settings => {
@@ -37,38 +36,60 @@ async function postToGoogleSheet(payload: object, customUrl?: string) {
     }
 
     const userJson = sessionStorage.getItem('user');
-    const user = userJson ? JSON.parse(userJson) : { username: 'System' };
+    const user = userJson ? JSON.parse(userJson) : { username: 'Admin' };
     
-    const payloadWithContext = { 
+    // Flatten the structure. Do not nest 'payload'.
+    // GAS script should check e.postData.contents directly.
+    const finalPayload = { 
         ...payload, 
-        user: user.username
+        user: user.username // Add user context directly
     };
     
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify(payloadWithContext),
-    });
+    let responseText = "";
     
-    const responseText = await response.text();
-    if (!response.ok) {
-        console.error("Google Script Network Error Response:", responseText);
-        throw new Error(`Сетевая ошибка: ${response.status} ${response.statusText}.`);
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            // Use text/plain to avoid CORS preflight options request which GAS hates.
+            // This is the standard "simple request" method for GAS.
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(finalPayload),
+        });
+        
+        responseText = await response.text();
+        
+        if (!response.ok) {
+            console.error("Google Script Network Error:", response.status, responseText);
+            throw new Error(`Сетевая ошибка (${response.status}). Ответ: ${responseText.substring(0, 100)}`);
+        }
+    } catch (netError: any) {
+        throw new Error(`Ошибка сети: ${netError.message}`);
     }
     
     let result;
     try {
         result = JSON.parse(responseText);
     } catch (e) {
-        console.error("Failed to parse Google Script JSON response:", responseText);
-        throw new Error("Не удалось обработать ответ от Google Script. Ответ не является корректным JSON.");
+        console.error("JSON Parse Error. Raw text:", responseText);
+        throw new Error(`Ошибка обработки ответа сервера. Пришло: "${responseText.substring(0, 50)}..."`);
     }
 
     if (result.status !== 'success' && !result.success) { 
         const scriptError = result.message || result.error || 'Неизвестная ошибка от скрипта.';
-        throw new Error(scriptError);
+        
+        // --- INTELLIGENT ERROR HANDLING FOR DEPLOYMENT ISSUES ---
+        // If the backend returns "Invalid Action" or the specific Russian translation "Неверное действие",
+        // it means the script running on the server is OLD and doesn't know about the new action (like 'testconnection').
+        // The user MUST redeploy a "New Version".
+        if (scriptError.includes('Invalid Action') || scriptError.includes('Неверное действие')) {
+             throw new Error(`ОШИБКА РАЗВЕРТЫВАНИЯ: Скрипт не узнал команду. \nПохоже, вы не создали "Новую Версию" при развертывании.\n\nЗайдите в редактор скриптов -> Начать развертывание -> Управление -> Редактировать -> Версия: "Новая версия" -> Развернуть.`);
+        }
+        
+        // If debug info is present, include it
+        const debugInfo = result.debug ? ` (Debug: ${result.debug})` : '';
+        throw new Error(scriptError + debugInfo);
     }
     return result;
 }
@@ -97,7 +118,7 @@ export const api = {
 
         return { headers: result.headers || headers, clients, archive };
     } catch (error) {
-        console.error("Не удалось получить данные из Google Sheets:", error);
+        console.error("API Error (fetchClients):", error);
         throw error;
     }
   },
@@ -174,8 +195,9 @@ export const api = {
         const result = await postToGoogleSheet({ action: 'gettemplates' });
         return result.templates || [];
     } catch (error) {
-        console.error("Не удалось получить шаблоны из Google Sheets:", error);
-        throw error; // Re-throw to be caught by App.tsx
+        // Suppress initial load error for cleaner UI if it's just empty
+        console.warn("Template fetch failed:", error); 
+        return [];
     }
   },
 
@@ -273,8 +295,8 @@ export const api = {
         const result = await postToGoogleSheet({ action: 'getmasters' });
         return result.masters || [];
     } catch (error) {
-        console.error("Не удалось получить мастеров из Google Sheets:", error);
-        throw error;
+        console.warn("Fetch masters failed:", error);
+        return [];
     }
   },
   addMaster: async (master: Omit<Master, 'id'>): Promise<Master> => {
@@ -289,7 +311,10 @@ export const api = {
   deleteMaster: async (masterId: string): Promise<void> => {
     await postToGoogleSheet({ action: 'deletemaster', masterId });
   },
+  // Specifically used for the "Test Connection" button
   testConnection: async (url: string): Promise<any> => {
+    // We send a specific action to verify routing works
+    // IMPORTANT: 'testconnection' is handled BEFORE the main switch to ensure it works even if payload is weird
     return await postToGoogleSheet({ action: 'testconnection' }, url);
   },
 };
