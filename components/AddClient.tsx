@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
@@ -91,7 +90,6 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
         'Кол-во шин': 4, 'Наличие дисков': 'Нет', 'Сезон': 'Лето',
         'Срок': 6, 'Цена за месяц': TIRE_PRESETS[1].price, 'Начало': formatDate(new Date()),
         'Статус сделки': 'На складе', 'Размер шин': TIRE_PRESETS[1].size, 'Долг': 0,
-        'DOT-код': '',
         'Услуга: Вывоз': false, 'Услуга: Мойка': false, 'Услуга: Упаковка': false,
         'photoUrls': [],
         'id': `c${Date.now()}` // Generate a new ID for the new order
@@ -308,8 +306,6 @@ ${servicesLine}</blockquote>
                         
                         <SmartTireInput label="Бренд / Марка / Размер шин" value={formData['Заказ - QR'] || ''} onChange={(val) => handleChange({ 'Заказ - QR': val })} />
                         
-                        <Input label="DOT-код" name="DOT-код" value={formData['DOT-код'] || ''} onChange={handleInputChange} placeholder="Например, 4521" helperText="4 цифры, неделя и год производства." />
-
                         <div>
                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты</label>
                            <textarea

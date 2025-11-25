@@ -5,10 +5,9 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
 
-export const Login: React.FC<{ onLogin: (user: string, pass: string, remember: boolean) => Promise<boolean> }> = ({ onLogin }) => {
+export const Login: React.FC<{ onLogin: (user: string, pass: string) => Promise<boolean> }> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -17,7 +16,7 @@ export const Login: React.FC<{ onLogin: (user: string, pass: string, remember: b
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    const success = await onLogin(username, password, rememberMe);
+    const success = await onLogin(username, password);
     setIsLoading(false);
     if (success) {
       navigate('/');
@@ -63,20 +62,6 @@ export const Login: React.FC<{ onLogin: (user: string, pass: string, remember: b
               autoComplete="current-password"
               placeholder="Admin123"
             />
-            <div className="flex items-center">
-                <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                    Запомнить меня
-                </label>
-            </div>
-
             {error && <p className="text-sm text-red-600 dark:text-red-500">{error}</p>}
             <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
               {isLoading ? 'Вход...' : 'Войти'}
