@@ -7,6 +7,7 @@ export interface Client {
   'Телефон': string;
   'Номер Авто': string;
   'Заказ - QR': string;
+  'DOT-код'?: string;
   'Размер шин'?: string;
   'Сезон'?: 'Лето' | 'Зима';
   'Цена за месяц': number;
@@ -32,7 +33,6 @@ export interface Client {
 }
 
 export interface Settings {
-  telegramBotToken: string;
   adminIds: string;
   managerIds:string;
   googleSheetId: string;
