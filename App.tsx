@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
@@ -7,7 +8,6 @@ import { Settings } from './components/Settings';
 import { AddClient } from './components/AddClient';
 import { UserRole, Client, MessageTemplate, Settings as SettingsType, Master, SavedView } from './types';
 import { api, getClientHeaders } from './services/api';
-import { DevViewToggle } from './components/ui/DevViewToggle';
 import { ThemeSwitcher } from './components/ui/ThemeSwitcher';
 import { Toast } from './components/ui/Toast';
 
@@ -103,7 +103,7 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
                     <span className="text-xl font-bold">Tire CRM</span>
                 </div>
 
-                <nav className="flex flex-col space-y-2">
+                <nav className="flex flex-col space-x-0 space-y-2">
                     <NavLink to="/" icon={<DashboardIcon />} disabled={navDisabled}>Дашборд</NavLink>
                     <NavLink to="/clients" icon={<ClientsIcon />} disabled={navDisabled}>Клиенты</NavLink>
                     <NavLink to="/add-client" icon={<PlusCircleIcon />} disabled={navDisabled}>Добавить</NavLink>
@@ -245,7 +245,6 @@ export const App: React.FC = () => {
 
     return (
         <HashRouter>
-            <DevViewToggle />
             {appToast && <Toast key={appToast.id} message={appToast.message} type={appToast.type} onClose={() => setAppToast(null)} />}
             <Layout user={user} onLogout={logout} navDisabled={needsSetup}>
                 <Routes>

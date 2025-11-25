@@ -1212,124 +1212,93 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
     );
 }
 
-const PromptTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
-    const promptText = `
-System Prompt:
-You are a world-class senior frontend engineer specializing in React, TypeScript, and Google Cloud integrations. Your task is to build a comprehensive CRM application for a tire storage business from scratch.
+const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
+    const [description, setDescription] = useState('');
+    const [prompt, setPrompt] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+    const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-**Название Приложения:** Tire Storage CRM
+    useEffect(() => {
+        fetch('/DESCRIPTION.md')
+            .then(response => {
+                if (!response.ok) throw new Error('Не удалось загрузить файл описания.');
+                return response.text();
+            })
+            .then(text => {
+                const parts = text.split('---PROMPT_SEPARATOR---');
+                setDescription(parts[0] || '');
+                setPrompt(parts[1] || 'Промт не найден.');
+            })
+            .catch(err => {
+                setError(err.message);
+                console.error(err);
+            })
+            .finally(() => setIsLoading(false));
+    }, []);
 
-**Основные Технологии:**
-*   **Frontend:** React, TypeScript, React Router, Tailwind CSS.
-*   **Backend:** Google Sheets acting as a database, accessed via a Google Apps Script (GAS) deployed as a web app.
-*   **API Communication:** The frontend communicates with the GAS URL by sending \`POST\` requests with a JSON payload specifying the desired \`action\`.
-
-**Ключевые Особенности и Структура UI:**
-
-**1. Аутентификация:**
-*   Страница входа (\`/login\`) с полями для имени пользователя и пароля. Используйте простую, жестко закодированную проверку для 'Admin'/'Admin123'.
-*   Данные аутентифицированного пользователя (имя, роль) должны храниться в \`sessionStorage\`.
-*   Все остальные маршруты должны быть защищены. Неаутентифицированные пользователи должны перенаправляться на \`/login\`.
-
-**2. Основной Макет:**
-*   **Десктоп:** Двухколоночный макет с фиксированной боковой панелью слева и основным контентом справа.
-    *   Боковая панель содержит логотип приложения, навигационные ссылки (Дашборд, Клиенты, Добавить, Настройки), переключатель темы и кнопку выхода.
-*   **Мобильные устройства:** Одноколоночный макет.
-    *   Заголовок с логотипом, переключателем темы и кнопкой выхода.
-    *   Область основного контента.
-    *   Фиксированная нижняя навигационная панель с иконками для Дашборда, Клиентов, Добавления и Настроек.
-*   **Тема:** Реализуйте поддержку светлой и темной темы с использованием \`dark:\` вариантов Tailwind и класса на элементе \`<html>\`. Предпочтение темы должно храниться в \`localStorage\`.
-
-**3. Модели Данных (\`types.ts\`):**
-*   Определите интерфейсы для \`Client\`, \`Settings\`, \`MessageTemplate\`, \`Master\`, \`AppLog\` и т.д., чтобы моделировать данные, хранящиеся в Google Sheets.
-*   Интерфейс \`Client\` должен включать поля для контактной информации, данных автомобиля, деталей заказа (даты, цена, услуги), места хранения, финансового статуса (общая сумма, долг) и опционального поля \`photoUrls: string[]\`.
-
-**4. Бэкенд (Google Apps Script):**
-*   Создайте функцию \`doPost(e)\`, которая будет действовать как конечная точка API JSON.
-*   Используйте функцию \`routeAction\` для обработки различных значений \`action\` из тела запроса (например, \`getclients\`, \`addclient\`, \`updateclient\`, \`reorder\`, \`sendMessage\`, \`uploadfile\`, \`getlogs\`).
-*   Реализуйте функции для всех CRUD-операций с отдельными листами Google Sheets: \`WebBase\` (Клиенты), \`Archive\`, \`Шаблоны сообщений\`, \`мастера\`, \`History\`, \`Logs\`.
-*   **Функция \`reorderClient\`:** Это критически важная функция. Она должна быть атомарной операцией, которая:
-    1. Находит существующую запись клиента.
-    2. Копирует ее в лист \`Archive\`.
-    3. Обновляет исходную строку в \`WebBase\` данными нового заказа.
-    4. Использует \`LockService\` для предотвращения состояний гонки.
-*   **Загрузка Файлов:** Создайте действие \`uploadfile\`, которое принимает данные файла в кодировке Base64, декодирует их и сохраняет в определенную структуру папок на Google Диске пользователя (\`TireCRMPhotos/[НомерДоговора_ИмяКлиента]/\`). Функция должна возвращать публичный URL файла.
-*   **Интеграция с Telegram:** Реализуйте действие \`sendMessage\`, которое использует \`UrlFetchApp\` для отправки отформатированных HTML-сообщений через Telegram Bot API.
-*   **Логирование:** Реализуйте надежное логирование. Создайте функции \`logError\` и \`logHistory\`, которые записывают данные в листы \`Logs\` и \`History\` соответственно.
-
-**5. Сервис API (\`services/api.ts\`):**
-*   Создайте типизированный API-клиент на фронтенде для связи с конечной точкой GAS.
-*   Включите функции для каждого действия, поддерживаемого бэкендом (например, \`fetchClients\`, \`addClient\`, \`reorderClient\`, \`uploadFile\`.
-*   Обрабатывайте преобразование данных (например, разделение строки \`photoUrls\`, разделенной запятыми, из таблицы в массив \`string[]\` для приложения).
-
-**6. Компоненты и Страницы:**
-
-*   **Дашборд (\`/\`):**
-    *   Отображайте ключевые метрики в компонентах \`Card\`: текущий месячный доход (анимированный счетчик), общее количество клиентов, общая выручка, общая задолженность.
-    *   Основной график (с использованием \`recharts\`), показывающий динамику выручки, клиентов или долгов с течением времени. Включите фильтры по временному диапазону (7д, 30д и т.д.) и типу графика (столбчатый/линейный).
-    *   Диаграмма Ганта (\`recharts\`), визуализирующая периоды хранения для всех клиентов. Включите линию-указатель "Сегодня".
-    *   Два списка: "Клиенты с истекающим сроком" (хранение заканчивается в течение 30 дней) и "Должники". Оба должны иметь кнопку "Напомнить", которая отправляет предопределенное шаблонное сообщение через Telegram.
-
-*   **Просмотр Клиентов (\`/clients\`):**
-    *   Отобразите всех клиентов в адаптивной таблице.
-    *   Реализуйте надежный поиск, сортировку по столбцам и фильтрацию (по статусу, складу, наличию долга).
-    *   Реализуйте функцию "Сохраненные виды", где пользователи могут сохранять и загружать комбинации фильтров и сортировки.
-    *   Реализуйте множественный выбор с помощью флажков для массовых действий (например, "Массовое удаление", "Массовое напоминание должникам").
-    *   Клик по строке клиента открывает \`Modal\` с его полной информацией.
-    *   **Модальное окно деталей клиента** должно иметь вкладки: "Детали", "История заказов", "Фото".
-    *   Модальное окно должно иметь кнопки "Редактировать", "Отправить сообщение", "Удалить" и заметную кнопку **"Новый заказ"**, которая запускает процесс переоформления/архивации.
-
-*   **Добавление Клиента (\`/add-client\`):**
-    *   Комплексная форма для добавления нового клиента или нового заказа для существующего.
-    *   Форма должна быть логически разделена на карточки: Информация о клиенте/автомобиле, Информация о шинах/услугах, Финансы.
-    *   Реализуйте умные значения по умолчанию и автоматические расчеты (например, номер договора, даты окончания/напоминания, общая стоимость).
-    *   Включите компонент \`ImageUpload\`, который поддерживает перетаскивание и захват с камеры.
-    *   При отправке формы компонент должен сначала загрузить фотографии, затем выполнить один атомарный вызов API к бэкенду (\`addClient\` или \`reorderClient\`), а затем отправить уведомления.
-
-*   **Настройки (\`/settings\`):**
-    *   Интерфейс с вкладками для всех настроек приложения.
-    *   **Основные:** Поля для URL Google Apps Script, токена Telegram, Chat ID администраторов/менеджеров. Включите кнопку "Проверить соединение".
-    *   **Шаблоны:** Список шаблонов сообщений. Каждый шаблон должен иметь визуальный HTML-редактор с кнопками для жирного, курсивного текста, списков и плейсхолдеров.
-    *   **Мастера:** Страница для управления мастерами сервиса (CRUD), с возможностью назначать встречи, что отправляет уведомление в Telegram мастеру.
-    *   **Логи:** Представление, которое извлекает и отображает содержимое листа \`Logs\` с бэкенда.
-    *   **Настройка GAS:** Подробные пошаговые инструкции по настройке Google Apps Script, включая полный текст скрипта с кнопкой "Копировать".
-    *   **Промт (Эта вкладка):** Вкладка, содержащая этот полный промт для удобства справки и воссоздания.
-    *   **О проекте:** Основная информация о приложении.
-    `;
-    return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Промт для воссоздания CRM</h3>
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 text-blue-800 dark:text-blue-200 rounded-md space-y-2">
-                <p>Этот промт описывает полный функционал текущей версии приложения. Его можно использовать как техническое задание для разработки или восстановления системы.</p>
-            </div>
+    const formatMarkdownToHtml = (markdown: string) => {
+        let html = markdown
+            .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-6 mb-3 border-b pb-2 dark:border-gray-600">$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-4 border-b-2 pb-2 dark:border-gray-500">$1</h1>')
+            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+            .replace(/__(.*?)__/gim, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+            .replace(/_(.*?)_/gim, '<em>$1</em>')
+            .replace(/`([^`]+)`/gim, '<code class="font-mono bg-gray-200 dark:bg-gray-700 p-1 rounded text-sm">$1</code>');
             
-            <div className="relative">
-                <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[60vh]">
-                    <code>{promptText.trim()}</code>
-                </pre>
-                <button onClick={() => onCopy(promptText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
-            </div>
+        html = html.replace(/^\s*[-*] (.*)/gim, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/gs, '<ul class="list-disc list-inside space-y-1 my-2">$1</ul>');
+
+        return html.split('\n\n').map(p => {
+             const trimmed = p.trim();
+             if (trimmed === '') return '';
+             if (trimmed.startsWith('<ul') || trimmed.startsWith('<h')) return p;
+             return `<p>${trimmed.replace(/\n/g, '<br/>')}</p>`;
+        }).join('');
+    };
+
+    const formattedDescription = formatMarkdownToHtml(description);
+    const formattedPrompt = formatMarkdownToHtml(prompt);
+
+    const Expander: React.FC<{title: string, isExpanded: boolean, setExpanded: (v: boolean), children: React.ReactNode}> = 
+    ({ title, isExpanded, setExpanded, children }) => (
+        <div className="border-t dark:border-gray-700 pt-4 mt-4">
+            <button 
+                onClick={() => setExpanded(!isExpanded)}
+                className="flex justify-between items-center w-full text-left font-semibold text-lg text-gray-800 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+            >
+                <span>{title}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+            </button>
+            {isExpanded && <div className="mt-4 prose prose-sm dark:prose-invert max-w-none animate-slide-in-bottom">{children}</div>}
         </div>
     );
-};
 
-
-const AboutTab: React.FC = () => {
     return (
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
             <h3 className="text-xl font-semibold">О проекте Tire Storage CRM</h3>
             <p>Это приложение разработано для упрощения управления клиентской базой шинного хранения.</p>
             <p><b>Версия приложения:</b> 1.2.0</p>
             
-            <h4 className="text-lg font-semibold mt-4">Ключевые возможности:</h4>
-            <ul className="list-disc list-inside space-y-2 pl-4">
-                <li><b>Интеграция с Google Sheets:</b> Вся ваша база данных хранится в вашей Google Таблице.</li>
-                <li><b>Уведомления в Telegram:</b> Автоматическая отправка сообщений клиентам и менеджерам.</li>
-                <li><b>Информативная панель:</b> Аналитика по доходам, клиентам и долгам.</li>
-                <li><b>Гибкая настройка:</b> Управление шаблонами сообщений, мастерами и общими настройками.</li>
-                <li><b>Фотографии:</b> Возможность прикреплять фотографии к каждому клиенту.</li>
-                <li><b>Архивация заказов:</b> Ведение полной истории заказов для каждого клиента.</li>
-            </ul>
+            <Expander title="Подробное описание функций" isExpanded={isDescriptionExpanded} setExpanded={setIsDescriptionExpanded}>
+                {isLoading ? <p>Загрузка...</p> : error ? <p className="text-red-500">{error}</p> : <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />}
+            </Expander>
+
+            <Expander title="Промт для воссоздания CRM" isExpanded={isPromptExpanded} setExpanded={setIsPromptExpanded}>
+                 {isLoading ? <p>Загрузка...</p> : error ? <p className="text-red-500">{error}</p> : 
+                    <div className="relative">
+                        <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[60vh]">
+                            <code>{prompt.trim()}</code>
+                        </pre>
+                        <button onClick={() => onCopy(prompt)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
+                    </div>
+                }
+            </Expander>
         </div>
     );
 };
@@ -1386,9 +1355,9 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
 
   const handleCopyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Код скопирован в буфер обмена!', 'success');
+        showToast('Скопировано в буфер обмена!', 'success');
     }, () => {
-        showToast('Не удалось скопировать код.', 'error');
+        showToast('Не удалось скопировать.', 'error');
     });
   };
   
@@ -1400,7 +1369,6 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
         { id: 'masters', label: 'Мастера', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.25 1.25 0 002.228-1.417a6.002 6.002 0 019.614 0a1.25 1.25 0 002.228 1.417a8.502 8.502 0 00-14.07 0z" /></svg> },
         { id: 'logs', label: 'Логи', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg> },
         { id: 'gas', label: 'Настройка GAS', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M15.312 5.312a.75.75 0 010 1.062l-6.25 6.25a.75.75 0 01-1.062 0l-2.5-2.5a.75.75 0 011.062-1.062l1.97 1.97 5.72-5.72a.75.75 0 011.062 0z" clipRule="evenodd" /></svg> },
-        { id: 'prompt', label: 'Промт', icon: <CodeBracketIcon className="w-5 h-5" /> },
         { id: 'about', label: 'О проекте', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>}
     ];
 
@@ -1423,9 +1391,8 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
         {activeTab === 'templates' && <TemplatesTab templates={templates} setTemplates={setTemplates} showToast={showToast}/>}
         {activeTab === 'masters' && <MastersTab masters={masters} setMasters={setMasters} clients={clients} showToast={showToast} />}
         {activeTab === 'gas' && <GasSetupTab onCopy={handleCopyToClipboard} />}
-        {activeTab === 'prompt' && <PromptTab onCopy={handleCopyToClipboard} />}
         {activeTab === 'logs' && <LogsTab showToast={showToast} />}
-        {activeTab === 'about' && <AboutTab />}
+        {activeTab === 'about' && <AboutTab onCopy={handleCopyToClipboard} />}
       </Card>
       
       {activeTab === 'general' && (
