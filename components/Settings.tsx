@@ -72,13 +72,11 @@ const GeneralSettingsTab: React.FC<{
                     {isTesting ? 'Проверка...' : 'Проверить'}
                 </Button>
             </div>
-            <Input 
-                label="Токен Telegram бота" 
-                type="password"
-                value={settings.telegramBotToken} 
-                onChange={e => onChange('telegramBotToken', e.target.value)}
-                helperText="Токен, полученный от @BotFather."
-            />
+            <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-md">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <b>Токен Telegram бота</b> теперь настраивается непосредственно в Google Apps Script для повышения безопасности. Инструкции смотрите на вкладке "Настройка GAS".
+                </p>
+            </div>
             <Input 
                 label="Chat ID Администраторов" 
                 value={settings.adminIds} 
@@ -448,7 +446,7 @@ const MastersTab: React.FC<{
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     const scriptText = `
 // --- НАСТРОЙКИ ---
-const SCRIPT_VERSION = "1.9.9";
+const SCRIPT_VERSION = "2.0.0";
 const SHEET_NAME_CLIENTS = "WebBase";
 const SHEET_NAME_TEMPLATES = "Шаблоны сообщений";
 const SHEET_NAME_MASTERS = "мастера";
@@ -515,7 +513,6 @@ function doPost(e) {
 function routeAction(payload) {
   const action = payload.action;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const token = payload.telegramBotToken;
 
   try {
     switch (action) {
@@ -540,8 +537,8 @@ function routeAction(payload) {
       case 'addmaster': return { status: 'success', message: addRow(ss, SHEET_NAME_MASTERS, payload.master, payload.user) };
       case 'updatemaster': return { status: 'success', message: updateRow(ss, SHEET_NAME_MASTERS, payload.master, 'id', payload.user) };
       case 'deletemaster': return { status: 'success', message: deleteRow(ss, SHEET_NAME_MASTERS, payload.masterId, 'id') };
-      case 'sendMessage': return sendMessage(token, payload.chatId, payload.message);
-      case 'bulksend': return bulkSendMessage(ss, token, payload.clientIds, payload.templateName);
+      case 'sendMessage': return sendMessage(payload.chatId, payload.message);
+      case 'bulksend': return bulkSendMessage(ss, payload.clientIds, payload.templateName);
       case 'uploadfile': return { status: 'success', fileUrl: uploadFile(payload), message: 'Файл загружен' };
       default: return { status: 'error', message: 'Unknown action: ' + action };
     }
@@ -885,8 +882,9 @@ function deleteTemplate(ss, templateName) {
 }
 
 // --- Функции для Telegram ---
-function sendMessage(token, chatId, message) {
-  if (!token) throw new Error("Токен Telegram не предоставлен.");
+function sendMessage(chatId, message) {
+  const token = SCRIPT_PROPERTIES.getProperty('TELEGRAM_BOT_TOKEN');
+  if (!token) throw new Error("Токен Telegram не настроен в свойствах скрипта (Script Properties).");
   if (!chatId) throw new Error("Chat ID не предоставлен.");
   
   const sanitizedMessage = message
@@ -922,7 +920,10 @@ function sendMessage(token, chatId, message) {
   }
 }
 
-function bulkSendMessage(ss, token, clientIds, templateName) {
+function bulkSendMessage(ss, clientIds, templateName) {
+  const token = SCRIPT_PROPERTIES.getProperty('TELEGRAM_BOT_TOKEN');
+  if (!token) throw new Error("Токен Telegram не настроен в свойствах скрипта.");
+
   const templatesData = getTemplatesWithDefaults(ss);
   const template = templatesData.templates.find(t => t['Название шаблона'] === templateName);
   if (!template) throw new Error('Шаблон "' + templateName + '" не найден.');
@@ -936,7 +937,7 @@ function bulkSendMessage(ss, token, clientIds, templateName) {
       Object.keys(client).forEach(key => {
         message = message.replace(new RegExp('{{' + key + '}}', 'g'), client[key] || '');
       });
-      sendMessage(token, client['Chat ID'], message);
+      sendMessage(client['Chat ID'], message);
     }
   });
   return { status: "success", message: "Массовая рассылка завершена."};
@@ -1095,8 +1096,22 @@ function logError(ss, user, action, error) {
                     </pre>
                     <button onClick={() => onCopy(scriptText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
                 </div>
+                
+                <h4 className="text-lg font-semibold">Шаг 3: Добавление токена Telegram</h4>
+                <ol className="list-decimal list-inside space-y-3 pl-4">
+                     <li>В редакторе скриптов слева нажмите на иконку шестеренки (⚙️ <b>Настройки проекта</b>).</li>
+                     <li>Пролистайте вниз до раздела <b>"Свойства скрипта"</b> (Script Properties).</li>
+                     <li>Нажмите <b>"Изменить свойства скрипта"</b> и добавьте новое свойство:</li>
+                     <li className="list-none pl-4">
+                        <ul className="list-disc list-inside space-y-1">
+                            <li><b>Ключ (Property):</b> <code className="font-mono bg-gray-200 dark:bg-gray-700 p-1 rounded">TELEGRAM_BOT_TOKEN</code></li>
+                            <li><b>Значение (Value):</b> <code>вставьте_ваш_токен_от_BotFather</code></li>
+                        </ul>
+                     </li>
+                     <li>Нажмите <b>"Сохранить свойства скрипта"</b>.</li>
+                </ol>
 
-                <h4 className="text-lg font-semibold">Шаг 3: Развертывание скрипта</h4>
+                <h4 className="text-lg font-semibold">Шаг 4: Развертывание скрипта</h4>
                  <ol className="list-decimal list-inside space-y-3 pl-4">
                     <li>Нажмите кнопку <b>"Развертывание"</b> в правом верхнем углу редактора, затем <b>"Новое развертывание"</b>.</li>
                     <li>
@@ -1115,7 +1130,7 @@ function logError(ss, user, action, error) {
                     <li>⚠️ <b>Важно:</b> Если вы вносите изменения в код, вам нужно снова нажать <b>"Развертывание" &gt; "Управление развертываниями"</b>, выбрать ваше развертывание, нажать на иконку карандаша и выбрать <b>"Новая версия"</b>.</li>
                 </ol>
 
-                 <h4 className="text-lg font-semibold">Шаг 4: Подключение к CRM</h4>
+                 <h4 className="text-lg font-semibold">Шаг 5: Подключение к CRM</h4>
                  <ol className="list-decimal list-inside space-y-2 pl-4">
                     <li>Вернитесь в это приложение, перейдите на вкладку <b>"Основные"</b>.</li>
                     <li>Вставьте скопированный URL в поле <b>"URL скрипта Google Apps"</b>.</li>

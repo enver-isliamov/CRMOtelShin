@@ -4,7 +4,7 @@ import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCu
 
 const getSettingsFromStorage = (): Settings => {
     const data = localStorage.getItem('crm_settings');
-    const defaults: Settings = { telegramBotToken: '', adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase' };
+    const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase' };
     if (data) {
         return { ...defaults, ...JSON.parse(data) };
     }
@@ -18,7 +18,7 @@ export const getClientHeaders = (): string[] => {
     // Define a comprehensive set of headers to ensure consistency
     const clientKeys: Array<keyof Client> = [
       'id', 'Дата добавления', 'Chat ID', 'Имя клиента', 'Телефон', 'Номер Авто',
-      'Заказ - QR', 'Размер шин', 'Сезон', 'Цена за месяц', 'Кол-во шин', 'Наличие дисков',
+      'Заказ - QR', 'DOT-код', 'Размер шин', 'Сезон', 'Цена за месяц', 'Кол-во шин', 'Наличие дисков',
       'Начало', 'Срок', 'Напомнить', 'Окончание', 'Склад хранения', 'Ячейка',
       'Общая сумма', 'Долг', 'Договор', 'Адрес клиента', 'Статус сделки',
       'Источник трафика', 'Услуга: Вывоз', 'Услуга: Мойка', 'Услуга: Упаковка', 'photoUrls'
@@ -41,17 +41,16 @@ async function postToGoogleSheet(payload: object, customUrl?: string) {
     
     const payloadWithContext = { 
         ...payload, 
-        user: user.username,
-        telegramBotToken: settings.telegramBotToken
+        user: user.username
     };
     
-    const formData = new FormData();
-    formData.append('payload', JSON.stringify(payloadWithContext));
-
     const response = await fetch(url, {
         method: 'POST',
         mode: 'cors',
-        body: formData,
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(payloadWithContext),
     });
     
     const responseText = await response.text();

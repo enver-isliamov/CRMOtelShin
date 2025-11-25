@@ -1,6 +1,6 @@
 {
-  "name": "Tire Storage CRM",
-  "description": "A CRM application for managing tire storage clients, sending notifications, and viewing dashboard analytics.",
+  "name": "CRM-OtelShun.ru",
+  "description": "CRM-приложение для управления клиентами шинного склада, отправки уведомлений и просмотра аналитики на панели мониторинга.",
   "requestFramePermissions": [
     "camera"
   ],
