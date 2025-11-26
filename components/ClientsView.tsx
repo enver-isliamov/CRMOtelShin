@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo, useEffect, useCallback, Fragment, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Client, MessageTemplate, ClientEvent, SavedView, formatDateForDisplay } from '../types';
@@ -23,14 +20,9 @@ const EditIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <s
 const MessageIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>;
 const DeleteIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>;
 const SyncIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.185m-3.18-3.183l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.185" /></svg>;
-const SortIcon: React.FC<{ direction?: 'ascending' | 'descending' }> = ({ direction }) => {
-    if (!direction) return <svg className="w-4 h-4 text-gray-400 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>;
-    if (direction === 'ascending') return <svg className="w-4 h-4 text-primary-500 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>;
-    return <svg className="w-4 h-4 text-primary-500 ml-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>;
-};
+const SortIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" /></svg>;
 const BookmarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>;
 const XMarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
-const ArchiveIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M.5 3.75A.75.75 0 011.25 3h17.5a.75.75 0 01.75.75v3a.75.75 0 01-.75.75h-17.5a.75.75 0 01-.75-.75v-3zM1.25 9h17.5a.75.75 0 01.75.75v3a.75.75 0 01-.75.75h-17.5a.75.75 0 01-.75-.75v-3A.75.75 0 011.25 9z" /><path d="M2 15.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" /></svg>;
 const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 
 
@@ -335,8 +327,6 @@ export const ClientsView: React.FC<{
   const [isSyncing, setIsSyncing] = useState(false);
   const [newViewName, setNewViewName] = useState('');
   
-  const mainColumns = ['Имя клиента', 'Телефон', 'Номер Авто', 'Окончание', 'Долг', 'Статус сделки'];
-  
   const filterOptions = useMemo(() => {
     const statuses = new Set(clients.map(c => c['Статус сделки']).filter(Boolean));
     const warehouses = new Set(clients.map(c => c['Склад хранения']).filter(Boolean));
@@ -434,18 +424,17 @@ export const ClientsView: React.FC<{
     }
   }
 
-  const requestSort = (key: string) => {
-      let direction: 'ascending' | 'descending' = 'ascending';
-      if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-          direction = 'descending';
-      }
-      setSortConfig({ key, direction });
+  const handleSortChange = (key: string) => {
+      setSortConfig(prev => {
+          if (prev && prev.key === key) {
+              // Toggle direction if clicking the same key
+              return { key, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' };
+          }
+          // Default to descending for dates, ascending for text
+          const isDate = key.includes('Дата') || key.includes('Окончание') || key.includes('Начало');
+          return { key, direction: isDate ? 'descending' : 'ascending' };
+      });
   };
-  
-  const getSortDirection = (key: string) => {
-      if (!sortConfig || sortConfig.key !== key) return undefined;
-      return sortConfig.direction;
-  }
 
   const handleRowClick = (client: Client, e: React.MouseEvent) => {
     // Prevent opening modal if a link inside the row was clicked
@@ -560,6 +549,12 @@ export const ClientsView: React.FC<{
           </div>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex flex-col sm:flex-row gap-4 flex-grow">
+              <select value={sortConfig?.key || ''} onChange={e => handleSortChange(e.target.value)} className="w-full sm:w-auto bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                  <option value="Начало">По дате (новые)</option>
+                  <option value="Имя клиента">По имени (А-Я)</option>
+                  <option value="Окончание">По окончанию</option>
+                  <option value="Долг">По долгу</option>
+              </select>
               <select value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} className="w-full sm:w-auto bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
                   <option value="all">Все статусы</option>
                   {filterOptions.statuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -595,37 +590,49 @@ export const ClientsView: React.FC<{
       </Card>
       
       <Card className="!p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800/50">
-                    <tr>
-                        {mainColumns.map(header => (
-                            <th key={header} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer" onClick={() => requestSort(header)}>
-                                <span className="flex items-center">
-                                    {header}
-                                    <SortIcon direction={getSortDirection(header)} />
-                                </span>
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800/20 divide-y divide-gray-200 dark:divide-gray-700">
-                    {sortedClients.map(client => (
-                        <tr key={client.id} onClick={(e) => handleRowClick(client, e)} className="transition-colors duration-150 hover:bg-gray-100/50 dark:hover:bg-gray-700/40 cursor-pointer">
-                            {mainColumns.map(header => {
-                                const value = client[header as keyof Client];
-                                const isDebt = header === 'Долг';
-                                return (
-                                <td key={`${client.id}-${header}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
-                                  <div className={` ${isDebt && Number(value) > 0 ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`}>
-                                    {header === 'Окончание' ? formatDateForDisplay(value as string) : (isDebt && typeof value === 'number' ? new Intl.NumberFormat('ru-RU', {style:'currency', currency: 'RUB'}).format(value) : String(value || '-'))}
-                                  </div>
-                                </td>
-                            )})}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {sortedClients.map(client => (
+                <div 
+                    key={client.id} 
+                    onClick={(e) => handleRowClick(client, e)} 
+                    className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                >
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-4">
+                        <div className="flex items-center gap-2">
+                             <span className="font-semibold text-gray-900 dark:text-white text-base truncate">
+                                {client['Имя клиента']}
+                             </span>
+                             {(client['Долг'] || 0) > 0 && (
+                                <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm ring-1 ring-red-400/50" title="Есть задолженность"></span>
+                             )}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+                             <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                {client['Номер Авто'] || 'Нет авто'}
+                             </span>
+                             {client['Телефон'] && (
+                                <>
+                                    <span className="hidden sm:inline">•</span>
+                                    <span className="whitespace-nowrap">{client['Телефон']}</span>
+                                </>
+                             )}
+                        </div>
+                    </div>
+
+                    <div className="text-right flex flex-col gap-1 flex-shrink-0">
+                         <span className="text-sm text-gray-600 dark:text-gray-300">
+                             {formatDateForDisplay(client['Окончание'])}
+                         </span>
+                         <span className={`font-bold text-sm ${
+                             (client['Долг'] || 0) > 0 
+                             ? 'text-red-600 dark:text-red-400' 
+                             : 'text-gray-900 dark:text-white'
+                         }`}>
+                             {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)}
+                         </span>
+                    </div>
+                </div>
+            ))}
         </div>
         {sortedClients.length === 0 && (
             <div className="text-center py-16 text-gray-500 dark:text-gray-400">
