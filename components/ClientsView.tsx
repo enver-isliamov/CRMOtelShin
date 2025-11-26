@@ -15,7 +15,7 @@ import { OrderHistory } from './ui/Timeline';
 
 // --- ICONS ---
 const SearchIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>;
-const PlusIcon: React.FC<{className?: string}> = ({ className="w-5 h-5 -ml-1 mr-2" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;
+const PlusIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;
 const EditIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>;
 const MessageIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>;
 const DeleteIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>;
@@ -24,7 +24,7 @@ const SortIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) =
 const BookmarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>;
 const XMarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
-
+const FilterIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>;
 
 const getFieldType = (fieldName: string) => {
     const name = fieldName.toLowerCase();
@@ -289,7 +289,7 @@ const ClientDetailModal: React.FC<{
 };
 
 const FilterBadge: React.FC<{text: string; onRemove: () => void}> = ({ text, onRemove }) => (
-  <span className="inline-flex items-center gap-x-1.5 bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-800/30 dark:text-blue-200 rounded-full">
+  <span className="inline-flex items-center gap-x-1.5 bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-800/30 dark:text-blue-200 rounded-full whitespace-nowrap">
     {text}
     <button
         type="button"
@@ -326,6 +326,7 @@ export const ClientsView: React.FC<{
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'ascending' | 'descending' } | null>({ key: 'Начало', direction: 'descending' });
   const [isSyncing, setIsSyncing] = useState(false);
   const [newViewName, setNewViewName] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   
   const filterOptions = useMemo(() => {
     const statuses = new Set(clients.map(c => c['Статус сделки']).filter(Boolean));
@@ -518,77 +519,126 @@ export const ClientsView: React.FC<{
     onSaveViews(savedViews.filter(v => v.id !== viewId));
     showToast('Представление удалено', 'success');
   };
+  
+  const isFiltersActive = filters.status !== 'all' || filters.warehouse !== 'all' || filters.debt;
 
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <Card>
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="w-full sm:flex-1">
-                 <Input
-                    placeholder="Поиск по клиентам..."
-                    value={searchTerm}
-                    icon={<SearchIcon/>}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full"
-                />
+      
+      {/* COMPACT HEADER / FILTER BAR */}
+      <Card className="!p-3 sm:!p-4">
+        <div className="flex flex-col gap-3">
+          {/* Top Row: Search + Actions */}
+          <div className="flex gap-2 w-full">
+            <div className="relative flex-grow">
+               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                  <SearchIcon className="h-5 w-5"/>
+               </div>
+               <input 
+                  type="text"
+                  placeholder="Поиск..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 pl-10 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-150 h-[42px]"
+               />
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-center">
-                 <Button onClick={handleSync} variant="outline" title="Синхронизировать" className="!p-2.5 aspect-square" disabled={isSyncing}>
-                    <SyncIcon className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-                </Button>
-                <Link to="/add-client">
-                    <Button>
-                        <PlusIcon />
-                        Добавить клиента
-                    </Button>
-                </Link>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex flex-col sm:flex-row gap-4 flex-grow">
-              <select value={sortConfig?.key || ''} onChange={e => handleSortChange(e.target.value)} className="w-full sm:w-auto bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
-                  <option value="Начало">По дате (новые)</option>
-                  <option value="Имя клиента">По имени (А-Я)</option>
-                  <option value="Окончание">По окончанию</option>
-                  <option value="Долг">По долгу</option>
-              </select>
-              <select value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} className="w-full sm:w-auto bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
-                  <option value="all">Все статусы</option>
-                  {filterOptions.statuses.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <select value={filters.warehouse} onChange={e => handleFilterChange('warehouse', e.target.value)} className="w-full sm:w-auto bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
-                  <option value="all">Все склады</option>
-                  {filterOptions.warehouses.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
-            {/* Saved Views */}
-            <div className="flex flex-col sm:flex-row gap-2 items-center border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-4 border-gray-200 dark:border-gray-700">
-                <Input value={newViewName} onChange={(e) => setNewViewName(e.target.value)} placeholder="Имя нового вида" className="h-10"/>
-                <Button onClick={handleSaveView} variant="outline" className="h-10 w-full sm:w-auto" title="Сохранить текущие фильтры и сортировку"><BookmarkIcon className="h-5 w-5"/></Button>
-            </div>
-          </div>
-        </div>
-        
-         <div className="mt-4 flex flex-wrap gap-2 items-center">
-            {filters.debt && <FilterBadge text="С долгом" onRemove={() => removeFilter('debt')} />}
-            {filters.status !== 'all' && <FilterBadge text={`Статус: ${filters.status}`} onRemove={() => removeFilter('status')} />}
-            {filters.warehouse !== 'all' && <FilterBadge text={`Склад: ${filters.warehouse}`} onRemove={() => removeFilter('warehouse')} />}
             
-            {savedViews.length > 0 && <div className="h-4 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>}
-            {savedViews.map(view => (
-                <span key={view.id} className="group inline-flex items-center gap-x-0.5 bg-gray-100 pl-2 pr-1 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-full">
-                    <button onClick={() => handleLoadView(view.id)} className="group-hover:underline">{view.name}</button>
-                    <button type="button" onClick={() => handleDeleteView(view.id)} className="group relative h-4 w-4 rounded-full hover:bg-red-200/60 dark:hover:bg-red-500/30">
-                        <XMarkIcon className="h-4 w-4 stroke-gray-500/50 group-hover:stroke-red-600/75 dark:stroke-gray-400/50 dark:group-hover:stroke-red-400"/>
-                    </button>
-                </span>
-            ))}
+            <button 
+                onClick={handleSync} 
+                disabled={isSyncing}
+                className="flex items-center justify-center w-[42px] h-[42px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-primary-500 transition-colors"
+                title="Синхронизировать"
+            >
+                <SyncIcon className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+            </button>
+            
+            <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center justify-center w-[42px] h-[42px] rounded-md border ${isFiltersActive ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300 dark:border-primary-500' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'} focus:ring-2 focus:ring-primary-500 transition-all`}
+                title="Фильтры и Сортировка"
+            >
+                <FilterIcon className="w-5 h-5"/>
+            </button>
+
+            <Link to="/add-client" className="flex-shrink-0">
+                <Button className="h-[42px] w-[42px] sm:w-auto !p-0 sm:!px-4 flex items-center justify-center">
+                    <PlusIcon />
+                    <span className="hidden sm:inline ml-1">Добавить</span>
+                </Button>
+            </Link>
+          </div>
+
+          {/* Collapsible Filter Panel */}
+          {showFilters && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-top-2 duration-200">
+               <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Сортировка</label>
+                  <select value={sortConfig?.key || ''} onChange={e => handleSortChange(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                      <option value="Начало">По дате (новые)</option>
+                      <option value="Имя клиента">По имени (А-Я)</option>
+                      <option value="Окончание">По окончанию</option>
+                      <option value="Долг">По долгу</option>
+                  </select>
+               </div>
+               <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Статус</label>
+                  <select value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                      <option value="all">Все статусы</option>
+                      {filterOptions.statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+               </div>
+               <div>
+                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Склад</label>
+                   <select value={filters.warehouse} onChange={e => handleFilterChange('warehouse', e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                      <option value="all">Все склады</option>
+                      {filterOptions.warehouses.map(w => <option key={w} value={w}>{w}</option>)}
+                   </select>
+               </div>
+               <div className="flex items-end gap-2">
+                   <div className="flex-grow">
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Сохранить вид</label>
+                        <input 
+                            type="text" 
+                            value={newViewName} 
+                            onChange={(e) => setNewViewName(e.target.value)} 
+                            placeholder="Название..." 
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                        />
+                   </div>
+                   <Button variant="outline" onClick={handleSaveView} className="h-[34px] !px-3" title="Сохранить текущие фильтры">
+                        <BookmarkIcon className="h-4 w-4"/>
+                   </Button>
+               </div>
+            </div>
+          )}
+          
+          {/* Active Filters & Saved Views Chips (Horizontal Scroll) */}
+          {(isFiltersActive || savedViews.length > 0) && (
+             <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+                {/* Active Filter Chips */}
+                {filters.debt && <FilterBadge text="С долгом" onRemove={() => removeFilter('debt')} />}
+                {filters.status !== 'all' && <FilterBadge text={filters.status} onRemove={() => removeFilter('status')} />}
+                {filters.warehouse !== 'all' && <FilterBadge text={filters.warehouse} onRemove={() => removeFilter('warehouse')} />}
+                
+                {isFiltersActive && savedViews.length > 0 && <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 flex-shrink-0 mx-1"></div>}
+                
+                {/* Saved Views Chips */}
+                {savedViews.map(view => (
+                    <span key={view.id} className="inline-flex flex-shrink-0 items-center gap-x-1 bg-gray-100 pl-2.5 pr-1 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-full border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <button onClick={() => handleLoadView(view.id)}>{view.name}</button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteView(view.id); }} className="p-0.5 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-400 hover:text-red-500">
+                            <XMarkIcon className="h-3 w-3"/>
+                        </button>
+                    </span>
+                ))}
+             </div>
+          )}
         </div>
       </Card>
       
+      {/* Client List */}
       <Card className="!p-0 overflow-hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {sortedClients.map(client => (
