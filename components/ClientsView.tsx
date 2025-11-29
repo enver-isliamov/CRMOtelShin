@@ -134,7 +134,7 @@ const ClientDetailModal: React.FC<{
     const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: string }> = ({ label, value, className }) => (
         <div className={className}>
             <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{label}</dt>
-            <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:col-span-2 sm:mt-0">{value || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900 dark:text-white break-words">{value || '-'}</dd>
         </div>
     );
     
@@ -182,54 +182,50 @@ const ClientDetailModal: React.FC<{
             <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
                 {activeTab === 'details' && (
                     <div className="space-y-6">
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-2 gap-3">
                              <div className={`p-4 rounded-lg ${Number(formData['Долг'] || 0) > 0 ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'}`}>
-                                <p className="text-sm font-medium">Долг</p>
-                                <p className="text-xl font-bold">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Долг'] || 0))}</p>
+                                <p className="text-xs sm:text-sm font-medium">Долг</p>
+                                <p className="text-lg sm:text-xl font-bold">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Долг'] || 0))}</p>
                             </div>
                             <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-                                <p className="text-sm font-medium">Окончание хранения</p>
-                                <p className="text-xl font-bold">{formatDateForDisplay(formData['Окончание'])}</p>
+                                <p className="text-xs sm:text-sm font-medium">Окончание</p>
+                                <p className="text-lg sm:text-xl font-bold">{formatDateForDisplay(formData['Окончание'])}</p>
                             </div>
                         </div>
 
                         <div className="space-y-3">
                             <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Детали заказа</h4>
-                            <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                                <DetailItem label="Статус сделки" value={formData['Статус сделки']} />
-                                <DetailItem label="Номер Авто" value={formData['Номер Авто']} />
+                            {/* Force grid-cols-2 even on mobile as requested */}
+                            <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
+                                <DetailItem label="Статус" value={formData['Статус сделки']} />
+                                <DetailItem label="Склад / Ячейка" value={`${formData['Склад хранения']} / ${formData['Ячейка']}`} />
                                 <DetailItem label="Размер шин" value={formData['Размер шин']} />
-                                <DetailItem label="DOT-код" value={formData['DOT-код']} />
-                                <DetailItem label="Кол-во шин" value={`${formData['Кол-во шин']} шт.`} />
                                 <DetailItem label="Сезон" value={formData['Сезон']} />
-                                <DetailItem label="Наличие дисков" value={formData['Наличие дисков']} />
-                                <div className="sm:col-span-2">
-                                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Заказ - QR (Бренд / Марка / Размер)</dt>
-                                    <dd className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap font-mono bg-gray-100 dark:bg-gray-700/50 p-3 rounded-md">{formData['Заказ - QR'] || '-'}</dd>
-                                </div>
+                                <DetailItem label="Кол-во" value={`${formData['Кол-во шин']} шт.`} />
+                                <DetailItem label="Диски" value={formData['Наличие дисков']} />
+                                <DetailItem label="DOT-код" value={formData['DOT-код']} />
+                                
+                                <DetailItem label="Заказ - QR (Бренд / Марка)" value={formData['Заказ - QR']} className="col-span-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md font-mono text-xs" />
                             </dl>
                         </div>
 
                         <div className="space-y-3">
                             <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Финансы и сроки</h4>
-                            <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                                <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} />
-                                <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Цена за месяц'] || 0))} />
-                                <DetailItem label="Договор №" value={formData['Договор']} />
-                                <DetailItem label="Срок хранения" value={`${formData['Срок']} мес.`} />
-                                <DetailItem label="Начало хранения" value={formatDateForDisplay(formData['Начало'])} />
-                                <DetailItem label="Дата напоминания" value={formatDateForDisplay(formData['Напомнить'])} />
+                            <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
+                                <DetailItem label="Сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} />
+                                <DetailItem label="Цена/мес" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Цена за месяц'] || 0))} />
+                                <DetailItem label="Договор" value={formData['Договор']} />
+                                <DetailItem label="Срок" value={`${formData['Срок']} мес.`} />
+                                <DetailItem label="Начало" value={formatDateForDisplay(formData['Начало'])} />
+                                <DetailItem label="Напомнить" value={formatDateForDisplay(formData['Напомнить'])} />
                             </dl>
                         </div>
                         
                         <div className="space-y-3">
-                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Контакты и склад</h4>
-                            <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                                <DetailItem label="Телефон" value={formData['Телефон']} />
-                                <DetailItem label="Chat ID" value={formData['Chat ID']} />
-                                <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="sm:col-span-2" />
-                                <DetailItem label="Склад хранения" value={formData['Склад хранения']} />
-                                <DetailItem label="Ячейка" value={formData['Ячейка']} />
+                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Контакты</h4>
+                            <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
+                                <DetailItem label="Chat ID" value={formData['Chat ID']} className="col-span-2" />
+                                <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-2" />
                             </dl>
                         </div>
                     </div>
@@ -269,11 +265,29 @@ const ClientDetailModal: React.FC<{
         )
     }
 
+    const modalTitleNode = (
+        <div className="flex flex-col">
+            <span className="text-xl font-bold leading-tight">{formData?.['Имя клиента']}</span>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+                 {formData?.['Номер Авто'] && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-mono">
+                        {formData['Номер Авто']}
+                    </span>
+                 )}
+                 {formData?.['Телефон'] && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {formData['Телефон']}
+                    </span>
+                 )}
+            </div>
+        </div>
+    );
+
     return (
         <Modal 
             isOpen={isOpen}
             onClose={onClose}
-            title={formData?.['Имя клиента'] || 'Карточка клиента'}
+            title={modalTitleNode}
             footer={<div className="flex justify-end w-full space-x-2">{renderFooter()}</div>}
         >
             <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
