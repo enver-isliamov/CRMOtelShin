@@ -198,12 +198,8 @@ const ClientDetailModal: React.FC<{
             <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
                 {activeTab === 'details' && (
                     <div className="space-y-4">
-                         {/* Header: Contract & Status */}
-                        <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-700">
-                             <div>
-                                <p className="text-xs text-gray-500 uppercase">Договор №</p>
-                                <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">{formData['Договор']}</p>
-                             </div>
+                         {/* Status Header */}
+                        <div className="flex justify-end pb-2">
                              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
                                  formData['Статус сделки'] === 'На складе' ? 'bg-green-100 text-green-800' : 
                                  formData['Статус сделки'] === 'Завершено' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'
@@ -212,22 +208,29 @@ const ClientDetailModal: React.FC<{
                              </span>
                         </div>
 
-                        {/* Top Metrics Cards - Responsive Grid Fix */}
-                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {/* Top Metrics Grid (2x2) */}
+                         <div className="grid grid-cols-2 gap-3">
+                             {/* Card 1: Debt */}
                              <div className={`p-3 rounded-lg border ${Number(formData['Долг'] || 0) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800'}`}>
                                 <p className={`text-xs font-bold uppercase ${Number(formData['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>Долг</p>
-                                <p className={`text-lg font-bold leading-tight ${Number(formData['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
+                                <p className={`text-base font-bold leading-tight ${Number(formData['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
                                     {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(formData['Долг'] || 0))}
                                 </p>
                             </div>
+                            {/* Card 2: Ending Date */}
                             <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-800">
                                 <p className="text-xs font-bold uppercase text-blue-500">Окончание</p>
-                                <p className="text-lg font-bold leading-tight text-blue-700 dark:text-blue-300">{formatDateForDisplay(formData['Окончание'])}</p>
+                                <p className="text-base font-bold leading-tight text-blue-700 dark:text-blue-300">{formatDateForDisplay(formData['Окончание'])}</p>
                             </div>
-                            {/* Warehouse spans 2 cols on mobile, 1 on desktop */}
-                            <div className="col-span-2 sm:col-span-1 p-3 rounded-lg bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                            {/* Card 3: Warehouse */}
+                            <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
                                 <p className="text-xs font-bold uppercase text-gray-500">Склад / Ячейка</p>
-                                <p className="text-lg font-bold leading-tight text-gray-800 dark:text-gray-200">{formData['Склад хранения']} <span className="text-gray-400">/</span> {formData['Ячейка'] || '—'}</p>
+                                <p className="text-base font-bold leading-tight text-gray-800 dark:text-gray-200">{formData['Склад хранения']} <span className="text-gray-400">/</span> {formData['Ячейка'] || '—'}</p>
+                            </div>
+                            {/* Card 4: Contract (Moved here) */}
+                            <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                                <p className="text-xs font-bold uppercase text-gray-500">Договор №</p>
+                                <p className="text-base font-bold leading-tight text-gray-800 dark:text-gray-200 font-mono">{formData['Договор']}</p>
                             </div>
                         </div>
 
@@ -238,6 +241,12 @@ const ClientDetailModal: React.FC<{
                              <DetailItem label="Наличие дисков" value={formData['Наличие дисков']} />
                              <DetailItem label="DOT-код" value={formData['DOT-код']} />
                         </SectionBlock>
+
+                        {/* Note Block (Moved Up) */}
+                         <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-4">
+                            <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Заказ - QR (Описание)</h4>
+                            <p className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{formData['Заказ - QR'] || 'Нет описания'}</p>
+                        </div>
 
                         <SectionBlock title="Финансы" icon={<CashIcon/>}>
                              <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} className="col-span-2 sm:col-span-1" />
@@ -251,12 +260,6 @@ const ClientDetailModal: React.FC<{
                             <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-2" />
                             <DetailItem label="Chat ID" value={formData['Chat ID']} className="col-span-2" />
                         </SectionBlock>
-                        
-                        {/* Note Block */}
-                         <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Заказ - QR (Описание)</h4>
-                            <p className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{formData['Заказ - QR'] || 'Нет описания'}</p>
-                        </div>
                     </div>
                 )}
                 {activeTab === 'history' && <OrderHistory client={client} />}
