@@ -26,9 +26,8 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
 
 const TIRE_PRESETS = [
     { size: 'R13-R15', price: 500 },
-    { size: 'R16-R17', price: 600 },
-    { size: 'R18-R19', price: 700 },
-    { size: 'R20+', price: 800 },
+    { size: 'R16-R19', price: 600 },
+    { size: 'R20+', price: 700 },
 ];
 
 const formatDate = (date: Date) => {
