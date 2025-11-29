@@ -20,11 +20,16 @@ const EditIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <s
 const MessageIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>;
 const DeleteIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>;
 const SyncIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.185m-3.18-3.183l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.185" /></svg>;
-const SortIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" /></svg>;
 const BookmarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>;
 const XMarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 const FilterIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>;
+
+// Section Icons
+const TireIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clipRule="evenodd" /></svg>;
+const CashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M1 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm12 4a3 3 0 11-6 0 3 3 0 016 0zM4 9a1 1 0 100-2 1 1 0 000 2zm13-1a1 1 0 11-2 0 1 1 0 012 0zM1.75 14.5a.75.75 0 000 1.5c4.417 0 8.693.603 12.749 1.73 1.111.309 2.251-.512 2.251-1.696v-.784a.75.75 0 00-1.5 0v.784a.25.25 0 01-.35.216C11.536 15.583 7.772 15 4.25 15h-.75A1.5 1.5 0 002 16.5v.75a.75.75 0 001.5 0v-.75a.25.25 0 01.25-.25h.75c4.363 0 8.514.836 12.25 2.302a.75.75 0 00.55-1.396 35.808 35.808 0 00-14.73-2.003.75.75 0 00-.82.647z" clipRule="evenodd" /></svg>;
+const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.25 1.25 0 002.228-1.417a6.002 6.002 0 019.614 0a1.25 1.25 0 002.228 1.417a8.502 8.502 0 00-14.07 0z" /></svg>;
+
 
 const getFieldType = (fieldName: string) => {
     const name = fieldName.toLowerCase();
@@ -48,6 +53,26 @@ const TabButton: React.FC<{active: boolean, onClick: ()=>void, children: React.R
     </button>
 )
 
+// Helper component for styled sections in Modal
+const SectionBlock: React.FC<{title: string, children: React.ReactNode, icon?: React.ReactNode}> = ({ title, children, icon }) => (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            {icon && <span className="text-gray-400 dark:text-gray-500">{icon}</span>}
+            <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{title}</h4>
+        </div>
+        <div className="p-4 grid grid-cols-2 gap-4">
+            {children}
+        </div>
+    </div>
+);
+
+const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: string }> = ({ label, value, className }) => (
+    <div className={className}>
+        <dt className="text-[10px] sm:text-xs font-medium text-gray-400 dark:text-gray-500 uppercase mb-0.5">{label}</dt>
+        <dd className="text-sm sm:text-base font-medium text-gray-900 dark:text-white break-words leading-tight">{value || '—'}</dd>
+    </div>
+);
+
 const ClientDetailModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -70,8 +95,6 @@ const ClientDetailModal: React.FC<{
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     useEffect(() => {
-        // When the client prop changes (e.g., modal is opened for a new client),
-        // reset the form data and view state to ensure the correct information is displayed.
         setFormData(client);
         setActiveTab('details');
         setMode('view');
@@ -113,7 +136,6 @@ const ClientDetailModal: React.FC<{
             setIsSubmitting(true);
             await onDelete(client.id);
             setIsSubmitting(false);
-            // The modal will be closed by the parent component's effect
         }
     };
     
@@ -131,12 +153,6 @@ const ClientDetailModal: React.FC<{
         onClose();
     };
     
-    const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: string }> = ({ label, value, className }) => (
-        <div className={className}>
-            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{label}</dt>
-            <dd className="mt-1 text-sm text-gray-900 dark:text-white break-words">{value || '-'}</dd>
-        </div>
-    );
     
     const renderContent = () => {
         if (!formData) return null;
@@ -181,52 +197,65 @@ const ClientDetailModal: React.FC<{
         return (
             <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
                 {activeTab === 'details' && (
-                    <div className="space-y-6">
-                         <div className="grid grid-cols-2 gap-3">
-                             <div className={`p-4 rounded-lg ${Number(formData['Долг'] || 0) > 0 ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'}`}>
-                                <p className="text-xs sm:text-sm font-medium">Долг</p>
-                                <p className="text-lg sm:text-xl font-bold">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Долг'] || 0))}</p>
+                    <div className="space-y-4">
+                         {/* Header: Contract & Status */}
+                        <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-700">
+                             <div>
+                                <p className="text-xs text-gray-500 uppercase">Договор №</p>
+                                <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">{formData['Договор']}</p>
+                             </div>
+                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                                 formData['Статус сделки'] === 'На складе' ? 'bg-green-100 text-green-800' : 
+                                 formData['Статус сделки'] === 'Завершено' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'
+                             }`}>
+                                 {formData['Статус сделки']}
+                             </span>
+                        </div>
+
+                        {/* Top Metrics Cards - Responsive Grid Fix */}
+                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                             <div className={`p-3 rounded-lg border ${Number(formData['Долг'] || 0) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800'}`}>
+                                <p className={`text-xs font-bold uppercase ${Number(formData['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>Долг</p>
+                                <p className={`text-lg font-bold leading-tight ${Number(formData['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
+                                    {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(formData['Долг'] || 0))}
+                                </p>
                             </div>
-                            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-                                <p className="text-xs sm:text-sm font-medium">Окончание</p>
-                                <p className="text-lg sm:text-xl font-bold">{formatDateForDisplay(formData['Окончание'])}</p>
+                            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-800">
+                                <p className="text-xs font-bold uppercase text-blue-500">Окончание</p>
+                                <p className="text-lg font-bold leading-tight text-blue-700 dark:text-blue-300">{formatDateForDisplay(formData['Окончание'])}</p>
+                            </div>
+                            {/* Warehouse spans 2 cols on mobile, 1 on desktop */}
+                            <div className="col-span-2 sm:col-span-1 p-3 rounded-lg bg-gray-50 border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                                <p className="text-xs font-bold uppercase text-gray-500">Склад / Ячейка</p>
+                                <p className="text-lg font-bold leading-tight text-gray-800 dark:text-gray-200">{formData['Склад хранения']} <span className="text-gray-400">/</span> {formData['Ячейка'] || '—'}</p>
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Детали заказа</h4>
-                            {/* Force grid-cols-2 even on mobile as requested */}
-                            <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
-                                <DetailItem label="Статус" value={formData['Статус сделки']} />
-                                <DetailItem label="Склад / Ячейка" value={`${formData['Склад хранения']} / ${formData['Ячейка']}`} />
-                                <DetailItem label="Размер шин" value={formData['Размер шин']} />
-                                <DetailItem label="Сезон" value={formData['Сезон']} />
-                                <DetailItem label="Кол-во" value={`${formData['Кол-во шин']} шт.`} />
-                                <DetailItem label="Диски" value={formData['Наличие дисков']} />
-                                <DetailItem label="DOT-код" value={formData['DOT-код']} />
-                                
-                                <DetailItem label="Заказ - QR (Бренд / Марка)" value={formData['Заказ - QR']} className="col-span-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md font-mono text-xs" />
-                            </dl>
-                        </div>
+                        <SectionBlock title="Шины и Хранение" icon={<TireIcon/>}>
+                             <DetailItem label="Размер шин" value={formData['Размер шин']} />
+                             <DetailItem label="Сезон" value={formData['Сезон']} />
+                             <DetailItem label="Кол-во" value={`${formData['Кол-во шин']} шт.`} />
+                             <DetailItem label="Наличие дисков" value={formData['Наличие дисков']} />
+                             <DetailItem label="DOT-код" value={formData['DOT-код']} />
+                        </SectionBlock>
 
-                        <div className="space-y-3">
-                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Финансы и сроки</h4>
-                            <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
-                                <DetailItem label="Сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} />
-                                <DetailItem label="Цена/мес" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Цена за месяц'] || 0))} />
-                                <DetailItem label="Договор" value={formData['Договор']} />
-                                <DetailItem label="Срок" value={`${formData['Срок']} мес.`} />
-                                <DetailItem label="Начало" value={formatDateForDisplay(formData['Начало'])} />
-                                <DetailItem label="Напомнить" value={formatDateForDisplay(formData['Напомнить'])} />
-                            </dl>
-                        </div>
+                        <SectionBlock title="Финансы" icon={<CashIcon/>}>
+                             <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} className="col-span-2 sm:col-span-1" />
+                             <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Цена за месяц'] || 0))} />
+                             <DetailItem label="Срок хранения" value={`${formData['Срок']} мес.`} />
+                             <DetailItem label="Начало хранения" value={formatDateForDisplay(formData['Начало'])} />
+                             <DetailItem label="Дата напоминания" value={formatDateForDisplay(formData['Напомнить'])} />
+                        </SectionBlock>
+
+                        <SectionBlock title="Контакты" icon={<UserIcon/>}>
+                            <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-2" />
+                            <DetailItem label="Chat ID" value={formData['Chat ID']} className="col-span-2" />
+                        </SectionBlock>
                         
-                        <div className="space-y-3">
-                            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Контакты</h4>
-                            <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
-                                <DetailItem label="Chat ID" value={formData['Chat ID']} className="col-span-2" />
-                                <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-2" />
-                            </dl>
+                        {/* Note Block */}
+                         <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-4">
+                            <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Заказ - QR (Описание)</h4>
+                            <p className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{formData['Заказ - QR'] || 'Нет описания'}</p>
                         </div>
                     </div>
                 )}
@@ -253,7 +282,6 @@ const ClientDetailModal: React.FC<{
                 </>
             );
         }
-        // View mode
         return (
             <div className='flex flex-wrap gap-2 w-full justify-start'>
                 <Button size="sm" variant="primary" onClick={() => setMode('edit')}><EditIcon/> <span className="ml-1">Изменить</span></Button>
@@ -408,7 +436,6 @@ export const ClientsView: React.FC<{
       setSelectedClient(null);
   }, []);
   
-  // Effect to auto-close modal if the selected client disappears from the list after a data refresh
   useEffect(() => {
     if (selectedClient && !clients.some(c => c.id === selectedClient.id)) {
       closeModal();
@@ -416,7 +443,6 @@ export const ClientsView: React.FC<{
   }, [clients, selectedClient, closeModal]);
 
   useEffect(() => {
-    // Sync filters with URL params on mount
     const debtFilter = searchParams.get('filter') === 'debt';
     if(debtFilter) {
         setFilters(prev => ({...prev, debt: true}));
@@ -442,17 +468,14 @@ export const ClientsView: React.FC<{
   const handleSortChange = (key: string) => {
       setSortConfig(prev => {
           if (prev && prev.key === key) {
-              // Toggle direction if clicking the same key
               return { key, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' };
           }
-          // Default to descending for dates, ascending for text
           const isDate = key.includes('Дата') || key.includes('Окончание') || key.includes('Начало');
           return { key, direction: isDate ? 'descending' : 'ascending' };
       });
   };
 
   const handleRowClick = (client: Client, e: React.MouseEvent) => {
-    // Prevent opening modal if a link inside the row was clicked
     if ((e.target as HTMLElement).closest('a')) return;
     openModal(client);
   };
