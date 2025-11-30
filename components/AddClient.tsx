@@ -127,7 +127,7 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
     } else {
         initialState = {
             ...defaultOrderState,
-            'Имя клиента': '', 'Телефон': '', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
+            'Имя клиента': '', 'Телефон': '+7', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
         };
     }
     
@@ -428,19 +428,31 @@ ${servicesLine}</blockquote>
             <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto">
                 
                 <Card title={originalClient ? `Новый заказ для: ${originalClient['Имя клиента']}` : "Клиент и Автомобиль"} actions={<UserIcon className="text-gray-400"/>}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
-                        <Input label="Телефон" name="Телефон" value={formData['Телефон']} onChange={handleInputChange} placeholder="+7 (999) 123-45-67" type="tel"/>
-                        <Input label="Номер Авто" name="Номер Авто" value={formData['Номер Авто']} onChange={(e) => handleCarNumberChange(e.target.value)} placeholder="A123BC777" />
-                        <Input label="Chat ID (для уведомлений)" name="Chat ID" value={formData['Chat ID']} onChange={handleInputChange} placeholder="123456789" />
-                        <div className="md:col-span-2">
+                    <div className="space-y-6">
+                        {/* ФИО и Телефон */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
+                            <Input label="Телефон" name="Телефон" value={formData['Телефон']} onChange={handleInputChange} placeholder="+7 (999) 123-45-67" type="tel"/>
+                        </div>
+
+                        {/* Номер Авто и Chat ID (2 колонки всегда) */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <Input label="Номер Авто" name="Номер Авто" value={formData['Номер Авто']} onChange={(e) => handleCarNumberChange(e.target.value)} placeholder="A123BC777" />
+                            <Input label="Chat ID" name="Chat ID" value={formData['Chat ID']} onChange={handleInputChange} placeholder="123456789" />
+                        </div>
+
+                        <div className="w-full">
                            <Input label="Адрес" name="Адрес клиента" value={formData['Адрес клиента']} onChange={handleInputChange} placeholder="Улица, № дома, квартира" helperText="Для услуги 'Вывоз шин'" />
                         </div>
-                        <Input label="Источник трафика" name="Источник трафика" value={formData['Источник трафика']} onChange={handleInputChange} placeholder="Авито, Сайт, Рекомендация..." />
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Договор №</label>
-                            <div className="flex items-center h-[46px] px-3 rounded-md bg-gray-100 dark:bg-gray-700/50">
-                                <span className="font-mono text-lg font-semibold text-gray-800 dark:text-gray-200">{formData['Договор']}</span>
+
+                        {/* Трафик и Договор (2 колонки всегда) */}
+                        <div className="grid grid-cols-2 gap-4 items-end">
+                            <Input label="Источник трафика" name="Источник трафика" value={formData['Источник трафика']} onChange={handleInputChange} placeholder="Авито, Сайт..." />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Договор №</label>
+                                <div className="flex items-center h-[46px] px-3 rounded-md bg-gray-100 dark:bg-gray-700/50">
+                                    <span className="font-mono text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 truncate">{formData['Договор']}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
