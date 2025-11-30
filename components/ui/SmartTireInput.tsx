@@ -110,7 +110,6 @@ const TireParamSelector: React.FC<{
                                 // Update instantly without closing
                                 onSelect(e.target.value); 
                             }}
-                            autoFocus
                         />
                         <button 
                             onClick={onToggle}
