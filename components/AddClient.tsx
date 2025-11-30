@@ -476,6 +476,10 @@ ${servicesLine}</blockquote>
                             onChange={(val) => handleChange({ 'Заказ - QR': val })} 
                             season={formData['Сезон'] as 'Лето'|'Зима'}
                             onSeasonChange={(s) => handleChange({ 'Сезон': s })}
+                            tireCount={Number(formData['Кол-во шин'] || 4)}
+                            onTireCountChange={(c) => handleChange({ 'Кол-во шин': c })}
+                            hasRims={formData['Наличие дисков'] as 'Да'|'Нет'}
+                            onHasRimsChange={(r) => handleChange({ 'Наличие дисков': r })}
                         />
                         
                         {/* New Advanced DOT Input */}
@@ -498,17 +502,6 @@ ${servicesLine}</blockquote>
                         </div>
                         
                         <ImageUpload onFilesChange={setFilesToUpload} />
-
-                        <div className="grid grid-cols-2 gap-6 items-end">
-                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Наличие дисков</label>
-                                <select name="Наличие дисков" value={formData['Наличие дисков']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
-                                    <option value="Нет">Нет</option>
-                                    <option value="Да">Да (+100 ₽)</option>
-                                </select>
-                            </div>
-                            <Input label="Кол-во шин" name="Кол-во шин" type="number" inputMode="numeric" value={formData['Кол-во шин']} onChange={handleInputChange} placeholder="4" />
-                        </div>
 
                         <div>
                             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Дополнительные услуги</h4>
