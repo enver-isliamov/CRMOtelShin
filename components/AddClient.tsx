@@ -114,20 +114,26 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
     let initialState: Partial<Client>;
 
     if (reorderClient) {
+        // Strip +7 from phone for display in the input with prefix
+        const phone = reorderClient['Телефон']?.startsWith('+7') 
+            ? reorderClient['Телефон'].substring(2) 
+            : reorderClient['Телефон'];
+
         initialState = {
             ...defaultOrderState, // Start with defaults for order-specific fields
             // Overwrite with client-specific fields from the old order
             'Имя клиента': reorderClient['Имя клиента'],
-            'Телефон': reorderClient['Телефон'],
+            'Телефон': phone,
             'Адрес клиента': reorderClient['Адрес клиента'],
             'Chat ID': reorderClient['Chat ID'],
             'Номер Авто': reorderClient['Номер Авто'],
             'Источник трафика': reorderClient['Источник трафика'],
         };
     } else {
+        // Phone starts empty so placeholder is visible. Prefix +7 will be added visually.
         initialState = {
             ...defaultOrderState,
-            'Имя клиента': '', 'Телефон': '+7', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
+            'Имя клиента': '', 'Телефон': '', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
         };
     }
     
@@ -365,6 +371,11 @@ ${servicesLine}</blockquote>
         let dataForSubmission = { ...formData };
         if (!dataForSubmission.id) dataForSubmission.id = `c${Date.now()}`;
         
+        // Ensure phone has +7 prefix on submit if it's not empty
+        if (dataForSubmission['Телефон'] && !dataForSubmission['Телефон'].startsWith('+7')) {
+            dataForSubmission['Телефон'] = '+7' + dataForSubmission['Телефон'];
+        }
+        
         const qrBase = dataForSubmission['Заказ - QR'] || '';
         dataForSubmission['Заказ - QR'] = description ? `${qrBase} >> ${description}` : qrBase;
         
@@ -432,7 +443,15 @@ ${servicesLine}</blockquote>
                         {/* ФИО и Телефон */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
-                            <Input label="Телефон" name="Телефон" value={formData['Телефон']} onChange={handleInputChange} placeholder="+7 (999) 123-45-67" type="tel"/>
+                            <Input 
+                                label="Телефон" 
+                                name="Телефон" 
+                                value={formData['Телефон']} 
+                                onChange={handleInputChange} 
+                                prefix="+7"
+                                placeholder="(999) 123-45-67" 
+                                type="tel"
+                            />
                         </div>
 
                         {/* Номер Авто и Chat ID (2 колонки всегда) */}

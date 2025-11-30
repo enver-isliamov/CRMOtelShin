@@ -79,13 +79,14 @@ const TireParamSelector: React.FC<{
             <button
                 type="button"
                 onClick={onToggle}
-                className={`text-2xl sm:text-3xl font-black tracking-tight leading-none border-b-2 transition-all duration-200 pb-1 ${
+                className={`text-lg sm:text-3xl font-black tracking-tight leading-none border-b-2 transition-all duration-200 pb-1 ${
                     isActive 
                     ? 'text-primary-600 border-primary-500 scale-110' 
                     : 'text-gray-800 dark:text-gray-100 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
-                {value || '---'}{suffix}
+                {value || '---'}
+                {suffix && <span className="text-xs sm:text-base font-normal ml-0.5 text-gray-500">{suffix}</span>}
             </button>
             
             {isActive && (
@@ -207,7 +208,7 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
       </div>
 
       {/* Main Interactive String */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-nowrap items-end justify-center gap-x-1 sm:gap-x-4 select-none">
+      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-nowrap items-end justify-center gap-x-0.5 sm:gap-x-4 select-none">
           
           {tireCount !== undefined && onTireCountChange && (
               <>
@@ -233,7 +234,7 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
             onToggle={() => toggleParam('width')}
           />
 
-          <span className="text-2xl text-gray-300 font-light pb-1">/</span>
+          <span className="text-xl sm:text-2xl text-gray-300 font-light pb-1">/</span>
 
           <TireParamSelector 
             label="" 
@@ -245,7 +246,7 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
           />
 
           <div className="flex flex-col items-center pb-1">
-             <span className="text-xl sm:text-2xl font-bold text-gray-400">R</span>
+             <span className="text-lg sm:text-2xl font-bold text-gray-400">R</span>
           </div>
 
           <TireParamSelector 
