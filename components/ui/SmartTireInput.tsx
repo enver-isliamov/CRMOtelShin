@@ -75,19 +75,24 @@ const TireParamSelector: React.FC<{
 
     return (
         <div className="relative flex flex-col items-center group" ref={wrapperRef}>
-            {label && <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 select-none">{label}</span>}
-            <button
-                type="button"
-                onClick={onToggle}
-                className={`text-lg sm:text-3xl font-black tracking-tight leading-none border-b-2 transition-all duration-200 pb-1 ${
-                    isActive 
-                    ? 'text-primary-600 border-primary-500 scale-110' 
-                    : 'text-gray-800 dark:text-gray-100 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-                {value || '---'}
-                {suffix && <span className="text-xs sm:text-base font-normal ml-0.5 text-gray-500">{suffix}</span>}
-            </button>
+            {/* Always render the label span to maintain height, use invisible char if empty */}
+            <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 select-none min-h-[15px]">{label || '\u00A0'}</span>
+            
+            {/* Fixed height container for value to align baseline */}
+            <div className="h-8 sm:h-10 flex items-end">
+                <button
+                    type="button"
+                    onClick={onToggle}
+                    className={`flex items-baseline font-black leading-none border-b-2 transition-all duration-200 pb-1 ${
+                        isActive 
+                        ? 'text-primary-600 border-primary-500 scale-110' 
+                        : 'text-gray-800 dark:text-gray-100 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                >
+                    <span className="text-xl sm:text-3xl">{value || '---'}</span>
+                    {suffix && <span className="text-xs sm:text-lg font-normal text-gray-500 ml-0.5">{suffix}</span>}
+                </button>
+            </div>
             
             {isActive && (
                 <div className={`
@@ -221,7 +226,10 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
                     onToggle={() => toggleParam('count')}
                     suffix=" шт"
                 />
-                <div className="w-px h-8 bg-gray-300 dark:bg-gray-600 mx-1 sm:mx-2 mb-1"></div>
+                <div className="flex flex-col justify-end pb-1 h-full mx-1 sm:mx-2">
+                    <span className="min-h-[15px] mb-1"></span>
+                    <div className="w-px h-8 bg-gray-300 dark:bg-gray-600"></div>
+                </div>
               </>
           )}
 
@@ -234,7 +242,10 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
             onToggle={() => toggleParam('width')}
           />
 
-          <span className="text-xl sm:text-2xl text-gray-300 font-light pb-1">/</span>
+          <div className="flex flex-col items-center justify-end pb-1">
+             <span className="min-h-[15px] mb-1"></span>
+             <span className="text-xl sm:text-2xl text-gray-300 font-light leading-none">/</span>
+          </div>
 
           <TireParamSelector 
             label="" 
@@ -245,8 +256,9 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
             onToggle={() => toggleParam('profile')}
           />
 
-          <div className="flex flex-col items-center pb-1">
-             <span className="text-lg sm:text-2xl font-bold text-gray-400">R</span>
+          <div className="flex flex-col items-center justify-end pb-1">
+             <span className="min-h-[15px] mb-1"></span>
+             <span className="text-lg sm:text-2xl font-bold text-gray-400 leading-none">R</span>
           </div>
 
           <TireParamSelector 
@@ -258,32 +270,41 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
             onToggle={() => toggleParam('diameter')}
           />
           
-          {(onSeasonChange || onHasRimsChange) && <div className="w-px h-8 bg-gray-300 dark:bg-gray-600 mx-1 sm:mx-2 mb-1"></div>}
+          {(onSeasonChange || onHasRimsChange) && (
+              <div className="flex flex-col justify-end pb-1 h-full mx-1 sm:mx-2">
+                  <span className="min-h-[15px] mb-1"></span>
+                  <div className="w-px h-8 bg-gray-300 dark:bg-gray-600"></div>
+              </div>
+          )}
 
           {hasRims && onHasRimsChange && (
-                <button
-                    type="button"
-                    onClick={toggleRims}
-                    className={`flex flex-col items-center justify-end pb-1 group transition-transform active:scale-95 px-1`}
-                >
-                    <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 opacity-50">Диски</span>
-                    <div className={`flex items-center gap-1 ${hasRims === 'Да' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600'}`}>
+              <div className="flex flex-col items-center group">
+                <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 opacity-50 min-h-[15px]">Диски</span>
+                <div className="h-8 sm:h-10 flex items-end pb-1">
+                    <button
+                        type="button"
+                        onClick={toggleRims}
+                        className={`flex items-center gap-1 leading-none group transition-transform active:scale-95 px-1 ${hasRims === 'Да' ? 'text-gray-800 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600'}`}
+                    >
                         <DiscIcon />
-                    </div>
-                </button>
+                    </button>
+                </div>
+              </div>
           )}
 
           {season && onSeasonChange && (
-                <button
-                    type="button"
-                    onClick={toggleSeason}
-                    className={`flex flex-col items-center justify-end pb-1 group transition-transform active:scale-95 px-1`}
-                >
-                    <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 opacity-50">Сезон</span>
-                    <div className={`flex items-center gap-1 ${season === 'Лето' ? 'text-amber-500' : 'text-sky-500'}`}>
+              <div className="flex flex-col items-center group ml-1 sm:ml-2">
+                <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 opacity-50 min-h-[15px]">Сезон</span>
+                <div className="h-8 sm:h-10 flex items-end pb-1">
+                    <button
+                        type="button"
+                        onClick={toggleSeason}
+                        className={`flex items-center gap-1 leading-none group transition-transform active:scale-95 px-1 ${season === 'Лето' ? 'text-amber-500' : 'text-sky-500'}`}
+                    >
                         {season === 'Лето' ? <SunIcon/> : <SnowflakeIcon/>}
-                    </div>
-                </button>
+                    </button>
+                </div>
+              </div>
           )}
           
       </div>

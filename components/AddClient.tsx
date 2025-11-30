@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
 import { api } from '../services/api';
@@ -37,6 +37,8 @@ const TIRE_PRESETS = [
     { size: 'R22,5', price: 800 },
     { size: 'R23', price: 800 },
 ];
+
+const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const formatDate = (date: Date) => {
     const tzOffset = date.getTimezoneOffset() * 60000;
@@ -140,6 +142,69 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
     // Always calculate derived fields like dates, totals, and contract number
     return calculateAllFields(initialState);
 };
+
+// --- Smart Duration Selector (Replaces simple buttons) ---
+const SmartDurationSelector: React.FC<{
+    value: number;
+    onChange: (val: number) => void;
+    minimal?: boolean;
+}> = ({ value, onChange, minimal = false }) => {
+    const [isActive, setIsActive] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsActive(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative flex flex-col items-center group w-full" ref={wrapperRef}>
+            {!minimal && <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 select-none">Срок</span>}
+            <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className={`w-full text-center font-medium transition-all duration-200 ${minimal ? 'text-lg text-gray-900 dark:text-white' : 'text-2xl sm:text-3xl font-black tracking-tight leading-none border-b-2 pb-1'} ${
+                    isActive 
+                    ? minimal ? '' : 'text-primary-600 border-primary-500 scale-110' 
+                    : minimal ? '' : 'text-gray-800 dark:text-gray-100 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+            >
+                {value}<span className={`text-gray-500 ${minimal ? 'text-sm font-normal ml-1' : 'text-sm font-normal ml-1'}`}>мес</span>
+            </button>
+            
+            {isActive && (
+                <div className={`
+                    fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] w-[90vw] max-w-[320px] 
+                    sm:absolute sm:top-full sm:left-1/2 sm:-translate-x-1/2 sm:translate-y-0 sm:mt-2 sm:z-50 sm:w-[320px]
+                    bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 
+                    animate-in fade-in zoom-in-95 duration-100
+                `}>
+                    <div className="grid grid-cols-4 gap-2 no-scrollbar">
+                        {STORAGE_MONTHS.map((opt) => (
+                            <button
+                                key={opt}
+                                type="button"
+                                onClick={() => { onChange(opt); setIsActive(false); }}
+                                className={`py-3 rounded-lg text-lg font-bold transition-colors ${
+                                    value === opt
+                                    ? 'bg-primary-600 text-white'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-primary-100 dark:hover:bg-primary-900/30'
+                                }`}
+                            >
+                                {opt}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 // --- Advanced DOT Input Component ---
 interface AdvancedDotInputProps {
@@ -255,12 +320,15 @@ const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, ti
             </div>
 
             {mode === 'single' ? (
-                <Input 
-                    value={singleDot} 
-                    onChange={e => handleSingleChange(e.target.value)} 
-                    placeholder="Например, 4521" 
-                    helperText="4 цифры (неделя и год)"
-                />
+                <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <Input 
+                        value={singleDot} 
+                        onChange={e => handleSingleChange(e.target.value)} 
+                        placeholder="Например, 4521" 
+                        helperText="4 цифры (неделя и год)"
+                        className="!mt-0"
+                    />
+                </div>
             ) : (
                 <div className="grid grid-cols-1 gap-2 bg-gray-50 dark:bg-gray-800/40 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
                     {Array.from({ length: tireCount }).map((_, idx) => (
@@ -487,13 +555,13 @@ ${servicesLine}</blockquote>
                                         type="button"
                                         key={preset.size}
                                         onClick={() => handlePresetClick(preset)}
-                                        className={`p-2 sm:p-3 rounded-lg border-2 text-center transition-all duration-200 flex flex-col items-center justify-center ${formData['Размер шин'] === preset.size 
+                                        className={`p-2 sm:p-3 rounded-lg border-2 text-center transition-all duration-200 flex flex-col items-center justify-between h-full ${formData['Размер шин'] === preset.size 
                                             ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-500 shadow-md' 
                                             : 'bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:border-primary-400'
                                         }`}
                                     >
                                         <div className="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-base">{preset.size}</div>
-                                        <div className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight">
+                                        <div className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight mt-1">
                                             {preset.price}₽<span className="hidden sm:inline">/мес</span>
                                         </div>
                                     </button>
@@ -550,8 +618,19 @@ ${servicesLine}</blockquote>
                         <div>
                             <div className="grid grid-cols-2 gap-4">
                                 <Input label="Дата начала" name="Начало" type="date" value={formData['Начало']} onChange={handleInputChange} />
-                                <Input label="Срок хранения, мес." name="Срок" type="number" inputMode="numeric" value={formData['Срок']} onChange={handleInputChange} />
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Срок хранения</label>
+                                    <div className="relative h-[46px] flex items-center justify-start px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-primary-500">
+                                         <SmartDurationSelector 
+                                            value={Number(formData['Срок'])} 
+                                            onChange={(val) => handleChange({ 'Срок': val })} 
+                                            minimal={true}
+                                        />
+                                    </div>
+                                </div>
                             </div>
+
                             <div className="grid grid-cols-2 gap-4 mt-4">
                                 <Input label="Дата окончания" name="Окончание" type="date" value={formData['Окончание']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
                                 <Input label="Дата напоминания" name="Напомнить" type="date" value={formData['Напомнить']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
