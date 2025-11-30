@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
@@ -14,7 +12,7 @@ import { ImageUpload } from './ui/ImageUpload';
 
 // --- ICONS ---
 const UserIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>;
-const TireIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 9.068l.44-2.396M11.25 9.068l-3.41 1.936m3.41-1.936l1.936 3.41M11.25 9.068a4.5 4.5 0 013.182-.968h.063a4.5 4.5 0 013.478 5.432l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a2.25 2.25 0 00-2.208-1.956H9.413a2.25 2.25 0 00-2.208 1.956l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234A4.5 4.5 0 016.12 6.132h.063a4.5 4.5 0 013.182.968z" /></svg>;
+const TireIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 9.068l.44-2.396M11.25 9.068l-3.41 1.936m3.41-1.936l1.936 3.41M11.25 9.068a4.5 4.5 0 013.182-.968h.063a4.5 4.5 0 013.478 5.432l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a2.25 2.25 0 00-2.208-1.956H9.413a2.25 2.25 0 00-2.208 1.956l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a4.5 4.5 0 016.12 6.132h.063a4.5 4.5 0 013.182.968z" /></svg>;
 const CreditCardIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 21z" /></svg>;
 
 const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; label: React.ReactNode}> = ({ name, checked, onChange, label }) => (
@@ -25,9 +23,19 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
 );
 
 const TIRE_PRESETS = [
-    { size: 'R13-R15', price: 500 },
-    { size: 'R16-R19', price: 600 },
-    { size: 'R20+', price: 700 },
+    { size: 'R12', price: 500 },
+    { size: 'R13', price: 500 },
+    { size: 'R14', price: 500 },
+    { size: 'R15', price: 500 },
+    { size: 'R16', price: 600 },
+    { size: 'R17', price: 600 },
+    { size: 'R18', price: 600 },
+    { size: 'R19', price: 600 },
+    { size: 'R20', price: 700 },
+    { size: 'R21', price: 700 },
+    { size: 'R22', price: 800 },
+    { size: 'R22,5', price: 800 },
+    { size: 'R23', price: 800 },
 ];
 
 const formatDate = (date: Date) => {
@@ -287,19 +295,21 @@ ${servicesLine}</blockquote>
                     <div className="space-y-6">
                          <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Размер / Цена</label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-4 gap-2 sm:gap-3">
                                 {TIRE_PRESETS.map(preset => (
                                     <button
                                         type="button"
                                         key={preset.size}
                                         onClick={() => handlePresetClick(preset)}
-                                        className={`p-3 rounded-lg border-2 text-center transition-all duration-200 ${formData['Размер шин'] === preset.size 
+                                        className={`p-2 sm:p-3 rounded-lg border-2 text-center transition-all duration-200 flex flex-col items-center justify-center ${formData['Размер шин'] === preset.size 
                                             ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-500 shadow-md' 
                                             : 'bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:border-primary-400'
                                         }`}
                                     >
-                                        <div className="font-bold text-gray-800 dark:text-gray-100">{preset.size}</div>
-                                        <div className="text-sm text-gray-500 dark:text-gray-400">{preset.price}₽/мес.</div>
+                                        <div className="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-base">{preset.size}</div>
+                                        <div className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight">
+                                            {preset.price}₽<span className="hidden sm:inline">/мес</span>
+                                        </div>
                                     </button>
                                 ))}
                             </div>
