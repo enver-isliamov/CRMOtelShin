@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { TIRE_BRANDS } from '../../data/brands';
+import { TIRE_DATA } from '../../data/brands';
 
 interface SmartTireInputProps {
   value: string;
@@ -154,6 +154,7 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
   const brandInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
   const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
+  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
 
   useEffect(() => {
     setInternalState(parseValue(value));
@@ -192,25 +193,46 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
   }
 
   // --- BRAND SUGGESTION LOGIC ---
+  const brandNames = useMemo(() => TIRE_DATA.map(d => d.brand), []);
   const filteredBrands = useMemo(() => {
       if (!internalState.brand) return [];
       const query = internalState.brand.toLowerCase();
-      return TIRE_BRANDS.filter(b => b.toLowerCase().startsWith(query)).slice(0, 20); // Limit to 20 for perf
-  }, [internalState.brand]);
+      return brandNames.filter(b => b.toLowerCase().startsWith(query)).slice(0, 20); 
+  }, [internalState.brand, brandNames]);
 
   const handleBrandSelect = (brand: string) => {
       updateState('brand', brand);
+      updateState('model', ''); // Reset model on brand change
       setShowBrandSuggestions(false);
-      // Auto-focus next field
       if (modelInputRef.current) {
           modelInputRef.current.focus();
       }
   };
 
   const handleBrandBlur = () => {
-      // Delay closing to allow click event on suggestion to fire
       setTimeout(() => setShowBrandSuggestions(false), 200);
   };
+
+  // --- MODEL SUGGESTION LOGIC ---
+  const filteredModels = useMemo(() => {
+      // Find the currently selected brand object
+      const selectedBrandData = TIRE_DATA.find(d => d.brand.toLowerCase() === internalState.brand.toLowerCase());
+      // If brand found and has models, filter them
+      if (selectedBrandData && selectedBrandData.models) {
+          const query = (internalState.model || '').toLowerCase();
+          return selectedBrandData.models.filter(m => m.toLowerCase().startsWith(query)).slice(0, 20);
+      }
+      return [];
+  }, [internalState.brand, internalState.model]);
+
+  const handleModelSelect = (model: string) => {
+      updateState('model', model);
+      setShowModelSuggestions(false);
+  };
+
+  const handleModelBlur = () => {
+      setTimeout(() => setShowModelSuggestions(false), 200);
+  }
 
   return (
     <div className="space-y-4">
@@ -232,14 +254,13 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
                 placeholder="Бренд (Michelin)"
                 className="block w-full border-0 border-b-2 border-gray-200 dark:border-gray-700 bg-transparent py-1.5 px-0 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-0 focus:border-primary-500 transition-colors sm:text-sm"
               />
-              {/* Brand Suggestions Dropdown */}
               {showBrandSuggestions && filteredBrands.length > 0 && (
                   <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 text-sm">
                       {filteredBrands.map(brand => (
                           <li 
                             key={brand}
                             onMouseDown={(e) => {
-                                e.preventDefault(); // Prevent blur before click
+                                e.preventDefault(); 
                                 handleBrandSelect(brand);
                             }}
                             className="px-3 py-2 cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-900/20 text-gray-800 dark:text-gray-200 font-medium"
@@ -250,15 +271,36 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
                   </ul>
               )}
           </div>
-          <div>
+          <div className="relative">
               <input
                 ref={modelInputRef}
                 type="text"
                 value={internalState.model}
-                onChange={(e) => updateState('model', e.target.value)}
+                onChange={(e) => {
+                    updateState('model', e.target.value);
+                    setShowModelSuggestions(true);
+                }}
+                onFocus={() => setShowModelSuggestions(true)}
+                onBlur={handleModelBlur}
                 placeholder="Модель (X-Ice)"
                 className="block w-full border-0 border-b-2 border-gray-200 dark:border-gray-700 bg-transparent py-1.5 px-0 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-0 focus:border-primary-500 transition-colors sm:text-sm"
               />
+               {showModelSuggestions && filteredModels.length > 0 && (
+                  <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 text-sm">
+                      {filteredModels.map(model => (
+                          <li 
+                            key={model}
+                            onMouseDown={(e) => {
+                                e.preventDefault(); 
+                                handleModelSelect(model);
+                            }}
+                            className="px-3 py-2 cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-900/20 text-gray-800 dark:text-gray-200 font-medium"
+                          >
+                              {model}
+                          </li>
+                      ))}
+                  </ul>
+              )}
           </div>
       </div>
 
