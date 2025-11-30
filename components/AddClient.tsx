@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
@@ -92,9 +93,16 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
 };
 
 const getInitialState = (reorderClient?: Client): Partial<Client> => {
+    // Logic for auto-detecting season
+    const currentMonth = new Date().getMonth(); // 0-11
+    // If Nov(10), Dec(11), Jan(0), Feb(1) -> People usually store Summer tires.
+    // Otherwise -> People store Winter tires.
+    const defaultSeason = (currentMonth >= 10 || currentMonth <= 1) ? 'Лето' : 'Зима';
+
     const defaultOrderState: Partial<Client> = {
         'Склад хранения': 'AYU-46', 'Ячейка': '', 'Источник трафика': '', 'Заказ - QR': '',
-        'Кол-во шин': 4, 'Наличие дисков': 'Нет', 'Сезон': 'Лето',
+        'Кол-во шин': 4, 'Наличие дисков': 'Нет', 
+        'Сезон': defaultSeason,
         'Срок': 6, 'Цена за месяц': TIRE_PRESETS[1].price, 'Начало': formatDate(new Date()),
         'Статус сделки': 'На складе', 'Размер шин': TIRE_PRESETS[1].size, 'Долг': 0,
         'DOT-код': '',
@@ -462,7 +470,13 @@ ${servicesLine}</blockquote>
                             </div>
                          </div>
                         
-                        <SmartTireInput label="Бренд / Марка / Размер шин" value={formData['Заказ - QR'] || ''} onChange={(val) => handleChange({ 'Заказ - QR': val })} />
+                        <SmartTireInput 
+                            label="Бренд / Марка / Размер шин" 
+                            value={formData['Заказ - QR'] || ''} 
+                            onChange={(val) => handleChange({ 'Заказ - QR': val })} 
+                            season={formData['Сезон'] as 'Лето'|'Зима'}
+                            onSeasonChange={(s) => handleChange({ 'Сезон': s })}
+                        />
                         
                         {/* New Advanced DOT Input */}
                         <AdvancedDotInput 
@@ -485,14 +499,7 @@ ${servicesLine}</blockquote>
                         
                         <ImageUpload onFilesChange={setFilesToUpload} />
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 items-end">
-                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Сезон</label>
-                                <select name="Сезон" value={formData['Сезон']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
-                                    <option value="Лето">Лето</option>
-                                    <option value="Зима">Зима</option>
-                                </select>
-                            </div>
+                        <div className="grid grid-cols-2 gap-6 items-end">
                              <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Наличие дисков</label>
                                 <select name="Наличие дисков" value={formData['Наличие дисков']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white">

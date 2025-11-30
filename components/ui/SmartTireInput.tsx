@@ -5,7 +5,14 @@ interface SmartTireInputProps {
   value: string;
   onChange: (value: string) => void;
   label: string;
+  season?: 'Лето' | 'Зима';
+  onSeasonChange?: (season: 'Лето' | 'Зима') => void;
 }
+
+// --- ICONS ---
+const SunIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>;
+const SnowflakeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 2.25v6M12 15.75v6M4.5 12h5.25M14.25 12h5.25M6.375 6.375l3.712 3.713M13.913 13.913l3.712 3.712M6.375 17.625l3.712-3.712M13.913 10.088l3.712-3.713" /></svg>;
+
 
 // --- CONSTANTS ---
 const COMMON_WIDTHS = ['135', '145', '155', '165', '175', '185', '195', '205', '215', '225', '235', '245', '255', '265', '275', '285', '295', '305', '315', '325'];
@@ -125,7 +132,7 @@ const TireParamSelector: React.FC<{
 }
 
 
-export const SmartTireInput: React.FC<SmartTireInputProps> = ({ value, onChange, label }) => {
+export const SmartTireInput: React.FC<SmartTireInputProps> = ({ value, onChange, label, season, onSeasonChange }) => {
   const [internalState, setInternalState] = useState(parseValue(value));
   const [activeParam, setActiveParam] = useState<string | null>(null);
 
@@ -138,7 +145,6 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({ value, onChange,
     setInternalState(nextState); // Optimistic update
 
     const brandAndModelPart = `${nextState.brand} ${nextState.model}`.trim();
-    // Only construct size part if we have at least one value to avoid weird strings like " / R"
     let sizePart = '';
     if (nextState.width || nextState.profile || nextState.diameter) {
         sizePart = `${nextState.width}/${nextState.profile}R${nextState.diameter}`;
@@ -152,6 +158,12 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({ value, onChange,
 
   const toggleParam = (param: string) => {
       setActiveParam(activeParam === param ? null : param);
+  };
+  
+  const toggleSeason = () => {
+      if (onSeasonChange) {
+          onSeasonChange(season === 'Лето' ? 'Зима' : 'Лето');
+      }
   };
 
   return (
@@ -216,6 +228,23 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({ value, onChange,
             isActive={activeParam === 'diameter'}
             onToggle={() => toggleParam('diameter')}
           />
+          
+          {season && onSeasonChange && (
+              <>
+                <div className="w-px h-8 bg-gray-300 dark:bg-gray-600 mx-1 sm:mx-3 mb-1"></div>
+                <button
+                    type="button"
+                    onClick={toggleSeason}
+                    className={`flex flex-col items-center justify-end pb-1 group transition-transform active:scale-95`}
+                >
+                    <span className="text-[10px] uppercase text-gray-400 font-medium tracking-wider mb-1 opacity-50">Сезон</span>
+                    <div className={`flex items-center gap-1 font-bold text-lg sm:text-xl ${season === 'Лето' ? 'text-amber-500' : 'text-sky-500'}`}>
+                        {season === 'Лето' ? <SunIcon/> : <SnowflakeIcon/>}
+                        <span className="hidden sm:inline">{season}</span>
+                    </div>
+                </button>
+              </>
+          )}
           
       </div>
     </div>
