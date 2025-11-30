@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
@@ -127,6 +126,154 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
     // Always calculate derived fields like dates, totals, and contract number
     return calculateAllFields(initialState);
 };
+
+// --- Advanced DOT Input Component ---
+interface AdvancedDotInputProps {
+    value: string;
+    onChange: (val: string) => void;
+    tireCount: number;
+}
+
+const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, tireCount }) => {
+    const [mode, setMode] = useState<'single' | 'multi'>('single');
+    const [singleDot, setSingleDot] = useState('');
+    const [multiDots, setMultiDots] = useState<{dot: string, note: string}[]>([]);
+
+    // Parse incoming string to state
+    useEffect(() => {
+        if (!value) {
+            setMode('single');
+            setSingleDot('');
+            setMultiDots(Array(tireCount).fill({ dot: '', note: '' }));
+            return;
+        }
+
+        // Check if value looks like multi-line format (#1: ...)
+        const isMulti = value.includes('\n') || value.startsWith('#');
+        
+        if (isMulti) {
+            setMode('multi');
+            const lines = value.split('\n');
+            const parsed = Array(tireCount).fill(null).map((_, i) => {
+                // Try to find a line starting with #{i+1}:
+                const line = lines.find(l => l.trim().startsWith(`#${i + 1}:`));
+                if (line) {
+                    // Extract DOT and Note from "#1: 4221 (Defect)"
+                    const content = line.substring(line.indexOf(':') + 1).trim();
+                    const noteMatch = content.match(/\((.*?)\)$/);
+                    const note = noteMatch ? noteMatch[1] : '';
+                    const dot = noteMatch ? content.replace(/\s*\(.*?\)$/, '') : content;
+                    return { dot, note };
+                }
+                return { dot: '', note: '' };
+            });
+            setMultiDots(parsed);
+        } else {
+            setMode('single');
+            setSingleDot(value);
+            // Pre-fill multi state just in case user switches
+            setMultiDots(Array(tireCount).fill({ dot: value, note: '' }));
+        }
+    }, [value, tireCount]);
+
+    // Handle updates and sync back to parent string
+    const updateParent = (currentMode: 'single' | 'multi', sDot: string, mDots: typeof multiDots) => {
+        if (currentMode === 'single') {
+            onChange(sDot);
+        } else {
+            // Build multi-line string
+            // Format:
+            // #1: 4221
+            // #2: 4121 (Грыжа)
+            const lines = mDots.map((item, index) => {
+                if (!item.dot && !item.note) return null;
+                let line = `#${index + 1}: ${item.dot || '?'}`;
+                if (item.note) line += ` (${item.note})`;
+                return line;
+            }).filter(Boolean);
+            
+            if (lines.length === 0) onChange('');
+            else onChange(lines.join('\n'));
+        }
+    };
+
+    const handleSingleChange = (val: string) => {
+        setSingleDot(val);
+        setMultiDots(mDots => mDots.map(d => ({ ...d, dot: val })));
+        updateParent('single', val, multiDots);
+    };
+
+    const handleMultiChange = (index: number, field: 'dot' | 'note', val: string) => {
+        const newDots = [...multiDots];
+        // Ensure array size matches tireCount (in case tireCount increased dynamically)
+        while(newDots.length <= index) newDots.push({dot: '', note: ''});
+        
+        newDots[index] = { ...newDots[index], [field]: val };
+        setMultiDots(newDots);
+        updateParent('multi', singleDot, newDots);
+    };
+
+    const toggleMode = (newMode: 'single' | 'multi') => {
+        setMode(newMode);
+        updateParent(newMode, singleDot, multiDots);
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">DOT-код</label>
+                <div className="flex bg-gray-100 dark:bg-gray-700/50 rounded-lg p-0.5">
+                    <button
+                        type="button"
+                        onClick={() => toggleMode('single')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${mode === 'single' ? 'bg-white dark:bg-gray-600 shadow text-primary-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    >
+                        Один
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => toggleMode('multi')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${mode === 'multi' ? 'bg-white dark:bg-gray-600 shadow text-primary-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                    >
+                        Разные / Дефекты
+                    </button>
+                </div>
+            </div>
+
+            {mode === 'single' ? (
+                <Input 
+                    value={singleDot} 
+                    onChange={e => handleSingleChange(e.target.value)} 
+                    placeholder="Например, 4521" 
+                    helperText="4 цифры (неделя и год)"
+                />
+            ) : (
+                <div className="grid grid-cols-1 gap-2 bg-gray-50 dark:bg-gray-800/40 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                    {Array.from({ length: tireCount }).map((_, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                            <span className="text-xs font-bold text-gray-400 w-6 text-right">#{idx + 1}</span>
+                            <input 
+                                type="text"
+                                className="flex-1 min-w-0 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400"
+                                placeholder="DOT (4521)"
+                                value={multiDots[idx]?.dot || ''}
+                                onChange={(e) => handleMultiChange(idx, 'dot', e.target.value)}
+                            />
+                            <input 
+                                type="text"
+                                className="flex-[1.5] min-w-0 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400"
+                                placeholder="Дефект (латка...)"
+                                value={multiDots[idx]?.note || ''}
+                                onChange={(e) => handleMultiChange(idx, 'note', e.target.value)}
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }> = ({ settings, onClientAdd }) => {
     const location = useLocation();
@@ -317,10 +464,15 @@ ${servicesLine}</blockquote>
                         
                         <SmartTireInput label="Бренд / Марка / Размер шин" value={formData['Заказ - QR'] || ''} onChange={(val) => handleChange({ 'Заказ - QR': val })} />
                         
-                        <Input label="DOT-код" name="DOT-код" value={formData['DOT-код'] || ''} onChange={handleInputChange} placeholder="Например, 4521" helperText="4 цифры, неделя и год производства." />
+                        {/* New Advanced DOT Input */}
+                        <AdvancedDotInput 
+                            value={formData['DOT-код'] || ''} 
+                            onChange={(val) => handleChange({ 'DOT-код': val })} 
+                            tireCount={Number(formData['Кол-во шин']) || 4} 
+                        />
 
                         <div>
-                           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты</label>
+                           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты (общее)</label>
                            <textarea
                                id="description"
                                value={description}
