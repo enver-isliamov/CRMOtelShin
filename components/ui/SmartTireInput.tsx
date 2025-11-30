@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { TIRE_BRANDS } from '../../data/brands';
 
 interface SmartTireInputProps {
   value: string;
@@ -149,6 +149,11 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
 }) => {
   const [internalState, setInternalState] = useState(parseValue(value));
   const [activeParam, setActiveParam] = useState<string | null>(null);
+  
+  // Refs for Brand/Model Inputs
+  const brandInputRef = useRef<HTMLInputElement>(null);
+  const modelInputRef = useRef<HTMLInputElement>(null);
+  const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
 
   useEffect(() => {
     setInternalState(parseValue(value));
@@ -186,23 +191,68 @@ export const SmartTireInput: React.FC<SmartTireInputProps> = ({
       }
   }
 
+  // --- BRAND SUGGESTION LOGIC ---
+  const filteredBrands = useMemo(() => {
+      if (!internalState.brand) return [];
+      const query = internalState.brand.toLowerCase();
+      return TIRE_BRANDS.filter(b => b.toLowerCase().startsWith(query)).slice(0, 20); // Limit to 20 for perf
+  }, [internalState.brand]);
+
+  const handleBrandSelect = (brand: string) => {
+      updateState('brand', brand);
+      setShowBrandSuggestions(false);
+      // Auto-focus next field
+      if (modelInputRef.current) {
+          modelInputRef.current.focus();
+      }
+  };
+
+  const handleBrandBlur = () => {
+      // Delay closing to allow click event on suggestion to fire
+      setTimeout(() => setShowBrandSuggestions(false), 200);
+  };
+
   return (
     <div className="space-y-4">
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       
       {/* Top: Brand & Model Inputs */}
       <div className="grid grid-cols-2 gap-4">
-          <div>
+          <div className="relative">
               <input
+                ref={brandInputRef}
                 type="text"
                 value={internalState.brand}
-                onChange={(e) => updateState('brand', e.target.value)}
+                onChange={(e) => {
+                    updateState('brand', e.target.value);
+                    setShowBrandSuggestions(true);
+                }}
+                onFocus={() => setShowBrandSuggestions(true)}
+                onBlur={handleBrandBlur}
                 placeholder="Бренд (Michelin)"
                 className="block w-full border-0 border-b-2 border-gray-200 dark:border-gray-700 bg-transparent py-1.5 px-0 text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-0 focus:border-primary-500 transition-colors sm:text-sm"
               />
+              {/* Brand Suggestions Dropdown */}
+              {showBrandSuggestions && filteredBrands.length > 0 && (
+                  <ul className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 text-sm">
+                      {filteredBrands.map(brand => (
+                          <li 
+                            key={brand}
+                            onMouseDown={(e) => {
+                                e.preventDefault(); // Prevent blur before click
+                                handleBrandSelect(brand);
+                            }}
+                            className="px-3 py-2 cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-900/20 text-gray-800 dark:text-gray-200 font-medium"
+                          >
+                              {brand}
+                          </li>
+                      ))}
+                  </ul>
+              )}
           </div>
           <div>
               <input
+                ref={modelInputRef}
                 type="text"
                 value={internalState.model}
                 onChange={(e) => updateState('model', e.target.value)}
