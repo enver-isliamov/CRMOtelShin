@@ -86,7 +86,14 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
     const storagePrice = pricePerTirePerMonth * tireCount * storageMonths;
 
     let totalAmount = storagePrice;
-    if (nextState['Наличие дисков'] === 'Да') totalAmount += 100;
+    
+    // Rims calculation: +100 rub per month per set (4 tires)
+    if (nextState['Наличие дисков'] === 'Да') {
+        const rimSurchargePerSetPerMonth = 100;
+        const rimSurchargePerTirePerMonth = rimSurchargePerSetPerMonth / 4;
+        totalAmount += rimSurchargePerTirePerMonth * tireCount * storageMonths;
+    }
+
     if (nextState['Услуга: Мойка']) totalAmount += 200;
     if (nextState['Услуга: Упаковка']) totalAmount += 350;
     nextState['Общая сумма'] = totalAmount;
@@ -660,8 +667,10 @@ ${servicesLine}</blockquote>
                                 )}
                                 {formData['Наличие дисков'] === 'Да' && (
                                     <div className="flex justify-between">
-                                        <span>Хранение дисков</span>
-                                        <span>+ 100 ₽</span>
+                                        <span>Хранение дисков (+100₽/мес)</span>
+                                        <span>+ {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
+                                            (100 / 4) * (Number(formData['Кол-во шин']) || 4) * (Number(formData['Срок']) || 0)
+                                        )}</span>
                                     </div>
                                 )}
                                 {formData['Услуга: Мойка'] && (
