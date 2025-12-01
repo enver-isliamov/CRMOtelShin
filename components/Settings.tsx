@@ -75,7 +75,7 @@ const GeneralSettingsTab: React.FC<{
             </div>
             <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-md">
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <b>Токен Telegram бота</b> теперь настраивается непосредственно в Google Apps Script для повышения безопасности. Инструкции смотрите на вкладке "Настройка GAS".
+                    <b>Токен Telegram бота</b> теперь настраивается  в Google Apps Script. Инструкции смотрите на вкладке "Настройка GAS".
                 </p>
             </div>
             <Input 

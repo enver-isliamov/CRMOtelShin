@@ -22,25 +22,15 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
 );
 
 // Price mapping by diameter (R)
-// You can easily update prices here. The key is the diameter string.
 const PRICE_BY_DIAMETER: Record<string, number> = {
-    '12': 500,
-    '13': 500,
-    '14': 500,
-    '15': 500,
-    '16': 600,
-    '17': 600,
-    '18': 600,
-    '19': 600,
-    '20': 700,
-    '21': 700,
-    '22': 800,
-    '22,5': 800,
-    '23': 800,
-    '24': 800
+    '12': 500, '13': 500, '14': 500, '15': 500,
+    '16': 600, '17': 600, '18': 600, '19': 600,
+    '20': 700, '21': 700,
+    '22': 800, '22,5': 800, '23': 800, '24': 800
 };
 
 const DEFAULT_PRICE = 500;
+const RIM_SURCHARGE = 100; // Extra per month per set for rims
 
 const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -78,24 +68,23 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
         }
     }
     
+    // Calculate Total Amount
+    // Important: 'Цена за месяц' should already include the Rim Surcharge if Rims are selected.
+    // The calculation logic below assumes `nextState['Цена за месяц']` is the FINAL monthly rate per set (4 tires).
+    
     const pricePerMonth = Number(nextState['Цена за месяц']) || 0;
     const tireCount = Number(nextState['Кол-во шин']) || 4;
     const storageMonths = Number(nextState['Срок']) || 0;
     
+    // Formula: (PricePerSet / 4) * ActualCount * Months
     const pricePerTirePerMonth = pricePerMonth / 4;
-    const storagePrice = pricePerTirePerMonth * tireCount * storageMonths;
+    let totalAmount = pricePerTirePerMonth * tireCount * storageMonths;
 
-    let totalAmount = storagePrice;
-    
-    // Rims calculation: +100 rub per month per set (4 tires)
-    if (nextState['Наличие дисков'] === 'Да') {
-        const rimSurchargePerSetPerMonth = 100;
-        const rimSurchargePerTirePerMonth = rimSurchargePerSetPerMonth / 4;
-        totalAmount += rimSurchargePerTirePerMonth * tireCount * storageMonths;
-    }
-
+    // Services
     if (nextState['Услуга: Мойка']) totalAmount += 200;
     if (nextState['Услуга: Упаковка']) totalAmount += 350;
+    // 'Вывоз' is free usually
+
     nextState['Общая сумма'] = totalAmount;
 
     if (!nextState['Договор']) {
@@ -374,13 +363,17 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
             const diameter = diameterMatch[1].replace(',', '.'); // Normalize decimal if any
             
             // Try to find exact match in price map
-            // We use the original string key from PRICE_BY_DIAMETER (e.g., '16', '22,5')
-            let price = PRICE_BY_DIAMETER[diameterMatch[1]];
+            let price = PRICE_BY_DIAMETER[diameterMatch[1]] || 0;
             
-            if (price) {
+            // If rims are currently selected, add the surcharge to the base price immediately
+            if (price > 0 && formData['Наличие дисков'] === 'Да') {
+                price += RIM_SURCHARGE;
+            }
+
+            if (price > 0) {
                 handleChange({ 
                     'Заказ - QR': sizeString,
-                    'Размер шин': `R${diameterMatch[1]}`, // Store simple size like R16 for reports
+                    'Размер шин': `R${diameterMatch[1]}`, 
                     'Цена за месяц': price 
                 });
             } else {
@@ -389,6 +382,20 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         } else {
             handleChange({ 'Заказ - QR': sizeString });
         }
+    };
+
+    const handleRimsToggle = (val: 'Да' | 'Нет') => {
+        // Logic: if turning ON, add 100 to current price. If turning OFF, subtract 100.
+        // This ensures the "Price per month" input visually updates.
+        let currentPrice = Number(formData['Цена за месяц']) || 0;
+        
+        if (val === 'Да') {
+            currentPrice += RIM_SURCHARGE;
+        } else if (val === 'Нет' && formData['Наличие дисков'] === 'Да') {
+            currentPrice = Math.max(0, currentPrice - RIM_SURCHARGE);
+        }
+        
+        handleChange({ 'Наличие дисков': val, 'Цена за месяц': currentPrice });
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -415,6 +422,11 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         
         const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
 
+        // Parse Brand/Model from 'Заказ - QR' if possible for cleaner display
+        const tireDetails = client['Заказ - QR']?.split('>>') || [];
+        const brandModel = tireDetails[0]?.trim() || '';
+        const size = tireDetails[1]?.trim() || client['Размер шин'] || '';
+
         return `
 ✅✅✅ <b>НОВЫЙ ЗАКАЗ</b> ✅✅✅
 ${originalClient ? '<i>(для существующего клиента)</i>\n' : ''}
@@ -424,11 +436,11 @@ ${originalClient ? '<i>(для существующего клиента)</i>\n'
 <b>Адрес:</b> ${client['Адрес клиента'] || 'Не указан'}
 
 - - - - - <b>ДЕТАЛИ ЗАКАЗА</b> - - - - -
-<blockquote><i>⭕️ ${client['Заказ - QR'] || ''}</i>
-Кол-во шин: ${client['Кол-во шин']} шт.
-Сезон: ${client['Сезон']}
-Диски: ${client['Наличие дисков']}
-${servicesLine}</blockquote>
+<blockquote><b>Шины:</b> ${brandModel} ${size}
+<b>Кол-во:</b> ${client['Кол-во шин']} шт. ${client['Наличие дисков'] === 'Да' ? '(с дисками)' : ''}
+<b>Сезон:</b> ${client['Сезон']}
+<b>DOT:</b> ${client['DOT-код'] || 'Не указан'}
+${servicesLine ? servicesLine + '\n' : ''}<i>${description ? `💬 ${description}` : ''}</i></blockquote>
 - - - - - - - - - - - - - -
 📦 <b>Склад:</b> ${client['Склад хранения']} / ${client['Ячейка']}
 ⚡️ <b>Хранение:</b> ${client['Срок']} мес. (${startDate} » ${endDate})
@@ -568,7 +580,7 @@ ${servicesLine}</blockquote>
                             tireCount={Number(formData['Кол-во шин'] || 4)}
                             onTireCountChange={(c) => handleChange({ 'Кол-во шин': c })}
                             hasRims={formData['Наличие дисков'] as 'Да'|'Нет'}
-                            onHasRimsChange={(r) => handleChange({ 'Наличие дисков': r })}
+                            onHasRimsChange={handleRimsToggle}
                         />
                         
                         {/* New Advanced DOT Input */}
@@ -667,10 +679,8 @@ ${servicesLine}</blockquote>
                                 )}
                                 {formData['Наличие дисков'] === 'Да' && (
                                     <div className="flex justify-between">
-                                        <span>Хранение дисков (+100₽/мес)</span>
-                                        <span>+ {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
-                                            (100 / 4) * (Number(formData['Кол-во шин']) || 4) * (Number(formData['Срок']) || 0)
-                                        )}</span>
+                                        <span>Хранение дисков (включено)</span>
+                                        <span className="text-gray-500 text-xs self-center">+100 ₽/мес</span>
                                     </div>
                                 )}
                                 {formData['Услуга: Мойка'] && (
