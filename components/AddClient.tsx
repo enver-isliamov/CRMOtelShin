@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
@@ -428,18 +429,19 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         const size = tireDetails[1]?.trim() || client['Размер шин'] || '';
 
         return `
-✅✅✅ <b>НОВЫЙ ЗАКАЗ</b> ✅✅✅
+✅✅✅ <b>ЗАКАЗ ОФОРМЛЕН</b> ✅✅✅
 ${originalClient ? '<i>(для существующего клиента)</i>\n' : ''}
+- - - - - - - - - - - - - -
 <b>Имя:</b> ${client['Имя клиента']}
 <b>Телефон:</b> <code>${client['Телефон']}</code>
-<b>Авто:</b> ${client['Номер Авто']}
+<b>🚗:</b> ${client['Номер Авто']} --МАРКА АВТО--  
 <b>Адрес:</b> ${client['Адрес клиента'] || 'Не указан'}
 
 - - - - - <b>ДЕТАЛИ ЗАКАЗА</b> - - - - -
 <blockquote><b>Шины:</b> ${brandModel} ${size}
 <b>Кол-во:</b> ${client['Кол-во шин']} шт. ${client['Наличие дисков'] === 'Да' ? '(с дисками)' : ''}
 <b>Сезон:</b> ${client['Сезон']}
-<b>DOT:</b> ${client['DOT-код'] || 'Не указан'}
+<b>📋DOT:</b> ${client['DOT-код'] || 'Не указан'}
 ${servicesLine ? servicesLine + '\n' : ''}<i>${description ? `💬 ${description}` : ''}</i></blockquote>
 - - - - - - - - - - - - - -
 📦 <b>Склад:</b> ${client['Склад хранения']} / ${client['Ячейка']}
