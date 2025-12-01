@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings } from '../types';
@@ -22,21 +21,26 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
     </label>
 );
 
-const TIRE_PRESETS = [
-    { size: 'R12', price: 500 },
-    { size: 'R13', price: 500 },
-    { size: 'R14', price: 500 },
-    { size: 'R15', price: 500 },
-    { size: 'R16', price: 600 },
-    { size: 'R17', price: 600 },
-    { size: 'R18', price: 600 },
-    { size: 'R19', price: 600 },
-    { size: 'R20', price: 700 },
-    { size: 'R21', price: 700 },
-    { size: 'R22', price: 800 },
-    { size: 'R22,5', price: 800 },
-    { size: 'R23', price: 800 },
-];
+// Price mapping by diameter (R)
+// You can easily update prices here. The key is the diameter string.
+const PRICE_BY_DIAMETER: Record<string, number> = {
+    '12': 500,
+    '13': 500,
+    '14': 500,
+    '15': 500,
+    '16': 600,
+    '17': 600,
+    '18': 600,
+    '19': 600,
+    '20': 700,
+    '21': 700,
+    '22': 800,
+    '22,5': 800,
+    '23': 800,
+    '24': 800
+};
+
+const DEFAULT_PRICE = 500;
 
 const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -95,35 +99,30 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
 };
 
 const getInitialState = (reorderClient?: Client): Partial<Client> => {
-    // Logic for auto-detecting season
-    const currentMonth = new Date().getMonth(); // 0-11
-    // If Nov(10), Dec(11), Jan(0), Feb(1) -> People usually store Summer tires.
-    // Otherwise -> People store Winter tires.
+    const currentMonth = new Date().getMonth(); 
     const defaultSeason = (currentMonth >= 10 || currentMonth <= 1) ? 'Лето' : 'Зима';
 
     const defaultOrderState: Partial<Client> = {
         'Склад хранения': 'AYU-46', 'Ячейка': '', 'Источник трафика': '', 'Заказ - QR': '',
         'Кол-во шин': 4, 'Наличие дисков': 'Нет', 
         'Сезон': defaultSeason,
-        'Срок': 6, 'Цена за месяц': TIRE_PRESETS[1].price, 'Начало': formatDate(new Date()),
-        'Статус сделки': 'На складе', 'Размер шин': TIRE_PRESETS[1].size, 'Долг': 0,
+        'Срок': 6, 'Цена за месяц': DEFAULT_PRICE, 'Начало': formatDate(new Date()),
+        'Статус сделки': 'На складе', 'Размер шин': '', 'Долг': 0,
         'DOT-код': '',
         'Услуга: Вывоз': false, 'Услуга: Мойка': false, 'Услуга: Упаковка': false,
         'photoUrls': [],
-        'id': `c${Date.now()}` // Generate a new ID for the new order
+        'id': `c${Date.now()}` 
     };
     
     let initialState: Partial<Client>;
 
     if (reorderClient) {
-        // Strip +7 from phone for display in the input with prefix
         const phone = reorderClient['Телефон']?.startsWith('+7') 
             ? reorderClient['Телефон'].substring(2) 
             : reorderClient['Телефон'];
 
         initialState = {
-            ...defaultOrderState, // Start with defaults for order-specific fields
-            // Overwrite with client-specific fields from the old order
+            ...defaultOrderState, 
             'Имя клиента': reorderClient['Имя клиента'],
             'Телефон': phone,
             'Адрес клиента': reorderClient['Адрес клиента'],
@@ -132,18 +131,16 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
             'Источник трафика': reorderClient['Источник трафика'],
         };
     } else {
-        // Phone starts empty so placeholder is visible. Prefix +7 will be added visually.
         initialState = {
             ...defaultOrderState,
             'Имя клиента': '', 'Телефон': '', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
         };
     }
     
-    // Always calculate derived fields like dates, totals, and contract number
     return calculateAllFields(initialState);
 };
 
-// --- Smart Duration Selector (Replaces simple buttons) ---
+// --- Smart Duration Selector ---
 const SmartDurationSelector: React.FC<{
     value: number;
     onChange: (val: number) => void;
@@ -218,7 +215,6 @@ const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, ti
     const [singleDot, setSingleDot] = useState('');
     const [multiDots, setMultiDots] = useState<{dot: string, note: string}[]>([]);
 
-    // Parse incoming string to state
     useEffect(() => {
         if (!value) {
             setMode('single');
@@ -227,17 +223,14 @@ const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, ti
             return;
         }
 
-        // Check if value looks like multi-line format (#1: ...)
         const isMulti = value.includes('\n') || value.startsWith('#');
         
         if (isMulti) {
             setMode('multi');
             const lines = value.split('\n');
             const parsed = Array(tireCount).fill(null).map((_, i) => {
-                // Try to find a line starting with #{i+1}:
                 const line = lines.find(l => l.trim().startsWith(`#${i + 1}:`));
                 if (line) {
-                    // Extract DOT and Note from "#1: 4221 (Defect)"
                     const content = line.substring(line.indexOf(':') + 1).trim();
                     const noteMatch = content.match(/\((.*?)\)$/);
                     const note = noteMatch ? noteMatch[1] : '';
@@ -250,20 +243,14 @@ const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, ti
         } else {
             setMode('single');
             setSingleDot(value);
-            // Pre-fill multi state just in case user switches
             setMultiDots(Array(tireCount).fill({ dot: value, note: '' }));
         }
     }, [value, tireCount]);
 
-    // Handle updates and sync back to parent string
     const updateParent = (currentMode: 'single' | 'multi', sDot: string, mDots: typeof multiDots) => {
         if (currentMode === 'single') {
             onChange(sDot);
         } else {
-            // Build multi-line string
-            // Format:
-            // #1: 4221
-            // #2: 4121 (Грыжа)
             const lines = mDots.map((item, index) => {
                 if (!item.dot && !item.note) return null;
                 let line = `#${index + 1}: ${item.dot || '?'}`;
@@ -284,7 +271,6 @@ const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, ti
 
     const handleMultiChange = (index: number, field: 'dot' | 'note', val: string) => {
         const newDots = [...multiDots];
-        // Ensure array size matches tireCount (in case tireCount increased dynamically)
         while(newDots.length <= index) newDots.push({dot: '', note: ''});
         
         newDots[index] = { ...newDots[index], [field]: val };
@@ -373,6 +359,31 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         setFormData(currentData => calculateAllFields(currentData, updates));
     };
 
+    // Helper to auto-calculate price based on tire size
+    const updatePriceFromTireSize = (sizeString: string) => {
+        // Parse diameter from string like "205/55R16" or "R16"
+        const diameterMatch = sizeString.match(/R\s*(\d{2}(?:,\d)?)/i);
+        if (diameterMatch && diameterMatch[1]) {
+            const diameter = diameterMatch[1].replace(',', '.'); // Normalize decimal if any
+            
+            // Try to find exact match in price map
+            // We use the original string key from PRICE_BY_DIAMETER (e.g., '16', '22,5')
+            let price = PRICE_BY_DIAMETER[diameterMatch[1]];
+            
+            if (price) {
+                handleChange({ 
+                    'Заказ - QR': sizeString,
+                    'Размер шин': `R${diameterMatch[1]}`, // Store simple size like R16 for reports
+                    'Цена за месяц': price 
+                });
+            } else {
+                handleChange({ 'Заказ - QR': sizeString });
+            }
+        } else {
+            handleChange({ 'Заказ - QR': sizeString });
+        }
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const isCheckbox = type === 'checkbox';
@@ -383,13 +394,6 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     const handleCarNumberChange = (value: string) => {
         const formattedValue = value.toUpperCase().replace(/[^А-ЯA-Z0-9]/g, '');
         handleChange({ 'Номер Авто': formattedValue });
-    };
-    
-    const handlePresetClick = (preset: { size: string; price: number }) => {
-        handleChange({
-            'Размер шин': preset.size,
-            'Цена за месяц': preset.price
-        });
     };
     
     const formatManagerMessage = (client: Partial<Client>): string => {
@@ -547,32 +551,11 @@ ${servicesLine}</blockquote>
 
                 <Card title="Шины и Услуги" actions={<TireIcon className="text-gray-400"/>}>
                     <div className="space-y-6">
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Размер / Цена</label>
-                            <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                                {TIRE_PRESETS.map(preset => (
-                                    <button
-                                        type="button"
-                                        key={preset.size}
-                                        onClick={() => handlePresetClick(preset)}
-                                        className={`p-2 sm:p-3 rounded-lg border-2 text-center transition-all duration-200 flex flex-col items-center justify-between h-full ${formData['Размер шин'] === preset.size 
-                                            ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-500 shadow-md' 
-                                            : 'bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:border-primary-400'
-                                        }`}
-                                    >
-                                        <div className="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-base">{preset.size}</div>
-                                        <div className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight mt-1">
-                                            {preset.price}₽<span className="hidden sm:inline">/мес</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                         </div>
                         
                         <SmartTireInput 
                             label="Бренд / Марка / Размер шин" 
                             value={formData['Заказ - QR'] || ''} 
-                            onChange={(val) => handleChange({ 'Заказ - QR': val })} 
+                            onChange={(val) => updatePriceFromTireSize(val)} 
                             season={formData['Сезон'] as 'Лето'|'Зима'}
                             onSeasonChange={(s) => handleChange({ 'Сезон': s })}
                             tireCount={Number(formData['Кол-во шин'] || 4)}
