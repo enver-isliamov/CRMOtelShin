@@ -23,15 +23,25 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
 );
 
 // Price mapping by diameter (R)
+// You can easily update prices here. The key is the diameter string.
 const PRICE_BY_DIAMETER: Record<string, number> = {
-    '12': 500, '13': 500, '14': 500, '15': 500,
-    '16': 600, '17': 600, '18': 600, '19': 600,
-    '20': 700, '21': 700,
-    '22': 800, '22,5': 800, '23': 800, '24': 800
+    '12': 500,
+    '13': 500,
+    '14': 500,
+    '15': 500,
+    '16': 600,
+    '17': 600,
+    '18': 600,
+    '19': 600,
+    '20': 700,
+    '21': 700,
+    '22': 800,
+    '22,5': 800,
+    '23': 800,
+    '24': 800
 };
 
 const DEFAULT_PRICE = 500;
-const RIM_SURCHARGE = 100; // Extra per month per set for rims
 
 const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -69,27 +79,47 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
         }
     }
     
-    // Calculate Total Amount
-    // Important: 'Цена за месяц' should already include the Rim Surcharge if Rims are selected.
-    // The calculation logic below assumes `nextState['Цена за месяц']` is the FINAL monthly rate per set (4 tires).
-    
     const pricePerMonth = Number(nextState['Цена за месяц']) || 0;
     const tireCount = Number(nextState['Кол-во шин']) || 4;
     const storageMonths = Number(nextState['Срок']) || 0;
     
-    // Formula: (PricePerSet / 4) * ActualCount * Months
     const pricePerTirePerMonth = pricePerMonth / 4;
-    let totalAmount = pricePerTirePerMonth * tireCount * storageMonths;
+    const storagePrice = pricePerTirePerMonth * tireCount * storageMonths;
 
-    // Services
+    let totalAmount = storagePrice;
+    
+    // Rims calculation: +100 rub per month per set (4 tires)
+    if (nextState['Наличие дисков'] === 'Да') {
+        const rimSurchargePerSetPerMonth = 100;
+        const rimSurchargePerTirePerMonth = rimSurchargePerSetPerMonth / 4;
+        totalAmount += rimSurchargePerTirePerMonth * tireCount * storageMonths;
+    }
+
     if (nextState['Услуга: Мойка']) totalAmount += 200;
     if (nextState['Услуга: Упаковка']) totalAmount += 350;
-    // 'Вывоз' is free usually
-
     nextState['Общая сумма'] = totalAmount;
 
     if (!nextState['Договор']) {
         nextState['Договор'] = generateContractNumber();
+    }
+
+    // --- Automatic Status Logic ---
+    const debt = Number(nextState['Долг'] || 0);
+    const total = Number(nextState['Общая сумма'] || 0);
+
+    // If debt is specified (greater than 0), force status
+    if (debt > 0) {
+        if (debt >= total) {
+             nextState['Статус сделки'] = 'Без оплаты';
+        } else {
+             nextState['Статус сделки'] = 'Частичная оплата';
+        }
+    } else {
+        // If debt is 0, checking if we should reset "unpaid" statuses to "paid"
+        // This preserves manual statuses like 'Завершено' or 'На складе' if they were set
+        if (nextState['Статус сделки'] === 'Без оплаты' || nextState['Статус сделки'] === 'Частичная оплата') {
+             nextState['Статус сделки'] = 'Оплачено';
+        }
     }
 
     return nextState;
@@ -358,45 +388,37 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
 
     // Helper to auto-calculate price based on tire size
     const updatePriceFromTireSize = (sizeString: string) => {
-        // Parse diameter from string like "205/55R16" or "R16"
+        // sizeString example: "Michelin X-Ice >> 175/65R14"
         const diameterMatch = sizeString.match(/R\s*(\d{2}(?:,\d)?)/i);
+        
+        const updates: Partial<Client> = {
+            'Заказ - QR': sizeString
+        };
+
+        // Extract full size string (e.g. 175/65R14) from "Brand >> Size" format
+        const parts = sizeString.split('>>');
+        if (parts.length > 1) {
+             const sizePart = parts[1].trim();
+             // Use the full size string as requested if available
+             if (sizePart) {
+                 updates['Размер шин'] = sizePart;
+             } else if (diameterMatch) {
+                 // Fallback to simple Rxx if full size not available
+                 updates['Размер шин'] = `R${diameterMatch[1]}`;
+             }
+        } else if (diameterMatch) {
+             updates['Размер шин'] = `R${diameterMatch[1]}`;
+        }
+
         if (diameterMatch && diameterMatch[1]) {
-            const diameter = diameterMatch[1].replace(',', '.'); // Normalize decimal if any
-            
-            // Try to find exact match in price map
-            let price = PRICE_BY_DIAMETER[diameterMatch[1]] || 0;
-            
-            // If rims are currently selected, add the surcharge to the base price immediately
-            if (price > 0 && formData['Наличие дисков'] === 'Да') {
-                price += RIM_SURCHARGE;
+            // Price lookup key (e.g. "14", "16", "22,5")
+            const price = PRICE_BY_DIAMETER[diameterMatch[1]];
+            if (price) {
+                updates['Цена за месяц'] = price;
             }
-
-            if (price > 0) {
-                handleChange({ 
-                    'Заказ - QR': sizeString,
-                    'Размер шин': `R${diameterMatch[1]}`, 
-                    'Цена за месяц': price 
-                });
-            } else {
-                handleChange({ 'Заказ - QR': sizeString });
-            }
-        } else {
-            handleChange({ 'Заказ - QR': sizeString });
-        }
-    };
-
-    const handleRimsToggle = (val: 'Да' | 'Нет') => {
-        // Logic: if turning ON, add 100 to current price. If turning OFF, subtract 100.
-        // This ensures the "Price per month" input visually updates.
-        let currentPrice = Number(formData['Цена за месяц']) || 0;
-        
-        if (val === 'Да') {
-            currentPrice += RIM_SURCHARGE;
-        } else if (val === 'Нет' && formData['Наличие дисков'] === 'Да') {
-            currentPrice = Math.max(0, currentPrice - RIM_SURCHARGE);
         }
         
-        handleChange({ 'Наличие дисков': val, 'Цена за месяц': currentPrice });
+        handleChange(updates);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -423,26 +445,20 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         
         const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
 
-        // Parse Brand/Model from 'Заказ - QR' if possible for cleaner display
-        const tireDetails = client['Заказ - QR']?.split('>>') || [];
-        const brandModel = tireDetails[0]?.trim() || '';
-        const size = tireDetails[1]?.trim() || client['Размер шин'] || '';
-
         return `
-✅✅✅ <b>ЗАКАЗ ОФОРМЛЕН</b> ✅✅✅
+✅✅✅ <b>НОВЫЙ ЗАКАЗ</b> ✅✅✅
 ${originalClient ? '<i>(для существующего клиента)</i>\n' : ''}
-- - - - - - - - - - - - - -
 <b>Имя:</b> ${client['Имя клиента']}
 <b>Телефон:</b> <code>${client['Телефон']}</code>
-<b>🚗:</b> ${client['Номер Авто']} --МАРКА АВТО--  
+<b>Авто:</b> ${client['Номер Авто']}
 <b>Адрес:</b> ${client['Адрес клиента'] || 'Не указан'}
 
 - - - - - <b>ДЕТАЛИ ЗАКАЗА</b> - - - - -
-<blockquote><b>Шины:</b> ${brandModel} ${size}
-<b>Кол-во:</b> ${client['Кол-во шин']} шт. ${client['Наличие дисков'] === 'Да' ? '(с дисками)' : ''}
-<b>Сезон:</b> ${client['Сезон']}
-<b>📋DOT:</b> ${client['DOT-код'] || 'Не указан'}
-${servicesLine ? servicesLine + '\n' : ''}<i>${description ? `💬 ${description}` : ''}</i></blockquote>
+<blockquote><i>⭕️ ${client['Заказ - QR'] || ''}</i>
+Кол-во шин: ${client['Кол-во шин']} шт.
+Сезон: ${client['Сезон']}
+Диски: ${client['Наличие дисков']}
+${servicesLine}</blockquote>
 - - - - - - - - - - - - - -
 📦 <b>Склад:</b> ${client['Склад хранения']} / ${client['Ячейка']}
 ⚡️ <b>Хранение:</b> ${client['Срок']} мес. (${startDate} » ${endDate})
@@ -582,7 +598,7 @@ ${servicesLine ? servicesLine + '\n' : ''}<i>${description ? `💬 ${description
                             tireCount={Number(formData['Кол-во шин'] || 4)}
                             onTireCountChange={(c) => handleChange({ 'Кол-во шин': c })}
                             hasRims={formData['Наличие дисков'] as 'Да'|'Нет'}
-                            onHasRimsChange={handleRimsToggle}
+                            onHasRimsChange={(r) => handleChange({ 'Наличие дисков': r })}
                         />
                         
                         {/* New Advanced DOT Input */}
@@ -653,6 +669,7 @@ ${servicesLine ? servicesLine + '\n' : ''}<i>${description ? `💬 ${description
                                 <select name="Статус сделки" value={formData['Статус сделки']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
                                     <option>На складе</option>
                                     <option>Без оплаты</option>
+                                    <option>Частичная оплата</option>
                                     <option>Оплачено</option>
                                     <option>Завершено</option>
                                 </select>
@@ -681,8 +698,10 @@ ${servicesLine ? servicesLine + '\n' : ''}<i>${description ? `💬 ${description
                                 )}
                                 {formData['Наличие дисков'] === 'Да' && (
                                     <div className="flex justify-between">
-                                        <span>Хранение дисков (включено)</span>
-                                        <span className="text-gray-500 text-xs self-center">+100 ₽/мес</span>
+                                        <span>Хранение дисков (+100₽/мес)</span>
+                                        <span>+ {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
+                                            (100 / 4) * (Number(formData['Кол-во шин']) || 4) * (Number(formData['Срок']) || 0)
+                                        )}</span>
                                     </div>
                                 )}
                                 {formData['Услуга: Мойка'] && (
