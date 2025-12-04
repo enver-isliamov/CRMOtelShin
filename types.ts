@@ -7,6 +7,7 @@ export interface Client {
   'Телефон': string;
   'Номер Авто': string;
   'Заказ - QR': string;
+  'Бренд_Модель'?: string;
   'DOT-код'?: string;
   'Размер шин'?: string;
   'Сезон'?: 'Лето' | 'Зима';

@@ -130,7 +130,7 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
     const defaultSeason = (currentMonth >= 10 || currentMonth <= 1) ? 'Лето' : 'Зима';
 
     const defaultOrderState: Partial<Client> = {
-        'Склад хранения': 'AYU-46', 'Ячейка': '', 'Источник трафика': '', 'Заказ - QR': '',
+        'Склад хранения': 'AYU-46', 'Ячейка': '', 'Источник трафика': '', 'Заказ - QR': '', 'Бренд_Модель': '',
         'Кол-во шин': 4, 'Наличие дисков': 'Нет', 
         'Сезон': defaultSeason,
         'Срок': 6, 'Цена за месяц': DEFAULT_PRICE, 'Начало': formatDate(new Date()),
@@ -397,6 +397,10 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
 
         // Extract full size string (e.g. 175/65R14) from "Brand >> Size" format
         const parts = sizeString.split('>>');
+        if (parts.length > 0) {
+             updates['Бренд_Модель'] = parts[0].trim();
+        }
+
         if (parts.length > 1) {
              const sizePart = parts[1].trim();
              // Use the full size string as requested if available
