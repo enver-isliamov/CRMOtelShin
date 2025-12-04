@@ -198,9 +198,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
         <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6">
                 {/* Row 1: Main Financial Widgets */}
-                <div className="col-span-1 sm:col-span-2 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '0ms'}}>
+                <div className="col-span-2 sm:col-span-2 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '0ms'}}>
                     <TotalEarningsCounter 
                         clients={clients} 
                         totalArchivedRevenue={totalArchivedRevenue}
@@ -208,13 +208,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
                     />
                 </div>
                 
-                <div className="col-span-1 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '50ms'}}>
+                <div className="col-span-2 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '50ms'}}>
                     <Card className="h-full bg-gradient-to-br from-green-500 to-cyan-600 dark:from-green-600 dark:to-cyan-700 text-white shadow-lg">
                         <LiveIncomeCounter monthlyIncome={globalStats.activeContractsMonthlyIncome} />
                     </Card>
                 </div>
                 
-                <div className="col-span-1 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '100ms'}}>
+                <div className="col-span-2 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '100ms'}}>
                      <TotalRevenueCard allOrders={allOrders} />
                 </div>
                 
@@ -227,10 +227,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
                 </div>
                 
                 {/* Row 3: Lists */}
-                 <div className="col-span-1 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '250ms'}}>
+                 <div className="col-span-2 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '250ms'}}>
                     <ExpiringClientsList clients={clients} onRemind={handleSendExpiryReminder} />
                 </div>
-                 <div className="col-span-1 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '300ms'}}>
+                 <div className="col-span-2 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '300ms'}}>
                     <DebtorsList debtors={globalStats.debtors} onRemind={handleSendDebtReminder} />
                 </div>
             </div>
