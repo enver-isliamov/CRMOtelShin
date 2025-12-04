@@ -8,6 +8,7 @@ import { Input } from './ui/Input';
 import { Modal } from './ui/Modal';
 import { VisualEditor } from './ui/VisualEditor';
 import { ToastContainer } from './ui/Toast';
+import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
 
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode, icon: React.ReactNode }> = ({ active, onClick, children, icon }) => (
@@ -445,436 +446,64 @@ const MastersTab: React.FC<{
 };
 
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
-    const crmCodeText = `/**
- * ==========================================
- *  ВЕРСИЯ CRM: 3.3.1 (Renamed for compatibility)
- * ==========================================
- */
-
-// --- КОНФИГУРАЦИЯ CRM ---
-const CRM_SCRIPT_VERSION = "3.3.1 - Merged";
-const SHEET_NAME_CLIENTS = "WebBase";
-const SHEET_NAME_TEMPLATES = "Шаблоны сообщений";
-const SHEET_NAME_MASTERS = "мастера";
-const SHEET_NAME_HISTORY = "History";
-const SHEET_NAME_ARCHIVE = "Archive";
-const SHEET_NAME_LOGS = "Logs";
-const ROOT_FOLDER_NAME = "TireCRMPhotos"; 
-const SCRIPT_PROPERTIES = PropertiesService.getScriptProperties();
-
-// --- ВХОДНЫЕ ТОЧКИ (Переименованы) ---
-
-function doGetCRM(e) {
-  return ContentService
-    .createTextOutput(JSON.stringify({ status: "success", message: "CRM Service is running.", version: CRM_SCRIPT_VERSION }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPostCRM(e) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000); 
-
-  let payload = {};
-  
-  try {
-    let requestBody;
-    
-    // 1. Проверяем параметры (форма)
-    if (e && e.parameter && e.parameter.payload) {
-      requestBody = e.parameter.payload;
-    } 
-    // 2. Проверяем тело (raw JSON)
-    else if (e && e.postData && e.postData.contents) {
-      requestBody = e.postData.contents;
-    }
-
-    if (!requestBody) throw new Error("Empty Payload in CRM request");
-
-    try {
-        payload = JSON.parse(requestBody);
-    } catch (err) {
-        if (requestBody.indexOf('payload=') === 0) {
-             const decoded = decodeURIComponent(requestBody.substring(8).replace(/\\+/g, ' '));
-             payload = JSON.parse(decoded);
-        } else {
-             throw new Error("JSON Parse Error");
-        }
-    }
-    
-    if (payload.payload) payload = payload.payload;
-
-    const result = routeActionCRM(payload);
-    const finalResult = (result && result.status) ? result : { status: 'success', ...result };
-    
-    return ContentService.createTextOutput(JSON.stringify(finalResult)).setMimeType(ContentService.MimeType.JSON);
-
-  } catch (error) {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    crmLogError(ss, (payload ? payload.user : "System"), (payload ? payload.action : "Unknown"), error);
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.message })).setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// --- МАРШРУТИЗАТОР CRM ---
-function routeActionCRM(payload) {
-  const action = payload.action;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const user = payload.user || "System";
-
-  switch (action) {
-    case 'testconnection': return { status: 'success', message: 'Соединение ОК!', version: CRM_SCRIPT_VERSION };
-    case 'getclients': return crmGetClientsAndArchive(ss);
-    case 'gettemplates': return crmGetTemplatesWithDefaults(ss);
-    case 'getmasters': return crmGetFullSheetData(ss, SHEET_NAME_MASTERS, 'masters');
-    case 'gethistory': return crmGetHistory(ss, payload.clientId);
-    case 'getarchived': return crmGetArchived(ss, payload.clientId);
-    case 'getlogs': return crmGetFullSheetData(ss, SHEET_NAME_LOGS, 'logs');
-    case 'getphotos': return crmGetPhotosForContract(payload.contractNumber);
-    case 'add': return { status: 'success', newId: crmAddRow(ss, SHEET_NAME_CLIENTS, payload.client, user) };
-    case 'update': return { status: 'success', message: crmUpdateRow(ss, SHEET_NAME_CLIENTS, payload.client, 'id', user) };
-    case 'delete': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_CLIENTS, payload.clientId, 'id') };
-    case 'bulkdelete': return { status: 'success', message: crmBulkDeleteRows(ss, SHEET_NAME_CLIENTS, payload.clientIds, 'id') };
-    case 'reorder': return crmReorderClient(ss, payload.oldClientId, payload.client, user);
-    case 'updatetemplate': return { status: 'success', message: crmUpdateTemplate(ss, payload.template) };
-    case 'deletetemplate': return { status: 'success', message: crmDeleteTemplate(ss, payload.templateName) };
-    case 'addmaster': return { status: 'success', message: crmAddRow(ss, SHEET_NAME_MASTERS, payload.master, user) };
-    case 'updatemaster': return { status: 'success', message: crmUpdateRow(ss, SHEET_NAME_MASTERS, payload.master, 'id', user) };
-    case 'deletemaster': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_MASTERS, payload.masterId, 'id') };
-    
-    // ВАЖНО: Используем crmSendMessage, чтобы не конфликтовать со старым кодом
-    case 'sendMessage': return crmSendMessage(payload.chatId, payload.message);
-    case 'bulksend': return crmBulkSendMessage(ss, payload.clientIds, payload.templateName);
-    case 'uploadfile': return { status: 'success', fileUrl: crmUploadFile(payload), message: 'Файл загружен' };
-    default: return { status: 'error', message: 'Unknown action: ' + action };
-  }
-}
-
-// --- БИЗНЕС-ЛОГИКА (С префиксом crm для изоляции) ---
-
-function crmGetClientsAndArchive(ss) {
-  const clientsResult = crmGetFullSheetData(ss, SHEET_NAME_CLIENTS, 'clients');
-  const archiveResult = crmGetFullSheetData(ss, SHEET_NAME_ARCHIVE, 'archive');
-  return { status: 'success', headers: clientsResult.headers || [], clients: clientsResult.clients || [], archive: archiveResult.archive || [] };
-}
-
-function crmGetHistory(ss, clientId) {
-  try {
-    const sheet = crmGetOrCreateSheet(ss, SHEET_NAME_HISTORY);
-    if (sheet.getLastRow() < 2) return { status: 'success', history: [] };
-    const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    const clientIdIndex = headers.indexOf('clientId');
-    if (clientIdIndex === -1) return { status: 'success', history: [] };
-    const history = data.filter(row => row[clientIdIndex] == clientId).map(row => {
-        let obj = {}; headers.forEach((header, i) => { obj[header] = row[i]; }); return obj;
-    }).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return { status: 'success', history: history };
-  } catch(e) { return { status: 'error', message: e.message }; }
-}
-
-function crmGetArchived(ss, clientId) {
-  const clientSheet = crmGetOrCreateSheet(ss, SHEET_NAME_CLIENTS);
-  const clientRowNum = crmFindRowById(clientSheet, clientId, 'id');
-  if (clientRowNum === -1) return { status: 'success', orders: [] };
-  const clientHeaders = clientSheet.getRange(1, 1, 1, clientSheet.getLastColumn()).getValues()[0];
-  const clientData = clientSheet.getRange(clientRowNum, 1, 1, clientHeaders.length).getValues()[0];
-  const phoneIndex = clientHeaders.indexOf('Телефон');
-  const clientPhone = phoneIndex > -1 ? clientData[phoneIndex] : null;
-  if (!clientPhone) return { status: 'success', orders: [] }; 
-  const archiveSheet = crmGetOrCreateSheet(ss, SHEET_NAME_ARCHIVE);
-  if (archiveSheet.getLastRow() < 2) return { status: 'success', orders: [] };
-  const data = archiveSheet.getDataRange().getValues();
-  const headers = data.shift();
-  const phoneIndexInArchive = headers.indexOf('Телефон');
-  if (phoneIndexInArchive === -1) return { status: 'success', orders: [] };
-  const orders = data.filter(row => row[phoneIndexInArchive] == clientPhone).map(row => {
-      let obj = {}; headers.forEach((header, i) => { 
-        let value = row[i]; if (value instanceof Date) value = Utilities.formatDate(new Date(value), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); obj[header] = value;
-      }); return obj;
-  }).sort((a,b) => new Date(b['Дата добавления']).getTime() - new Date(a['Дата добавления']).getTime());
-  return { status: 'success', orders: orders };
-}
-
-function crmGetPhotosForContract(contractNumber) {
-  if (!contractNumber) return { status: 'success', photoUrls: [] };
-  try {
-    const rootFolder = crmGetAppRootFolder();
-    const folders = rootFolder.getFolders();
-    let clientFolder = null;
-    while (folders.hasNext()) { const folder = folders.next(); if (folder.getName().startsWith(contractNumber)) { clientFolder = folder; break; } }
-    if (!clientFolder) return { status: 'success', photoUrls: [] };
-    const photoUrls = []; const files = clientFolder.getFiles();
-    while (files.hasNext()) {
-      const file = files.next();
-      if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) { try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {} }
-      photoUrls.push('https://drive.google.com/uc?export=view&id=' + file.getId());
-    }
-    return { status: 'success', photoUrls: photoUrls };
-  } catch(e) { return { status: 'success', photoUrls: [] }; }
-}
-
-function crmBulkSendMessage(ss, clientIds, templateName) {
-  const token = SCRIPT_PROPERTIES.getProperty('TELEGRAM_BOT_TOKEN');
-  if (!token) throw new Error("Токен Telegram не настроен.");
-  const templatesData = crmGetTemplatesWithDefaults(ss);
-  const template = templatesData.templates.find(t => t['Название шаблона'] === templateName);
-  if (!template) throw new Error('Шаблон "' + templateName + '" не найден.');
-  const clientsData = crmGetFullSheetData(ss, SHEET_NAME_CLIENTS, 'clients');
-  const clientsToSend = clientsData.clients.filter(c => clientIds.includes(c.id));
-  clientsToSend.forEach(client => {
-    if (client['Chat ID']) {
-      let message = template['Содержимое (HTML)'];
-      Object.keys(client).forEach(key => { message = message.replace(new RegExp('{{' + key + '}}', 'g'), client[key] || ''); });
-      crmSendMessage(client['Chat ID'], message);
-    }
-  });
-  return { status: "success", message: "Рассылка завершена."};
-}
-
-// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (Изолированные имена) ---
-
-function crmGetFullSheetData(ss, sheetName, dataKey) {
-  try {
-    const sheet = crmGetOrCreateSheet(ss, sheetName);
-    if (sheet.getLastRow() < 2) return { status: 'success', headers: [], [dataKey]: [] };
-    const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    const result = data.map(row => {
-        let obj = {}; headers.forEach((header, i) => { let value = row[i]; if (value instanceof Date) value = Utilities.formatDate(new Date(value), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); obj[header] = value; }); return obj;
-    });
-    if (sheetName === SHEET_NAME_LOGS) result.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return { status: 'success', headers: headers, [dataKey]: result };
-  } catch (e) { throw new Error('Could not get data from sheet: ' + sheetName); }
-}
-
-function crmGetOrCreateSheet(ss, sheetName) {
-  let sheet = ss.getSheetByName(sheetName);
-  if (sheet) return sheet;
-  sheet = ss.insertSheet(sheetName);
-  const defaultHeaders = {
-    [SHEET_NAME_CLIENTS]: ['id', 'Дата добавления', 'Chat ID', 'Имя клиента', 'Телефон', 'Номер Авто', 'Заказ - QR', 'Бренд_Модель', 'Размер шин', 'Сезон', 'Цена за месяц', 'Кол-во шин', 'Наличие дисков', 'Начало', 'Срок', 'Напомнить', 'Окончание', 'Склад хранения', 'Ячейка', 'Общая сумма', 'Долг', 'Договор', 'Адрес клиента', 'Статус сделки', 'Источник трафика', 'Услуга: Вывоз', 'Услуга: Мойка', 'Услуга: Упаковка', 'photoUrls'],
-    [SHEET_NAME_ARCHIVE]: ['id', 'Дата добавления', 'Chat ID', 'Имя клиента', 'Телефон', 'Номер Авто', 'Заказ - QR', 'Бренд_Модель', 'Размер шин', 'Сезон', 'Цена за месяц', 'Кол-во шин', 'Наличие дисков', 'Начало', 'Срок', 'Напомнить', 'Окончание', 'Склад хранения', 'Ячейка', 'Общая сумма', 'Долг', 'Договор', 'Адрес клиента', 'Статус сделки', 'Источник трафика', 'Услуга: Вывоз', 'Услуга: Мойка', 'Услуга: Упаковка', 'photoUrls', 'Дата архивации'],
-    [SHEET_NAME_TEMPLATES]: ['Название шаблона', 'Содержимое (HTML)'],
-    [SHEET_NAME_MASTERS]: ['id', 'Имя', 'chatId (Telegram)', 'Услуга', 'Телефон'],
-    [SHEET_NAME_HISTORY]: ['id', 'clientId', 'timestamp', 'user', 'action', 'details'],
-    [SHEET_NAME_LOGS]: ['timestamp', 'level', 'user', 'action', 'message', 'details']
-  };
-  if (defaultHeaders[sheetName]) { sheet.appendRow(defaultHeaders[sheetName]); sheet.setFrozenRows(1); sheet.getRange(1, 1, 1, defaultHeaders[sheetName].length).setFontWeight("bold"); }
-  return sheet;
-}
-
-function crmFindRowById(sheet, id, idKey) {
-  if (!id) return -1;
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const idColIndex = headers.indexOf(idKey);
-  if (idColIndex === -1) return -1;
-  const data = sheet.getRange(2, idColIndex + 1, sheet.getLastRow() - 1, 1).getValues();
-  for (let i = 0; i < data.length; i++) { if (String(data[i][0]) === String(id)) return i + 2; }
-  return -1;
-}
-
-function crmAddRow(ss, sheetName, dataObject, user) {
-  const sheet = crmGetOrCreateSheet(ss, sheetName);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const newRow = headers.map(header => dataObject[header] === undefined ? '' : dataObject[header]);
-  sheet.appendRow(newRow);
-  const action = sheetName === SHEET_NAME_CLIENTS ? 'Клиент создан' : 'Запись добавлена';
-  const clientId = sheetName === SHEET_NAME_CLIENTS ? dataObject.id : null;
-  const details = Object.entries(dataObject).map(([key, value]) => key + ': ' + value).join('\n');
-  crmLogHistory(ss, clientId, user, action, details);
-  return dataObject.id;
-}
-
-function crmUpdateRow(ss, sheetName, dataObject, idKey, user) {
-  const sheet = crmGetOrCreateSheet(ss, sheetName);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const rowNum = crmFindRowById(sheet, dataObject[idKey], idKey);
-  if (rowNum === -1) throw new Error('Update failed: ID not found');
-  const oldDataValues = sheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
-  const oldData = headers.reduce((obj, header, i) => ({...obj, [header]: oldDataValues[i]}), {});
-  const newRow = headers.map(header => dataObject[header] !== undefined ? dataObject[header] : oldData[header]);
-  sheet.getRange(rowNum, 1, 1, newRow.length).setValues([newRow]);
-  const changes = headers.map(header => ({ header, old: oldData[header], new: dataObject[header] })).filter(({ old, new: newValue }) => newValue !== undefined && String(old) !== String(newValue)).map(({header, old, new: newValue}) => header + ": '" + old + "' -> '" + newValue + "'");
-  if (changes.length > 0 && sheetName === SHEET_NAME_CLIENTS) { crmLogHistory(ss, dataObject.id, user, 'Данные обновлены', changes.join('\n')); }
-  return 'Updated';
-}
-
-function crmDeleteRow(ss, sheetName, id, idKey) {
-  const sheet = crmGetOrCreateSheet(ss, sheetName);
-  const rowNum = crmFindRowById(sheet, id, idKey);
-  if (rowNum > -1) { sheet.deleteRow(rowNum); return 'Deleted'; }
-  return 'Not found';
-}
-
-function crmBulkDeleteRows(ss, sheetName, ids, idKey) {
-  const sheet = crmGetOrCreateSheet(ss, sheetName);
-  const data = sheet.getDataRange().getValues();
-  const idCol = data[0].indexOf(idKey);
-  const rows = [];
-  for (let i = data.length - 1; i >= 1; i--) if (ids.includes(String(data[i][idCol]))) rows.push(i + 1);
-  rows.forEach(r => sheet.deleteRow(r));
-  return rows.length + ' записей удалено.';
-}
-
-function crmReorderClient(ss, oldClientId, newClientData, user) {
-  const clientSheet = crmGetOrCreateSheet(ss, SHEET_NAME_CLIENTS);
-  const archiveSheet = crmGetOrCreateSheet(ss, SHEET_NAME_ARCHIVE);
-  const clientRowNum = crmFindRowById(clientSheet, oldClientId, 'id');
-  if (clientRowNum === -1) throw new Error('Не удалось найти клиента: ' + oldClientId);
-  const clientHeaders = clientSheet.getRange(1, 1, 1, clientSheet.getLastColumn()).getValues()[0];
-  const oldClientDataValues = clientSheet.getRange(clientRowNum, 1, 1, clientHeaders.length).getValues()[0];
-  const archiveHeaders = archiveSheet.getRange(1, 1, 1, archiveSheet.getLastColumn()).getValues()[0];
-  const newArchiveRow = archiveHeaders.map(header => {
-    const idx = clientHeaders.indexOf(header); if (header === 'Дата архивации') return new Date().toISOString(); if (idx > -1) return oldClientDataValues[idx]; return '';
-  });
-  archiveSheet.appendRow(newArchiveRow);
-  const newRowValues = clientHeaders.map((header, index) => { if (newClientData[header] !== undefined) return newClientData[header]; return oldClientDataValues[index]; });
-  clientSheet.getRange(clientRowNum, 1, 1, newRowValues.length).setValues([newRowValues]);
-  crmLogHistory(ss, oldClientId, user, 'Заказ архивирован', 'Перенос в архив');
-  crmLogHistory(ss, newClientData.id, user, 'Новый заказ создан', 'Обновление записи');
-  return { status: 'success', message: 'Заказ успешно переоформлен.', newId: newClientData.id };
-}
-
-// --- TELEGRAM И ФАЙЛЫ (Имена изменены) ---
-function crmSendMessage(chatId, message) {
-  const token = SCRIPT_PROPERTIES.getProperty('TELEGRAM_BOT_TOKEN');
-  if (!token) throw new Error("Токен Telegram не настроен.");
-  const sanitizedMessage = message.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<p.*?>/gi, '').replace(/&nbsp;/g, ' ').trim();
-  const url = "https://api.telegram.org/bot" + token + "/sendMessage";
-  UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", payload: JSON.stringify({ chat_id: String(chatId), text: sanitizedMessage, parse_mode: "HTML" }), muteHttpExceptions: true });
-  return { status: "success", message: "Sent" };
-}
-
-function crmGetTemplatesWithDefaults(ss) {
-  const sheet = crmGetOrCreateSheet(ss, SHEET_NAME_TEMPLATES);
-  const defaultTemplates = { 'Напоминание о задолженности': 'Здравствуйте, {{Имя клиента}}! Долг по договору №{{Договор}}: <b>{{Долг}} ₽</b>.', 'Напоминание об окончании хранения': 'Здравствуйте, {{Имя клиента}}! Срок хранения шин (дог. №{{Договор}}) истекает <b>{{Окончание}}</b>.' };
-  const data = sheet.getDataRange().getValues();
-  const existingTemplates = data.length > 1 ? data.slice(1).map(row => row[0]) : [];
-  const templatesToAdd = []; for (const name in defaultTemplates) { if (!existingTemplates.includes(name)) templatesToAdd.push([name, defaultTemplates[name]]); }
-  if (templatesToAdd.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, templatesToAdd.length, 2).setValues(templatesToAdd);
-  return crmGetFullSheetData(ss, SHEET_NAME_TEMPLATES, 'templates');
-}
-
-function crmUpdateTemplate(ss, t) { return crmUpdateRow(ss, SHEET_NAME_TEMPLATES, t, 'Название шаблона', 'System'); }
-function crmDeleteTemplate(ss, name) { return crmDeleteRow(ss, SHEET_NAME_TEMPLATES, name, 'Название шаблона'); }
-
-function crmGetAppRootFolder() {
-  let folderId = SCRIPT_PROPERTIES.getProperty('ROOT_FOLDER_ID');
-  if (folderId) { try { return DriveApp.getFolderById(folderId); } catch(e) {} }
-  const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-  const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
-  SCRIPT_PROPERTIES.setProperty('ROOT_FOLDER_ID', folder.getId());
-  return folder;
-}
-
-function crmUploadFile(payload) {
-  const root = crmGetAppRootFolder();
-  const name = payload.client['Договор'] ? (payload.client['Договор'] + '_' + payload.client['Имя клиента']) : payload.client.id;
-  const folders = root.getFoldersByName(name);
-  const folder = folders.hasNext() ? folders.next() : root.createFolder(name);
-  const blob = Utilities.newBlob(Utilities.base64Decode(payload.fileData), payload.mimeType, payload.filename);
-  const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return 'https://drive.google.com/uc?export=view&id=' + file.getId();
-}
-
-function crmLogHistory(ss, clientId, user, action, details) {
-  try { const s = crmGetOrCreateSheet(ss, SHEET_NAME_HISTORY); s.appendRow(["evt_" + new Date().getTime(), clientId || 'N/A', new Date().toISOString(), user || 'System', action, details]); } catch (e) {}
-}
-
-function crmLogError(ss, user, action, error) {
-  try { const s = crmGetOrCreateSheet(ss, SHEET_NAME_LOGS); s.appendRow([new Date().toISOString(), "ERROR", user, action, error.message, error.stack]); } catch (e) { Logger.log(e); }
-}`;
-
-    const routerCodeText = `/**
- * ГЛАВНЫЙ МАРШРУТИЗАТОР (ROUTER)
- * Решает, куда отправить запрос: в старый бот или в новую CRM.
- */
-
-function doGet(e) {
-  // 1. Старый бот всегда передает chatId в URL
-  // 2. Или запрашивает конфиг (action=getConfig)
-  if ((e.parameter && e.parameter.chatId) || (e.parameter && e.parameter.action === 'getConfig')) {
-     return doGetLegacy(e); // Отправляем в lk.otelshin.ru.gs
-  }
-  
-  // В остальных случаях считаем, что это CRM
-  return doGetCRM(e); // Отправляем в новый CRM код
-}
-
-function doPost(e) {
-  // Тут сложнее, оба шлют JSON. Смотрим внутрь.
-  
-  // 1. Если CRM шлет FormData (с ключом payload), то это точно CRM.
-  if (e.parameter && e.parameter.payload) {
-     return doPostCRM(e);
-  }
-
-  // 2. Если это чистый JSON, надо прочитать action
-  if (e.postData && e.postData.contents) {
-     let data = {};
-     try {
-       data = JSON.parse(e.postData.contents);
-     } catch (err) {
-       // Если JSON битый, пусть разбирается CRM
-       return doPostCRM(e);
-     }
-
-     // Список действий, которые ТОЧНО относятся к старому боту
-     const legacyActions = ['addUser', 'sendMessageFromBot', 'updateConfig'];
-     
-     if (data.action && legacyActions.includes(data.action)) {
-         return doPostLegacy(e);
-     }
-  }
-
-  // По умолчанию все остальное — в CRM
-  return doPostCRM(e);
-}`;
-
     return (
         <div className="space-y-6">
             <h3 className="text-xl font-semibold">Настройка Google Apps Script (Интеграция)</h3>
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 text-blue-800 dark:text-blue-200 rounded-md space-y-2">
-                <p className="font-bold">⚠️ ВНИМАНИЕ: МНОГОФАЙЛОВАЯ КОНФИГУРАЦИЯ</p>
-                <p>Поскольку вы интегрируете CRM в существующий проект с ботом, мы разделили код на два файла, чтобы они не конфликтовали. Следуйте инструкции ниже.</p>
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 text-yellow-800 dark:text-yellow-200 rounded-md space-y-2">
+                <p className="font-bold">⚠️ ВАЖНО: Настройка Токена и ID Админа</p>
+                <p>В этой версии токен бота и ID админа не задаются в коде напрямую. Используйте <b>Свойства скрипта</b>:</p>
+                <ol className="list-decimal list-inside">
+                    <li>В редакторе скриптов нажмите иконку <b>Шестеренки</b> (Project Settings).</li>
+                    <li>Прокрутите вниз до раздела <b>Script Properties</b>.</li>
+                    <li>Добавьте свойство <code>TELEGRAM_BOT_TOKEN</code> со значением вашего токена.</li>
+                    <li>Добавьте свойство <code>ADMIN_CHAT_ID</code> с ID вашего Telegram (для уведомлений от бота).</li>
+                </ol>
             </div>
             
             <div className="space-y-4 text-gray-700 dark:text-gray-300">
-                <h4 className="text-lg font-semibold">Файл 1: Основная логика CRM</h4>
-                <p>Создайте новый файл скрипта в редакторе (или используйте <code>Code.gs</code>, если он свободен) и вставьте туда этот код. Он содержит всю бизнес-логику CRM.</p>
+                <h4 className="text-lg font-semibold">Файл 1: Code.gs (Основная логика CRM)</h4>
+                <p>Вставьте этот код в файл <code>Code.gs</code>. Он отвечает за работу веб-интерфейса CRM.</p>
 
                 <div className="relative">
                     <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
-                        <code>{crmCodeText.trim()}</code>
+                        <code>{CRM_CODE.trim()}</code>
                     </pre>
-                    <button onClick={() => onCopy(crmCodeText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
+                    <button onClick={() => onCopy(CRM_CODE)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
+                </div>
+
+                <h4 className="text-lg font-semibold mt-8">Файл 2: Bot.gs (Телеграм Бот)</h4>
+                <p>Создайте файл <code>Bot.gs</code> и вставьте туда этот код. Он содержит логику кнопок, меню и ЛК.</p>
+
+                <div className="relative">
+                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
+                        <code>{BOT_CODE.trim()}</code>
+                    </pre>
+                    <button onClick={() => onCopy(BOT_CODE)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
                 </div>
                 
-                <h4 className="text-lg font-semibold mt-8">Файл 2: Маршрутизатор (Router.gs)</h4>
-                <p>Создайте файл с именем <code>Router.gs</code>. Этот код будет перехватывать все запросы и решать, кому их отдать: старому боту (функции <code>doGetLegacy/doPostLegacy</code>) или новой CRM.</p>
+                <h4 className="text-lg font-semibold mt-8">Файл 3: Router.gs (Маршрутизатор)</h4>
+                <p>Создайте файл <code>Router.gs</code>. Он перенаправляет запросы либо в CRM, либо в Бота.</p>
 
                 <div className="relative">
                     <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
-                        <code>{routerCodeText.trim()}</code>
+                        <code>{ROUTER_CODE.trim()}</code>
                     </pre>
-                    <button onClick={() => onCopy(routerCodeText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
+                    <button onClick={() => onCopy(ROUTER_CODE)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
                 </div>
 
                 <h4 className="text-lg font-semibold mt-8">Финальный шаг: Развертывание</h4>
                  <ol className="list-decimal list-inside space-y-3 pl-4">
-                    <li>Сохраните оба файла.</li>
+                    <li>Сохраните все файлы.</li>
                     <li>В редакторе скриптов нажмите синюю кнопку <b>"Начать развертывание" (Deploy)</b>.</li>
-                    <li>Выберите <b>"Управление развертываниями" (Manage deployments)</b>.</li>
-                    <li>
-                        Нажмите на иконку <b>Карандаша (Edit)</b>.
-                    </li>
-                    <li>
-                        В поле "Версия" выберите <b>"Новая версия" (New version)</b>.
-                    </li>
+                    <li>Выберите <b>"Новое развертывание" (New deployment)</b>.</li>
+                    <li>Тип: <b>Веб-приложение</b>. Доступ: <b>Все (Anyone)</b>.</li>
                     <li>Нажмите кнопку <b>"Развернуть" (Deploy)</b>.</li>
+                    <li>Скопируйте полученный URL (Web App URL) и вставьте его в поле выше.</li>
+                    <li>
+                        <b>Настройка Webhook для бота:</b><br/>
+                        Чтобы бот начал отвечать, нужно один раз открыть в браузере ссылку:<br/>
+                        <code className="bg-gray-200 dark:bg-gray-700 p-1 rounded">https://api.telegram.org/bot[ВАШ_ТОКЕН]/setWebhook?url=[ВАШ_WEB_APP_URL]</code>
+                    </li>
                 </ol>
             </div>
         </div>
