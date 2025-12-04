@@ -790,91 +790,316 @@ function crmLogError(ss, user, action, error) {
 
     const routerCodeText = `/**
  * ГЛАВНЫЙ МАРШРУТИЗАТОР (ROUTER)
- * Решает, куда отправить запрос: в старый бот или в новую CRM.
+ * Решает, куда отправить запрос: в CRM или БОТ.
  */
 
 function doGet(e) {
-  // 1. Старый бот всегда передает chatId в URL
-  // 2. Или запрашивает конфиг (action=getConfig)
-  if ((e.parameter && e.parameter.chatId) || (e.parameter && e.parameter.action === 'getConfig')) {
-     return doGetLegacy(e); // Отправляем в lk.otelshin.ru.gs
-  }
-  
-  // В остальных случаях считаем, что это CRM
-  return doGetCRM(e); // Отправляем в новый CRM код
+  return doGetCRM(e); 
 }
 
 function doPost(e) {
-  // Тут сложнее, оба шлют JSON. Смотрим внутрь.
-  
-  // 1. Если CRM шлет FormData (с ключом payload), то это точно CRM.
-  if (e.parameter && e.parameter.payload) {
-     return doPostCRM(e);
-  }
-
-  // 2. Если это чистый JSON, надо прочитать action
+  // 1. Проверяем, не пришел ли запрос от Telegram
+  // Telegram шлет JSON в теле запроса, в котором обязательно есть update_id
   if (e.postData && e.postData.contents) {
      let data = {};
      try {
        data = JSON.parse(e.postData.contents);
-     } catch (err) {
-       // Если JSON битый, пусть разбирается CRM
-       return doPostCRM(e);
-     }
+     } catch (err) {}
 
-     // Список действий, которые ТОЧНО относятся к старому боту
-     const legacyActions = ['addUser', 'sendMessageFromBot', 'updateConfig'];
-     
-     if (data.action && legacyActions.includes(data.action)) {
-         return doPostLegacy(e);
+     // Если есть update_id - это вебхук от Telegram
+     if (data && data.update_id) {
+         return doBot(e);
      }
   }
 
-  // По умолчанию все остальное — в CRM
+  // 2. Иначе считаем, что это запрос от CRM (React)
   return doPostCRM(e);
 }`;
+
+    const botCodeText = `/**
+ * ==========================================
+ *  TELEGRAM BOT LOGIC (Bot.gs)
+ * ==========================================
+ */
+
+// --- КОНФИГУРАЦИЯ БОТА ---
+const BOT_TOKEN = SCRIPT_PROPERTIES.getProperty('TELEGRAM_BOT_TOKEN');
+// ID администраторов и менеджеров для уведомлений о новых заявках
+const ADMIN_IDS_PROP = 'adminIds'; // Можно использовать existing script properties или хардкод
+
+// --- KEYBOARDS ---
+const MAIN_KEYBOARD = {
+  keyboard: [
+    [{ text: "📝 Записаться на хранение" }, { text: "👤 Личный кабинет" }],
+    [{ text: "💰 Цены" }, { text: "ℹ️ Почему мы" }],
+    [{ text: "📞 Связаться с менеджером" }, { text: "🔧 Шиномонтаж" }]
+  ],
+  resize_keyboard: true
+};
+
+const CABINET_KEYBOARD = {
+  inline_keyboard: [
+    [{ text: "📅 Продлить хранение", callback_data: "cab_extend" }],
+    [{ text: "🚗 Забрать шины", callback_data: "cab_pickup" }],
+    [{ text: "🛠 Шиномонтаж", callback_data: "cab_fitting" }, { text: "🎁 Рефералка", callback_data: "cab_ref" }]
+  ]
+};
+
+// --- ENTRY POINT ---
+function doBot(e) {
+  const update = JSON.parse(e.postData.contents);
+  
+  try {
+    if (update.message) {
+      handleMessage(update.message);
+    } else if (update.callback_query) {
+      handleCallback(update.callback_query);
+    }
+  } catch (err) {
+    Logger.log("Bot Error: " + err.message);
+  }
+  
+  return ContentService.createTextOutput("OK");
+}
+
+// --- HANDLERS ---
+function handleMessage(msg) {
+  const chatId = msg.chat.id;
+  const text = msg.text;
+  const userCache = CacheService.getScriptCache();
+  const state = userCache.get("state_" + chatId);
+  
+  // 1. GLOBAL COMMANDS
+  if (text === "/start") {
+    userCache.remove("state_" + chatId);
+    return sendBotMessage(chatId, "👋 Добро пожаловать в сервис хранения шин! Выберите действие:", MAIN_KEYBOARD);
+  }
+
+  // 2. STATE MACHINE (Registration Flow)
+  if (state === "WAITING_PHONE") {
+    // Сохраняем телефон, просим номер авто
+    const phone = msg.contact ? msg.contact.phone_number : text;
+    userCache.put("temp_phone_" + chatId, phone, 3600);
+    userCache.put("state_" + chatId, "WAITING_AUTO", 3600);
+    return sendBotMessage(chatId, "✅ Телефон принят. Теперь введите гос. номер вашего автомобиля (например, А123ВС777):");
+  }
+
+  if (state === "WAITING_AUTO") {
+    userCache.put("temp_auto_" + chatId, text, 3600);
+    userCache.put("state_" + chatId, "WAITING_DISTRICT", 3600);
+    return sendBotMessage(chatId, "🚗 Номер принят. Укажите желаемый район/склад или напишите 'Любой':");
+  }
+
+  if (state === "WAITING_DISTRICT") {
+    const district = text;
+    const phone = userCache.get("temp_phone_" + chatId);
+    const auto = userCache.get("temp_auto_" + chatId);
+    const name = (msg.from.first_name || "") + " " + (msg.from.last_name || "");
+    
+    // Notify Managers
+    const requestText = \`🆕 <b>Новая заявка на хранение!</b>\\n\\n👤 <b>Клиент:</b> \${name}\\n📞 <b>Телефон:</b> \${phone}\\n🚗 <b>Авто:</b> \${auto}\\n📍 <b>Район:</b> \${district}\\n🆔 ChatID: \${chatId}\`;
+    notifyManagers(requestText);
+    
+    userCache.remove("state_" + chatId);
+    return sendBotMessage(chatId, "✅ Заявка отправлена! Менеджер свяжется с вами в ближайшее время для подтверждения.", MAIN_KEYBOARD);
+  }
+  
+  if (state === "WAITING_PICKUP_TIME") {
+    const requestText = \`🚗 <b>Заявка на выдачу шин!</b>\\n\\n🆔 ChatID: \${chatId}\\n⏰ <b>Желаемое время:</b> \${text}\`;
+    notifyManagers(requestText);
+    userCache.remove("state_" + chatId);
+    return sendBotMessage(chatId, "✅ Заявка на выдачу принята. Мы проверим наличие и подтвердим время.", MAIN_KEYBOARD);
+  }
+
+
+  // 3. MENU HANDLERS
+  switch (text) {
+    case "📝 Записаться на хранение":
+      userCache.put("state_" + chatId, "WAITING_PHONE", 3600);
+      const contactKb = { keyboard: [[{text: "📱 Отправить телефон", request_contact: true}]], resize_keyboard: true, one_time_keyboard: true };
+      return sendBotMessage(chatId, "Для записи нам нужен ваш контактный телефон. Нажмите кнопку ниже или введите номер вручную (+7...):", contactKb);
+      
+    case "👤 Личный кабинет":
+      return handleCabinet(chatId);
+      
+    case "💰 Цены":
+      return sendBotMessage(chatId, "💲 <b>Наши цены:</b>\\n\\nR13-R15: 2000р / сезон\\nR16-R17: 2400р / сезон\\nR18+: 3000р / сезон\\n\\n<i>Цена за комплект 4 шины, 6 месяцев.</i>", MAIN_KEYBOARD);
+      
+    case "ℹ️ Почему мы":
+      return sendBotMessage(chatId, "🏆 <b>Почему выбирают нас:</b>\\n\\n✅ Теплый склад\\n✅ Страховка шин\\n✅ Доставка и забор\\n✅ Скидки на шиномонтаж", MAIN_KEYBOARD);
+      
+    case "📞 Связаться с менеджером":
+      return sendBotMessage(chatId, "📞 Наш телефон: +7 (999) 000-00-00\\nTelegram: @Manager", MAIN_KEYBOARD);
+
+    case "🔧 Шиномонтаж":
+      return sendBotMessage(chatId, "🛠 Мы сотрудничаем с сетью 'Профи-Шина'.\\n📍 Адрес: ул. Ленина, 10\\n🎁 Скидка 10% для клиентов хранения!", MAIN_KEYBOARD);
+      
+    default:
+      return sendBotMessage(chatId, "Я не понимаю эту команду. Используйте меню.", MAIN_KEYBOARD);
+  }
+}
+
+function handleCallback(cb) {
+  const chatId = cb.message.chat.id;
+  const data = cb.data;
+  
+  if (data === "cab_extend") {
+    // Show duration options
+    const extendKb = {
+        inline_keyboard: [
+            [{ text: "1 мес", callback_data: "ext_1" }, { text: "3 мес", callback_data: "ext_3" }, { text: "6 мес", callback_data: "ext_6" }]
+        ]
+    };
+    editBotMessage(chatId, cb.message.message_id, "📅 Выберите срок продления:", extendKb);
+  } 
+  else if (data.startsWith("ext_")) {
+    const months = data.split("_")[1];
+    // Simple calculation logic
+    const price = parseInt(months) * 500; // Base logic
+    const text = \`💳 Для продления на \${months} мес. к оплате: <b>\${price} ₽</b>.\\n\\nПереведите сумму по СБП на номер +79990000000 и пришлите скриншот чека в этот чат.\`;
+    sendBotMessage(chatId, text);
+    // Notify manager
+    notifyManagers(\`💰 Клиент \${chatId} хочет продлить хранение на \${months} мес.\`);
+  }
+  else if (data === "cab_pickup") {
+    CacheService.getScriptCache().put("state_" + chatId, "WAITING_PICKUP_TIME", 3600);
+    sendBotMessage(chatId, "🕒 Напишите желаемую дату и время, когда вы хотите забрать шины:");
+  }
+  else if (data === "cab_fitting") {
+    sendBotMessage(chatId, "🛠 Партнёрский шиномонтаж:\\nул. Примерная 1\\nЗапись: +79998887766");
+  }
+  else if (data === "cab_ref") {
+    sendBotMessage(chatId, "🎁 Приведи друга и получи месяц хранения бесплатно!\\nТвой промокод: <b>REF" + chatId + "</b>");
+  }
+  
+  // Acknowledge callback to stop loading spinner
+  const url = "https://api.telegram.org/bot" + BOT_TOKEN + "/answerCallbackQuery";
+  UrlFetchApp.fetch(url, { method: "post", payload: { callback_query_id: cb.id } });
+}
+
+function handleCabinet(chatId) {
+  // Find client in CRM
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME_CLIENTS); // Variable from Code.gs
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const chatCol = headers.indexOf('Chat ID');
+  
+  let client = null;
+  for (let i = 1; i < data.length; i++) {
+    // Loose comparison for strings/numbers
+    if (data[i][chatCol] == chatId) {
+      client = {};
+      headers.forEach((h, idx) => client[h] = data[i][idx]);
+      break;
+    }
+  }
+  
+  if (client) {
+    let contractDate = client['Окончание'];
+    if (contractDate instanceof Date) contractDate = Utilities.formatDate(contractDate, ss.getSpreadsheetTimeZone(), "dd.MM.yyyy");
+    
+    const info = \`👤 <b>Личный кабинет</b>\\n\\n📑 Договор: <b>\${client['Договор']}</b>\\n🚗 Авто: \${client['Номер Авто']}\\n📦 Шины: \${client['Кол-во шин']} шт.\\n📅 Хранение до: <b>\${contractDate}</b>\\n📍 Склад: \${client['Склад хранения']}\`;
+    sendBotMessage(chatId, info, CABINET_KEYBOARD);
+  } else {
+    sendBotMessage(chatId, "🚫 Ваш номер не найден в базе. Если вы уже сдали шины, свяжитесь с менеджером для привязки Telegram.", MAIN_KEYBOARD);
+  }
+}
+
+// --- HELPERS ---
+function sendBotMessage(chatId, text, keyboard) {
+  if (!BOT_TOKEN) return;
+  const payload = {
+    chat_id: String(chatId),
+    text: text,
+    parse_mode: "HTML"
+  };
+  if (keyboard) payload.reply_markup = keyboard;
+  
+  UrlFetchApp.fetch("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage", {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload)
+  });
+}
+
+function editBotMessage(chatId, messageId, text, keyboard) {
+  if (!BOT_TOKEN) return;
+  const payload = {
+    chat_id: String(chatId),
+    message_id: messageId,
+    text: text,
+    parse_mode: "HTML"
+  };
+  if (keyboard) payload.reply_markup = keyboard;
+  
+  UrlFetchApp.fetch("https://api.telegram.org/bot" + BOT_TOKEN + "/editMessageText", {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload)
+  });
+}
+
+function notifyManagers(text) {
+  // Try to get admin IDs from Script Properties first
+  let idsStr = SCRIPT_PROPERTIES.getProperty('ADMIN_IDS'); 
+  // If not found, rely on what might be saved in Settings logic via UI, but strictly here we rely on properties
+  // or you can hardcode a fallback
+  if (!idsStr) return; // No admins configured
+  
+  const ids = idsStr.split(',');
+  ids.forEach(id => {
+      try {
+        sendBotMessage(id.trim(), text);
+      } catch(e) {}
+  });
+}
+`;
 
     return (
         <div className="space-y-6">
             <h3 className="text-xl font-semibold">Настройка Google Apps Script (Интеграция)</h3>
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 text-blue-800 dark:text-blue-200 rounded-md space-y-2">
                 <p className="font-bold">⚠️ ВНИМАНИЕ: МНОГОФАЙЛОВАЯ КОНФИГУРАЦИЯ</p>
-                <p>Поскольку вы интегрируете CRM в существующий проект с ботом, мы разделили код на два файла, чтобы они не конфликтовали. Следуйте инструкции ниже.</p>
+                <p>Теперь проект состоит из трех файлов для разделения логики CRM и Telegram Бота.</p>
             </div>
             
             <div className="space-y-4 text-gray-700 dark:text-gray-300">
-                <h4 className="text-lg font-semibold">Файл 1: Основная логика CRM</h4>
-                <p>Создайте новый файл скрипта в редакторе (или используйте <code>Code.gs</code>, если он свободен) и вставьте туда этот код. Он содержит всю бизнес-логику CRM.</p>
-
+                <h4 className="text-lg font-semibold">Файл 1: Code.gs (Логика CRM)</h4>
+                <p>Основной файл с бизнес-логикой работы с таблицами.</p>
                 <div className="relative">
-                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
+                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[250px]">
                         <code>{crmCodeText.trim()}</code>
                     </pre>
                     <button onClick={() => onCopy(crmCodeText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
                 </div>
-                
-                <h4 className="text-lg font-semibold mt-8">Файл 2: Маршрутизатор (Router.gs)</h4>
-                <p>Создайте файл с именем <code>Router.gs</code>. Этот код будет перехватывать все запросы и решать, кому их отдать: старому боту (функции <code>doGetLegacy/doPostLegacy</code>) или новой CRM.</p>
 
+                <h4 className="text-lg font-semibold mt-6">Файл 2: Bot.gs (Логика Бота)</h4>
+                <p>Создайте файл <code>Bot.gs</code>. Он отвечает за меню, запись и личный кабинет в Telegram.</p>
                 <div className="relative">
-                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
+                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[250px]">
+                        <code>{botCodeText.trim()}</code>
+                    </pre>
+                    <button onClick={() => onCopy(botCodeText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
+                </div>
+                
+                <h4 className="text-lg font-semibold mt-6">Файл 3: Router.gs (Маршрутизатор)</h4>
+                <p>Создайте файл <code>Router.gs</code>. Он перенаправляет запросы либо в CRM, либо в Бот.</p>
+                <div className="relative">
+                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[250px]">
                         <code>{routerCodeText.trim()}</code>
                     </pre>
                     <button onClick={() => onCopy(routerCodeText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
                 </div>
 
-                <h4 className="text-lg font-semibold mt-8">Финальный шаг: Развертывание</h4>
+                <h4 className="text-lg font-semibold mt-8">Финальный шаг: Настройка Токена и Развертывание</h4>
                  <ol className="list-decimal list-inside space-y-3 pl-4">
-                    <li>Сохраните оба файла.</li>
-                    <li>В редакторе скриптов нажмите синюю кнопку <b>"Начать развертывание" (Deploy)</b>.</li>
-                    <li>Выберите <b>"Управление развертываниями" (Manage deployments)</b>.</li>
-                    <li>
-                        Нажмите на иконку <b>Карандаша (Edit)</b>.
-                    </li>
-                    <li>
-                        В поле "Версия" выберите <b>"Новая версия" (New version)</b>.
-                    </li>
-                    <li>Нажмите кнопку <b>"Развернуть" (Deploy)</b>.</li>
+                    <li>В редакторе скриптов зайдите в <b>Настройки проекта</b> (шестеренка слева).</li>
+                    <li>В разделе "Свойства скрипта" добавьте: <code>TELEGRAM_BOT_TOKEN</code> = ваш токен.</li>
+                    <li>Добавьте свойство <code>ADMIN_IDS</code> = ваш ID (для тестов бота).</li>
+                    <li>Нажмите кнопку <b>"Начать развертывание"</b> -> <b>"Новая версия"</b> -> <b>"Развернуть"</b>.</li>
+                    <li>Скопируйте полученный URL и установите вебхук для бота (через браузер):<br/>
+                    <code className="text-xs break-all">https://api.telegram.org/botТОКЕН/setWebhook?url=ВАШ_URL_СКРИПТА</code></li>
                 </ol>
             </div>
         </div>
