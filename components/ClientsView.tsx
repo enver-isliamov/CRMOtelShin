@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback, Fragment, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Client, MessageTemplate, ClientEvent, SavedView, formatDateForDisplay } from '../types';
+import { Client, MessageTemplate, ClientEvent, SavedView, formatDateForDisplay, TireGroup } from '../types';
 import { api } from '../services/api';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -72,6 +72,36 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: 
         <dd className="text-sm sm:text-base font-medium text-gray-900 dark:text-white break-words leading-tight">{value || '—'}</dd>
     </div>
 );
+
+// Helper to extract JSON groups from string
+const TireGroupsView: React.FC<{ qrString: string }> = ({ qrString }) => {
+    const jsonMatch = qrString?.match(/\|\|JSON:(.*)$/);
+    if (!jsonMatch) return null;
+
+    try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        if (parsed.groups && Array.isArray(parsed.groups)) {
+            return (
+                 <div className="col-span-2 space-y-2 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase">Состав комплекта:</p>
+                    {parsed.groups.map((g: TireGroup, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900/40 p-2 rounded">
+                             <span>
+                                 <span className="font-bold">{g.count} шт</span> • {g.brand} {g.model}
+                             </span>
+                             <span className="font-mono text-gray-600 dark:text-gray-400">
+                                 {g.width}/{g.profile} R{g.diameter}
+                             </span>
+                        </div>
+                    ))}
+                 </div>
+            );
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+};
 
 const ClientDetailModal: React.FC<{
   isOpen: boolean;
@@ -194,6 +224,8 @@ const ClientDetailModal: React.FC<{
             )
         }
         
+        const descClean = (formData['Заказ - QR'] || '').split('||JSON:')[0];
+        
         return (
             <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
                 {activeTab === 'details' && (
@@ -235,7 +267,11 @@ const ClientDetailModal: React.FC<{
                         </div>
 
                         <SectionBlock title="Шины и Хранение" icon={<TireIcon/>}>
-                             <DetailItem label="Размер шин" value={formData['Размер шин']} />
+                             <DetailItem label="Бренд" value={formData['Бренд_Модель']} className="col-span-2" />
+                             <DetailItem label="Размер шин" value={formData['Размер шин']} className="col-span-2" />
+                             
+                             <TireGroupsView qrString={formData['Заказ - QR'] || ''} />
+
                              <DetailItem label="Сезон" value={formData['Сезон']} />
                              <DetailItem label="Кол-во" value={`${formData['Кол-во шин']} шт.`} />
                              <DetailItem label="Наличие дисков" value={formData['Наличие дисков']} />
@@ -244,8 +280,8 @@ const ClientDetailModal: React.FC<{
 
                         {/* Note Block (Moved Up) */}
                          <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Заказ - QR (Описание)</h4>
-                            <p className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{formData['Заказ - QR'] || 'Нет описания'}</p>
+                            <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Описание / Заметки</h4>
+                            <p className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{descClean || 'Нет описания'}</p>
                         </div>
 
                         <SectionBlock title="Финансы" icon={<CashIcon/>}>

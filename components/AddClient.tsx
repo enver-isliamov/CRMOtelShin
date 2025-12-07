@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Client, Settings } from '../types';
+import { Client, Settings, TireGroup, PRICE_BY_DIAMETER, DEFAULT_PRICE } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
-import { SmartTireInput } from './ui/SmartTireInput';
+import { MultiTireInput } from './ui/MultiTireInput';
 import { ImageUpload } from './ui/ImageUpload';
 
 // --- ICONS ---
@@ -21,27 +21,6 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
         <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{label}</span>
     </label>
 );
-
-// Price mapping by diameter (R)
-// You can easily update prices here. The key is the diameter string.
-const PRICE_BY_DIAMETER: Record<string, number> = {
-    '12': 500,
-    '13': 500,
-    '14': 500,
-    '15': 500,
-    '16': 600,
-    '17': 600,
-    '18': 600,
-    '19': 600,
-    '20': 700,
-    '21': 700,
-    '22': 800,
-    '22,5': 800,
-    '23': 800,
-    '24': 800
-};
-
-const DEFAULT_PRICE = 500;
 
 const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -61,9 +40,10 @@ const generateContractNumber = () => {
     return `${year}${month}${day}-${hours}${minutes}`;
 }
 
-const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> = {}): Partial<Client> => {
+const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], draftGroup: TireGroup | null, updates: Partial<Client> = {}): Partial<Client> => {
     const nextState = { ...baseData, ...updates };
 
+    // 1. Calculate dates
     if ('Начало' in updates || 'Срок' in updates || !nextState['Окончание']) {
         const startDate = new Date(nextState['Начало']!);
         const storageMonths = Number(nextState['Срок']);
@@ -79,35 +59,90 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
         }
     }
     
-    const pricePerMonth = Number(nextState['Цена за месяц']) || 0;
-    const tireCount = Number(nextState['Кол-во шин']) || 4;
+    // 2. Calculate Prices
+    // We combine saved groups + the current draft group (if it has a valid diameter)
+    const effectiveGroups = [...tireGroups];
+    
+    // Only include draft in calculation if it's not already in groups (avoid double count during edit)
+    // Actually, MultiTireInput logic is: if editing, it's inside groups but maybe modified.
+    // Simpler approach: MultiTireInput manages the 'groups' state. 
+    // If we are editing, 'groups' contains the OLD value. 'draftGroup' is the NEW value. 
+    // We should ideally calculate based on what the user SEES.
+    // However, for simplicity and robustness:
+    // If draftGroup exists and has a diameter, we ADD it to the calculation purely for the visual price total.
+    // But we need to be careful not to double count if we are editing.
+    // Since `editingGroupId` is internal to MultiTireInput, we assume `draftGroup` is an ADDITION or a REPLACEMENT.
+    // A heuristic: if draftGroup.id matches an existing group id, we use draft INSTEAD of that group.
+    
+    let calcGroups = [...tireGroups];
+    if (draftGroup && draftGroup.diameter) {
+        const existingIdx = calcGroups.findIndex(g => g.id === draftGroup.id);
+        if (existingIdx > -1) {
+            // Replace existing for calculation
+            calcGroups[existingIdx] = draftGroup;
+        } else {
+            // It's a new group being typed
+            calcGroups.push(draftGroup);
+        }
+    }
+
     const storageMonths = Number(nextState['Срок']) || 0;
     
-    const pricePerTirePerMonth = pricePerMonth / 4;
-    const storagePrice = pricePerTirePerMonth * tireCount * storageMonths;
+    let totalMonthlyPrice = 0;
+    let totalTireCount = 0;
+    let anyRims = false;
+    let combinedDot = '';
 
-    let totalAmount = storagePrice;
-    
-    // Rims calculation: +100 rub per month per set (4 tires)
-    if (nextState['Наличие дисков'] === 'Да') {
-        const rimSurchargePerSetPerMonth = 100;
-        const rimSurchargePerTirePerMonth = rimSurchargePerSetPerMonth / 4;
-        totalAmount += rimSurchargePerTirePerMonth * tireCount * storageMonths;
+    if (calcGroups.length > 0) {
+        calcGroups.forEach(group => {
+            totalTireCount += group.count;
+            if (group.hasRims === 'Да') anyRims = true;
+            
+            const pricePerSet = PRICE_BY_DIAMETER[group.diameter] || DEFAULT_PRICE;
+            const pricePerTire = pricePerSet / 4;
+            
+            let groupCost = pricePerTire * group.count;
+
+            if (group.hasRims === 'Да') {
+                groupCost += (100 / 4) * group.count;
+            }
+            
+            totalMonthlyPrice += groupCost;
+
+            if (group.dot) {
+                combinedDot += `${group.brand} R${group.diameter}: ${group.dot}\n`;
+            }
+        });
+    } else {
+         // Fallback default only if ABSOLUTELY nothing is entered
+         if (!draftGroup?.diameter) {
+             totalTireCount = 4;
+             totalMonthlyPrice = DEFAULT_PRICE; 
+         }
     }
+    
+    nextState['Кол-во шин'] = totalTireCount;
+    nextState['Цена за месяц'] = totalMonthlyPrice;
+    nextState['Наличие дисков'] = anyRims ? 'Да' : 'Нет';
+    // Only update DOT if we actually have data, otherwise keep existing or empty
+    if (combinedDot) nextState['DOT-код'] = combinedDot.trim();
+
+    // 3. Total Amount Calculation
+    let totalAmount = totalMonthlyPrice * storageMonths;
 
     if (nextState['Услуга: Мойка']) totalAmount += 200;
     if (nextState['Услуга: Упаковка']) totalAmount += 350;
+    
     nextState['Общая сумма'] = totalAmount;
 
     if (!nextState['Договор']) {
         nextState['Договор'] = generateContractNumber();
     }
 
-    // --- Automatic Status Logic ---
+    // 4. Status Logic
     const debt = Number(nextState['Долг'] || 0);
     const total = Number(nextState['Общая сумма'] || 0);
 
-    // If debt is specified (greater than 0), force status
     if (debt > 0) {
         if (debt >= total) {
              nextState['Статус сделки'] = 'Без оплаты';
@@ -115,14 +150,58 @@ const calculateAllFields = (baseData: Partial<Client>, updates: Partial<Client> 
              nextState['Статус сделки'] = 'Частичная оплата';
         }
     } else {
-        // If debt is 0, checking if we should reset "unpaid" statuses to "paid"
-        // This preserves manual statuses like 'Завершено' or 'На складе' if they were set
         if (nextState['Статус сделки'] === 'Без оплаты' || nextState['Статус сделки'] === 'Частичная оплата') {
              nextState['Статус сделки'] = 'Оплачено';
         }
     }
 
     return nextState;
+};
+
+// Helper to deserialize existing client data into groups
+const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
+    if (!client) return [];
+    
+    // Check if we have JSON in 'Заказ - QR'
+    const qrData = client['Заказ - QR'] || '';
+    const jsonMatch = qrData.match(/\|\|JSON:(.*)$/);
+    
+    if (jsonMatch) {
+        try {
+            const parsed = JSON.parse(jsonMatch[1]);
+            if (parsed.groups && Array.isArray(parsed.groups)) {
+                return parsed.groups;
+            }
+        } catch (e) {
+            console.warn("Failed to parse groups JSON", e);
+        }
+    }
+
+    // Fallback for legacy
+    const sizeStr = client['Размер шин'] || '';
+    const diaMatch = sizeStr.match(/R(\d+)/i);
+    const diameter = diaMatch ? diaMatch[1] : '16'; 
+    
+    const sizeFullMatch = sizeStr.match(/(\d+)\/?(\d*)/);
+    const width = sizeFullMatch ? sizeFullMatch[1] : '';
+    const profile = sizeFullMatch ? sizeFullMatch[2] : '';
+
+    const brandStr = client['Бренд_Модель'] || '';
+    const brandParts = brandStr.split(' ');
+    
+    return [{
+        id: 'legacy-group',
+        brand: brandParts[0] || 'Unknown',
+        model: brandParts.slice(1).join(' ') || '',
+        width,
+        profile,
+        diameter,
+        count: Number(client['Кол-во шин']) || 4,
+        season: client['Сезон'] || 'Лето',
+        hasRims: client['Наличие дисков'] || 'Нет',
+        pricePerMonth: Number(client['Цена за месяц']) || DEFAULT_PRICE,
+        dot: client['DOT-код'] || ''
+    }];
 };
 
 const getInitialState = (reorderClient?: Client): Partial<Client> => {
@@ -156,6 +235,7 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
             'Chat ID': reorderClient['Chat ID'],
             'Номер Авто': reorderClient['Номер Авто'],
             'Источник трафика': reorderClient['Источник трафика'],
+            'Склад хранения': reorderClient['Склад хранения'] || defaultOrderState['Склад хранения']
         };
     } else {
         initialState = {
@@ -164,7 +244,7 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
         };
     }
     
-    return calculateAllFields(initialState);
+    return initialState;
 };
 
 // --- Smart Duration Selector ---
@@ -230,152 +310,32 @@ const SmartDurationSelector: React.FC<{
     );
 }
 
-// --- Advanced DOT Input Component ---
-interface AdvancedDotInputProps {
-    value: string;
-    onChange: (val: string) => void;
-    tireCount: number;
-}
-
-const AdvancedDotInput: React.FC<AdvancedDotInputProps> = ({ value, onChange, tireCount }) => {
-    const [mode, setMode] = useState<'single' | 'multi'>('single');
-    const [singleDot, setSingleDot] = useState('');
-    const [multiDots, setMultiDots] = useState<{dot: string, note: string}[]>([]);
-
-    useEffect(() => {
-        if (!value) {
-            setMode('single');
-            setSingleDot('');
-            setMultiDots(Array(tireCount).fill({ dot: '', note: '' }));
-            return;
-        }
-
-        const isMulti = value.includes('\n') || value.startsWith('#');
-        
-        if (isMulti) {
-            setMode('multi');
-            const lines = value.split('\n');
-            const parsed = Array(tireCount).fill(null).map((_, i) => {
-                const line = lines.find(l => l.trim().startsWith(`#${i + 1}:`));
-                if (line) {
-                    const content = line.substring(line.indexOf(':') + 1).trim();
-                    const noteMatch = content.match(/\((.*?)\)$/);
-                    const note = noteMatch ? noteMatch[1] : '';
-                    const dot = noteMatch ? content.replace(/\s*\(.*?\)$/, '') : content;
-                    return { dot, note };
-                }
-                return { dot: '', note: '' };
-            });
-            setMultiDots(parsed);
-        } else {
-            setMode('single');
-            setSingleDot(value);
-            setMultiDots(Array(tireCount).fill({ dot: value, note: '' }));
-        }
-    }, [value, tireCount]);
-
-    const updateParent = (currentMode: 'single' | 'multi', sDot: string, mDots: typeof multiDots) => {
-        if (currentMode === 'single') {
-            onChange(sDot);
-        } else {
-            const lines = mDots.map((item, index) => {
-                if (!item.dot && !item.note) return null;
-                let line = `#${index + 1}: ${item.dot || '?'}`;
-                if (item.note) line += ` (${item.note})`;
-                return line;
-            }).filter(Boolean);
-            
-            if (lines.length === 0) onChange('');
-            else onChange(lines.join('\n'));
-        }
-    };
-
-    const handleSingleChange = (val: string) => {
-        setSingleDot(val);
-        setMultiDots(mDots => mDots.map(d => ({ ...d, dot: val })));
-        updateParent('single', val, multiDots);
-    };
-
-    const handleMultiChange = (index: number, field: 'dot' | 'note', val: string) => {
-        const newDots = [...multiDots];
-        while(newDots.length <= index) newDots.push({dot: '', note: ''});
-        
-        newDots[index] = { ...newDots[index], [field]: val };
-        setMultiDots(newDots);
-        updateParent('multi', singleDot, newDots);
-    };
-
-    const toggleMode = (newMode: 'single' | 'multi') => {
-        setMode(newMode);
-        updateParent(newMode, singleDot, multiDots);
-    };
-
-    return (
-        <div className="space-y-3">
-            <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">DOT-код</label>
-                <div className="flex bg-gray-100 dark:bg-gray-700/50 rounded-lg p-0.5">
-                    <button
-                        type="button"
-                        onClick={() => toggleMode('single')}
-                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${mode === 'single' ? 'bg-white dark:bg-gray-600 shadow text-primary-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                    >
-                        Один
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => toggleMode('multi')}
-                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${mode === 'multi' ? 'bg-white dark:bg-gray-600 shadow text-primary-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                    >
-                        Разные / Дефекты
-                    </button>
-                </div>
-            </div>
-
-            {mode === 'single' ? (
-                <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <Input 
-                        value={singleDot} 
-                        onChange={e => handleSingleChange(e.target.value)} 
-                        placeholder="Например, 4521" 
-                        helperText="4 цифры (неделя и год)"
-                        className="!mt-0"
-                    />
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 gap-2 bg-gray-50 dark:bg-gray-800/40 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                    {Array.from({ length: tireCount }).map((_, idx) => (
-                        <div key={idx} className="flex gap-2 items-center">
-                            <span className="text-xs font-bold text-gray-400 w-6 text-right">#{idx + 1}</span>
-                            <input 
-                                type="text"
-                                className="flex-1 min-w-0 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400"
-                                placeholder="DOT (4521)"
-                                value={multiDots[idx]?.dot || ''}
-                                onChange={(e) => handleMultiChange(idx, 'dot', e.target.value)}
-                            />
-                            <input 
-                                type="text"
-                                className="flex-[1.5] min-w-0 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400"
-                                placeholder="Дефект (латка...)"
-                                value={multiDots[idx]?.note || ''}
-                                onChange={(e) => handleMultiChange(idx, 'note', e.target.value)}
-                            />
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
 
 export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }> = ({ settings, onClientAdd }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const originalClient = location.state?.clientToReorder as Client | undefined;
     
-    const [formData, setFormData] = useState<Partial<Client>>(() => getInitialState(originalClient));
+    // State
+    const [tireGroups, setTireGroups] = useState<TireGroup[]>([]);
+    const [draftGroup, setDraftGroup] = useState<TireGroup | null>(null); // State for real-time calculation
+    
+    const [formData, setFormData] = useState<Partial<Client>>(() => {
+        const init = getInitialState(originalClient);
+        return init;
+    });
+    
+    // Initialize groups if reordering
+    useEffect(() => {
+        if (originalClient && tireGroups.length === 0) {
+            const extractedGroups = parseGroupsFromClient(originalClient);
+            if (extractedGroups.length > 0) {
+                setTireGroups(extractedGroups);
+                setFormData(prev => calculateAllFields(prev, extractedGroups, null));
+            }
+        }
+    }, [originalClient]);
+
     const [description, setDescription] = useState('');
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -383,47 +343,19 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     
     const handleChange = (updates: Partial<Client>) => {
-        setFormData(currentData => calculateAllFields(currentData, updates));
+        setFormData(currentData => calculateAllFields(currentData, tireGroups, draftGroup, updates));
     };
 
-    // Helper to auto-calculate price based on tire size
-    const updatePriceFromTireSize = (sizeString: string) => {
-        // sizeString example: "Michelin X-Ice >> 175/65R14"
-        const diameterMatch = sizeString.match(/R\s*(\d{2}(?:,\d)?)/i);
-        
-        const updates: Partial<Client> = {
-            'Заказ - QR': sizeString
-        };
-
-        // Extract full size string (e.g. 175/65R14) from "Brand >> Size" format
-        const parts = sizeString.split('>>');
-        if (parts.length > 0) {
-             updates['Бренд_Модель'] = parts[0].trim();
-        }
-
-        if (parts.length > 1) {
-             const sizePart = parts[1].trim();
-             // Use the full size string as requested if available
-             if (sizePart) {
-                 updates['Размер шин'] = sizePart;
-             } else if (diameterMatch) {
-                 // Fallback to simple Rxx if full size not available
-                 updates['Размер шин'] = `R${diameterMatch[1]}`;
-             }
-        } else if (diameterMatch) {
-             updates['Размер шин'] = `R${diameterMatch[1]}`;
-        }
-
-        if (diameterMatch && diameterMatch[1]) {
-            // Price lookup key (e.g. "14", "16", "22,5")
-            const price = PRICE_BY_DIAMETER[diameterMatch[1]];
-            if (price) {
-                updates['Цена за месяц'] = price;
-            }
-        }
-        
-        handleChange(updates);
+    const handleGroupsChange = (newGroups: TireGroup[]) => {
+        setTireGroups(newGroups);
+        // Force recalculation when groups change
+        setFormData(currentData => calculateAllFields(currentData, newGroups, draftGroup));
     };
+    
+    const handleDraftChange = (newDraft: TireGroup | null) => {
+        setDraftGroup(newDraft);
+        setFormData(currentData => calculateAllFields(currentData, tireGroups, newDraft));
+    }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -448,6 +380,8 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         const endDate = client['Окончание'] ? new Date(client['Окончание']).toLocaleDateString('ru-RU') : '-';
         
         const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
+        
+        const displayQR = (client['Заказ - QR'] || '').split('||JSON:')[0];
 
         return `
 ✅✅✅ <b>НОВЫЙ ЗАКАЗ</b> ✅✅✅
@@ -458,7 +392,7 @@ ${originalClient ? '<i>(для существующего клиента)</i>\n'
 <b>Адрес:</b> ${client['Адрес клиента'] || 'Не указан'}
 
 - - - - - <b>ДЕТАЛИ ЗАКАЗА</b> - - - - -
-<blockquote><i>⭕️ ${client['Заказ - QR'] || ''}</i>
+<blockquote><i>⭕️ ${displayQR}</i>
 Кол-во шин: ${client['Кол-во шин']} шт.
 Сезон: ${client['Сезон']}
 Диски: ${client['Наличие дисков']}
@@ -477,6 +411,12 @@ ${servicesLine}</blockquote>
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (tireGroups.length === 0) {
+             setToast({ message: `Добавьте хотя бы одну группу шин в заказ!`, type: 'error' });
+             return;
+        }
+
         setIsLoading(true);
         setToast(null);
 
@@ -484,35 +424,52 @@ ${servicesLine}</blockquote>
         let dataForSubmission = { ...formData };
         if (!dataForSubmission.id) dataForSubmission.id = `c${Date.now()}`;
         
-        // Ensure phone has +7 prefix on submit if it's not empty
         if (dataForSubmission['Телефон'] && !dataForSubmission['Телефон'].startsWith('+7')) {
             dataForSubmission['Телефон'] = '+7' + dataForSubmission['Телефон'];
         }
         
-        const qrBase = dataForSubmission['Заказ - QR'] || '';
-        dataForSubmission['Заказ - QR'] = description ? `${qrBase} >> ${description}` : qrBase;
+        // SERIALIZE GROUPS INTO FLATTENED FIELDS
+        
+        // 1. Brand_Model: Combine unique brands/models
+        const brands = Array.from(new Set(tireGroups.map(g => `${g.brand} ${g.model}`.trim())));
+        dataForSubmission['Бренд_Модель'] = brands.join(' // ');
+
+        // 2. Size: Combine dimensions
+        const sizes = tireGroups.map(g => `${g.count}x ${g.width}/${g.profile}R${g.diameter}`);
+        dataForSubmission['Размер шин'] = sizes.join(' // ');
+
+        // 3. QR / Description field: Readable summary + Hidden JSON
+        const readableDesc = tireGroups.map(g => `${g.count}x ${g.brand} ${g.model} ${g.width}/${g.profile}R${g.diameter}`).join(' // ');
+        
+        let fullReadable = readableDesc;
+        if (description) fullReadable += ` >> ${description}`;
+
+        const jsonPayload = JSON.stringify({ groups: tireGroups, note: description });
+        dataForSubmission['Заказ - QR'] = `${fullReadable}||JSON:${jsonPayload}`;
+
+        // Ensure DOT is synced
+        if (!dataForSubmission['DOT-код']) {
+             dataForSubmission['DOT-код'] = tireGroups.map(g => g.dot).filter(Boolean).join(' / ');
+        }
         
         try {
-            // Step 1: Upload photos and get URLs
+            // Step 1: Upload photos
             const uploadedUrls: string[] = [];
             if (filesToUpload.length > 0) {
                 for (const [index, file] of filesToUpload.entries()) {
                     setLoadingMessage(`Загрузка фото ${index + 1}/${filesToUpload.length}...`);
-                    // Pass only essential client data for folder naming
                     const { fileUrl } = await api.uploadFile(file, dataForSubmission);
                     uploadedUrls.push(fileUrl);
                 }
             }
 
-            // Step 2: Create final data object with photo URLs
             const existingUrls = originalClient?.photoUrls || [];
             const finalClientData = { 
                 ...dataForSubmission,
-                // Combine previous and new photos, ensuring no duplicates.
                 photoUrls: [...new Set([...existingUrls, ...uploadedUrls])]
             };
 
-            // Step 3: Make a single atomic API call to create/update the client
+            // Step 3: API call
             let processedClient: Client;
             if (originalClient && originalClient.id) {
                 setLoadingMessage('Архивация и обновление...');
@@ -522,7 +479,7 @@ ${servicesLine}</blockquote>
                 processedClient = await api.addClient(finalClientData);
             }
 
-            // Step 4: Send notifications
+            // Step 4: Notifications
             setLoadingMessage('Отправка уведомлений...');
             const allRecipientIds = [
                 ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
@@ -535,7 +492,6 @@ ${servicesLine}</blockquote>
                 await Promise.all(uniqueIds.map(id => api.sendMessage(id, message)));
             }
             
-            // Step 5: Finalize
             setToast({ message: 'Клиент успешно добавлен!', type: 'success' });
             await onClientAdd();
             setTimeout(() => navigate('/clients', { replace: true }), 1500);
@@ -553,7 +509,6 @@ ${servicesLine}</blockquote>
                 
                 <Card title={originalClient ? `Новый заказ для: ${originalClient['Имя клиента']}` : "Клиент и Автомобиль"} actions={<UserIcon className="text-gray-400"/>}>
                     <div className="space-y-6">
-                        {/* ФИО и Телефон */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
                             <Input 
@@ -567,7 +522,6 @@ ${servicesLine}</blockquote>
                             />
                         </div>
 
-                        {/* Номер Авто и Chat ID (2 колонки всегда) */}
                         <div className="grid grid-cols-2 gap-4">
                             <Input label="Номер Авто" name="Номер Авто" value={formData['Номер Авто']} onChange={(e) => handleCarNumberChange(e.target.value)} placeholder="A123BC777" />
                             <Input label="Chat ID" name="Chat ID" value={formData['Chat ID']} onChange={handleInputChange} placeholder="123456789" />
@@ -577,7 +531,6 @@ ${servicesLine}</blockquote>
                            <Input label="Адрес" name="Адрес клиента" value={formData['Адрес клиента']} onChange={handleInputChange} placeholder="Улица, № дома, квартира" helperText="Для услуги 'Вывоз шин'" />
                         </div>
 
-                        {/* Трафик и Договор (2 колонки всегда) */}
                         <div className="grid grid-cols-2 gap-4 items-end">
                             <Input label="Источник трафика" name="Источник трафика" value={formData['Источник трафика']} onChange={handleInputChange} placeholder="Авито, Сайт..." />
                             <div>
@@ -593,25 +546,12 @@ ${servicesLine}</blockquote>
                 <Card title="Шины и Услуги" actions={<TireIcon className="text-gray-400"/>}>
                     <div className="space-y-6">
                         
-                        <SmartTireInput 
-                            label="Бренд / Марка / Размер шин" 
-                            value={formData['Заказ - QR'] || ''} 
-                            onChange={(val) => updatePriceFromTireSize(val)} 
-                            season={formData['Сезон'] as 'Лето'|'Зима'}
-                            onSeasonChange={(s) => handleChange({ 'Сезон': s })}
-                            tireCount={Number(formData['Кол-во шин'] || 4)}
-                            onTireCountChange={(c) => handleChange({ 'Кол-во шин': c })}
-                            hasRims={formData['Наличие дисков'] as 'Да'|'Нет'}
-                            onHasRimsChange={(r) => handleChange({ 'Наличие дисков': r })}
+                        <MultiTireInput 
+                            groups={tireGroups}
+                            onGroupsChange={handleGroupsChange}
+                            onDraftChange={handleDraftChange}
                         />
                         
-                        {/* New Advanced DOT Input */}
-                        <AdvancedDotInput 
-                            value={formData['DOT-код'] || ''} 
-                            onChange={(val) => handleChange({ 'DOT-код': val })} 
-                            tireCount={Number(formData['Кол-во шин']) || 4} 
-                        />
-
                         <div>
                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты (общее)</label>
                            <textarea
@@ -690,7 +630,7 @@ ${servicesLine}</blockquote>
                                     <span>Хранение ({formData['Срок']} мес.)</span>
                                     <span>
                                         {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
-                                            ((Number(formData['Цена за месяц']) || 0) / 4) * (Number(formData['Кол-во шин']) || 4) * (Number(formData['Срок']) || 0)
+                                            (Number(formData['Цена за месяц']) || 0) * (Number(formData['Срок']) || 0)
                                         )}
                                     </span>
                                 </div>
@@ -701,11 +641,8 @@ ${servicesLine}</blockquote>
                                     </div>
                                 )}
                                 {formData['Наличие дисков'] === 'Да' && (
-                                    <div className="flex justify-between">
-                                        <span>Хранение дисков (+100₽/мес)</span>
-                                        <span>+ {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
-                                            (100 / 4) * (Number(formData['Кол-во шин']) || 4) * (Number(formData['Срок']) || 0)
-                                        )}</span>
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                        <span>(Включена наценка за диски)</span>
                                     </div>
                                 )}
                                 {formData['Услуга: Мойка'] && (
@@ -740,6 +677,7 @@ ${servicesLine}</blockquote>
                                     value={formData['Цена за месяц']} 
                                     onChange={handleInputChange}
                                     className="!bg-green-50/50 dark:!bg-green-900/20 !border-green-300 dark:!border-green-800 focus:!ring-green-500 text-green-800 dark:text-green-200 font-semibold"
+                                    helperText="Авторасчет (можно править)"
                                 />
                                 <Input 
                                     label="Долг, ₽" 

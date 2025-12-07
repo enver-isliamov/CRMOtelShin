@@ -1,4 +1,5 @@
 
+
 export interface Client {
   id: string;
   'Дата добавления'?: string;
@@ -32,6 +33,40 @@ export interface Client {
   photoUrls?: string[];
   [key:string]: any;
 }
+
+export interface TireGroup {
+  id: string;
+  brand: string;
+  model: string;
+  width: string;
+  profile: string;
+  diameter: string;
+  count: number;
+  season: 'Лето' | 'Зима';
+  hasRims: 'Да' | 'Нет';
+  pricePerMonth: number;
+  dot: string; // Added field per user request
+}
+
+// Price mapping by diameter (R)
+export const PRICE_BY_DIAMETER: Record<string, number> = {
+    '12': 500,
+    '13': 500,
+    '14': 500,
+    '15': 500,
+    '16': 600,
+    '17': 600,
+    '18': 600,
+    '19': 600,
+    '20': 700,
+    '21': 700,
+    '22': 800,
+    '22,5': 800,
+    '23': 800,
+    '24': 800
+};
+
+export const DEFAULT_PRICE = 500;
 
 export interface Settings {
   adminIds: string;
