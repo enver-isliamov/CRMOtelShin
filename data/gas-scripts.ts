@@ -1,4 +1,5 @@
 
+
 export const CRM_CODE = `/**
  * ==========================================
  *  ВЕРСИЯ CRM: 3.4.0 (Bot Integration)
@@ -340,7 +341,8 @@ function crmLogHistory(ss, clientId, user, action, details) {
 
 function crmLogError(ss, user, action, error) {
   try { const s = crmGetOrCreateSheet(ss, SHEET_NAME_LOGS); s.appendRow([new Date().toISOString(), "ERROR", user, action, error.message, error.stack]); } catch (e) { Logger.log(e); }
-}`;
+}
+`;
 
 export const ROUTER_CODE = `/**
  * ГЛАВНЫЙ МАРШРУТИЗАТОР (ROUTER)
@@ -397,6 +399,19 @@ function doBot(data) {
   }
 
   try {
+    // 1. ЗАЩИТА ОТ ДУБЛЕЙ (SPAM PROTECTION)
+    // Telegram шлет повторы, если скрипт не ответил 200 OK быстро.
+    // Мы запоминаем update_id в кэше и игнорируем повторы.
+    if (data.update_id) {
+       const cache = CacheService.getScriptCache();
+       const processedKey = 'processed_' + data.update_id;
+       if (cache.get(processedKey)) {
+         // Уже обрабатывали этот апдейт, выходим
+         return ContentService.createTextOutput("OK");
+       }
+       cache.put(processedKey, 'true', 600); // Помечаем как обработанный на 10 минут
+    }
+
     if (data.message) {
       handleMessage(data.message);
     } else if (data.callback_query) {
@@ -459,9 +474,19 @@ function getExtensionMenu(months, hasRims) {
 // --- ОБРАБОТЧИКИ СООБЩЕНИЙ ---
 
 function handleMessage(msg) {
+  // 2. ИГНОРИРОВАНИЕ БОТОВ И СЕРВИСНЫХ СООБЩЕНИЙ
+  if (!msg || !msg.chat) return;
+  if (msg.from && msg.from.is_bot) return; // Не разговариваем с ботами (и с собой)
+  
   const chatId = msg.chat.id;
   const text = msg.text;
   
+  // Если прислали не текст (стикер, фото), а мы ждем текст - игнорируем или шлем меню
+  if (!text) {
+     // Можно молча выйти, чтобы не спамить "я не понял" на каждый стикер
+     return; 
+  }
+
   // Проверяем состояние пользователя (для пошаговых форм)
   const state = getUserState(chatId);
   
@@ -483,8 +508,10 @@ function handleMessage(msg) {
     return;
   }
 
-  // Дефолтный ответ
-  sendText(chatId, "Я вас не понял. Нажмите /start для меню.");
+  // Дефолтный ответ (только если это приватный чат, чтобы не спамить в группах)
+  if (msg.chat.type === 'private') {
+    sendText(chatId, "Я вас не понял. Нажмите /start для меню.");
+  }
 }
 
 // --- ОБРАБОТЧИКИ КНОПОК ---
