@@ -61,27 +61,12 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
     
     // 2. Calculate Prices
     // We combine saved groups + the current draft group (if it has a valid diameter)
-    const effectiveGroups = [...tireGroups];
-    
-    // Only include draft in calculation if it's not already in groups (avoid double count during edit)
-    // Actually, MultiTireInput logic is: if editing, it's inside groups but maybe modified.
-    // Simpler approach: MultiTireInput manages the 'groups' state. 
-    // If we are editing, 'groups' contains the OLD value. 'draftGroup' is the NEW value. 
-    // We should ideally calculate based on what the user SEES.
-    // However, for simplicity and robustness:
-    // If draftGroup exists and has a diameter, we ADD it to the calculation purely for the visual price total.
-    // But we need to be careful not to double count if we are editing.
-    // Since `editingGroupId` is internal to MultiTireInput, we assume `draftGroup` is an ADDITION or a REPLACEMENT.
-    // A heuristic: if draftGroup.id matches an existing group id, we use draft INSTEAD of that group.
-    
     let calcGroups = [...tireGroups];
     if (draftGroup && draftGroup.diameter) {
         const existingIdx = calcGroups.findIndex(g => g.id === draftGroup.id);
         if (existingIdx > -1) {
-            // Replace existing for calculation
             calcGroups[existingIdx] = draftGroup;
         } else {
-            // It's a new group being typed
             calcGroups.push(draftGroup);
         }
     }
@@ -114,7 +99,6 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
             }
         });
     } else {
-         // Fallback default only if ABSOLUTELY nothing is entered
          if (!draftGroup?.diameter) {
              totalTireCount = 4;
              totalMonthlyPrice = DEFAULT_PRICE; 
@@ -124,7 +108,6 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
     nextState['Кол-во шин'] = totalTireCount;
     nextState['Цена за месяц'] = totalMonthlyPrice;
     nextState['Наличие дисков'] = anyRims ? 'Да' : 'Нет';
-    // Only update DOT if we actually have data, otherwise keep existing or empty
     if (combinedDot) nextState['DOT-код'] = combinedDot.trim();
 
     // 3. Total Amount Calculation
@@ -370,41 +353,53 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     };
     
     const formatManagerMessage = (client: Partial<Client>): string => {
-        const services = [];
-        if (client['Услуга: Вывоз']) services.push('Вывоз шин');
-        if (client['Услуга: Мойка']) services.push('Мойка колёс');
-        if (client['Услуга: Упаковка']) services.push('Упаковка в пакеты');
-        const servicesLine = services.length > 0 ? `<b>Доп. услуги:</b> ${services.join(', ')}` : '';
-
         const startDate = client['Начало'] ? new Date(client['Начало']).toLocaleDateString('ru-RU') : '-';
         const endDate = client['Окончание'] ? new Date(client['Окончание']).toLocaleDateString('ru-RU') : '-';
         
         const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
         
-        const displayQR = (client['Заказ - QR'] || '').split('||JSON:')[0];
+        // Build detailed tire groups message
+        let tiresDetails = '';
+        if (tireGroups.length > 0) {
+            tiresDetails = tireGroups.map((g, i) => {
+                const rimText = g.hasRims === 'Да' ? 'Есть' : 'Нет';
+                const dotText = g.dot ? `\nDOT: ${g.dot}` : '';
+                return `<b>📦 Группа ${i + 1}:</b>
+${g.count}шт • ${g.brand} ${g.model}
+Размер: <b>${g.width}/${g.profile} R${g.diameter}</b>
+Сезон: ${g.season} | Диски: ${rimText}${dotText}`;
+            }).join('\n\n');
+        } else {
+            // Fallback for flat structure or if empty
+            tiresDetails = (client['Заказ - QR'] || '').split('||JSON:')[0];
+        }
+
+        const services = [];
+        if (client['Услуга: Вывоз']) services.push('🚚 Вывоз');
+        if (client['Услуга: Мойка']) services.push('🚿 Мойка');
+        if (client['Услуга: Упаковка']) services.push('🧧 Упаковка');
+        const servicesLine = services.length > 0 ? `\n<b>Доп. услуги:</b> ${services.join(', ')}` : '';
 
         return `
 ✅✅✅ <b>НОВЫЙ ЗАКАЗ</b> ✅✅✅
 ${originalClient ? '<i>(для существующего клиента)</i>\n' : ''}
-<b>Имя:</b> ${client['Имя клиента']}
-<b>Телефон:</b> <code>${client['Телефон']}</code>
-<b>Авто:</b> ${client['Номер Авто']}
-<b>Адрес:</b> ${client['Адрес клиента'] || 'Не указан'}
+👤 <b>${client['Имя клиента']}</b>
+📞 <code>${client['Телефон']}</code>
+🚗 ${client['Номер Авто']}
+${client['Адрес клиента'] ? `📍 ${client['Адрес клиента']}` : ''}
 
-- - - - - <b>ДЕТАЛИ ЗАКАЗА</b> - - - - -
-<blockquote><i>⭕️ ${displayQR}</i>
-Кол-во шин: ${client['Кол-во шин']} шт.
-Сезон: ${client['Сезон']}
-Диски: ${client['Наличие дисков']}
+- - - - - <b>ШИНЫ И ДИСКИ</b> - - - - -
+<blockquote>${tiresDetails}
 ${servicesLine}</blockquote>
 - - - - - - - - - - - - - -
-📦 <b>Склад:</b> ${client['Склад хранения']} / ${client['Ячейка']}
-⚡️ <b>Хранение:</b> ${client['Срок']} мес. (${startDate} » ${endDate})
+🏭 <b>Склад:</b> ${client['Склад хранения']} ${client['Ячейка'] ? `/ ${client['Ячейка']}` : ''}
+🗓 <b>Хранение:</b> ${client['Срок']} мес.
+(${startDate} ➝ ${endDate})
 - - - - - - - - - - - - - -
-💳 <b>Сумма:</b> ${formatCurrency(client['Общая сумма'])} [${client['Цена за месяц']} ₽/мес.]
-🧧 <b>Долг:</b> ${formatCurrency(client['Долг'])}
+💰 <b>Итого:</b> ${formatCurrency(client['Общая сумма'])}
+(Тариф: ${formatCurrency(client['Цена за месяц'])}/мес)
+${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(client['Долг'])}` : ''}
 - - - - - - - - - - - - - -
-🌐 <b>Источник:</b> ${client['Источник трафика']}
 📑 <b>Договор:</b> ${client['Договор']}
 `.trim().replace(/^\s+/gm, '');
     };
