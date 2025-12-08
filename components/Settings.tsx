@@ -32,6 +32,26 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
     </button>
 );
 
+// --- Responsive Code Viewer Component ---
+// FIX: Using grid grid-cols-1 to force the container to respect parent width and enable proper internal scrolling
+const CodeViewer: React.FC<{ code: string; onCopy: (c: string) => void }> = ({ code, onCopy }) => (
+    <div className="relative w-full max-w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-[#1e1e1e] shadow-sm group grid grid-cols-1">
+        <div className="absolute top-2 right-2 z-10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <button 
+                onClick={() => onCopy(code)} 
+                className="bg-gray-700/80 hover:bg-gray-600 text-gray-200 px-2.5 py-1 rounded-md text-xs font-medium border border-gray-600 shadow-sm backdrop-blur-sm transition-colors"
+            >
+                Копировать
+            </button>
+        </div>
+        <div className="w-full overflow-x-auto custom-scrollbar">
+            <pre className="p-4 text-[10px] sm:text-xs leading-relaxed text-gray-300 font-mono w-max min-w-full selection:bg-gray-600">
+                <code>{code.trim()}</code>
+            </pre>
+        </div>
+    </div>
+);
+
 const GeneralSettingsTab: React.FC<{ 
     settings: SettingsType, 
     onChange: (field: keyof SettingsType, value: string) => void,
@@ -661,7 +681,7 @@ const MastersTab: React.FC<{
 
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-full overflow-hidden">
             <h3 className="text-xl font-semibold">Настройка Google Apps Script (Интеграция)</h3>
             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 text-yellow-800 dark:text-yellow-200 rounded-md space-y-2">
                 <p className="font-bold">⚠️ ВАЖНО: Настройка Токена и ID Админа</p>
@@ -678,32 +698,17 @@ const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
                 <h4 className="text-lg font-semibold">Файл 1: Code.gs (Основная логика CRM)</h4>
                 <p>Вставьте этот код в файл <code>Code.gs</code>. Он отвечает за работу веб-интерфейса CRM.</p>
 
-                <div className="relative">
-                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
-                        <code>{CRM_CODE.trim()}</code>
-                    </pre>
-                    <button onClick={() => onCopy(CRM_CODE)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
-                </div>
+                <CodeViewer code={CRM_CODE} onCopy={onCopy} />
 
                 <h4 className="text-lg font-semibold mt-8">Файл 2: Bot.gs (Телеграм Бот)</h4>
                 <p>Создайте файл <code>Bot.gs</code> и вставьте туда этот код. Он содержит логику кнопок, меню и ЛК.</p>
 
-                <div className="relative">
-                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
-                        <code>{BOT_CODE.trim()}</code>
-                    </pre>
-                    <button onClick={() => onCopy(BOT_CODE)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
-                </div>
+                <CodeViewer code={BOT_CODE} onCopy={onCopy} />
                 
                 <h4 className="text-lg font-semibold mt-8">Файл 3: Router.gs (Маршрутизатор)</h4>
                 <p>Создайте файл <code>Router.gs</code>. Он перенаправляет запросы либо в CRM, либо в Бота.</p>
 
-                <div className="relative">
-                    <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[300px]">
-                        <code>{ROUTER_CODE.trim()}</code>
-                    </pre>
-                    <button onClick={() => onCopy(ROUTER_CODE)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
-                </div>
+                <CodeViewer code={ROUTER_CODE} onCopy={onCopy} />
 
                 <h4 className="text-lg font-semibold mt-8">Финальный шаг: Развертывание</h4>
                  <ol className="list-decimal list-inside space-y-3 pl-4">
@@ -716,7 +721,7 @@ const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
                     <li>
                         <b>Настройка Webhook для бота:</b><br/>
                         Чтобы бот начал отвечать, нужно один раз открыть в браузере ссылку:<br/>
-                        <code className="bg-gray-200 dark:bg-gray-700 p-1 rounded">https://api.telegram.org/bot[ВАШ_ТОКЕН]/setWebhook?url=[ВАШ_WEB_APP_URL]</code>
+                        <code className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 rounded block w-full break-all whitespace-pre-wrap font-mono text-xs sm:text-sm my-2">https://api.telegram.org/bot[ВАШ_ТОКЕН]/setWebhook?url=[ВАШ_WEB_APP_URL]</code>
                     </li>
                 </ol>
             </div>
@@ -894,12 +899,7 @@ You are a world-class senior frontend engineer specializing in React, TypeScript
             </Expander>
 
             <Expander title="Промт для воссоздания CRM" isExpanded={isPromptExpanded} setExpanded={setIsPromptExpanded}>
-                    <div className="relative">
-                        <pre className="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto max-h-[60vh]">
-                            <code>{promptText.trim()}</code>
-                        </pre>
-                        <button onClick={() => onCopy(promptText)} className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded-md text-sm">Копировать</button>
-                    </div>
+                <CodeViewer code={promptText} onCopy={onCopy} />
             </Expander>
         </div>
     );
