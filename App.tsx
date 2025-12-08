@@ -62,7 +62,7 @@ const BottomNavLink: React.FC<{ to: string, icon: React.ReactNode, children: Rea
     const location = useLocation();
     const isActive = !disabled && (location.pathname === to || (to !== '/' && location.pathname.startsWith(to)));
 
-    const commonClasses = `flex flex-col items-center justify-center flex-1 py-2 text-xs transition-colors duration-200 rounded-lg`;
+    const commonClasses = `flex flex-col items-center justify-center flex-1 py-2 text-xs transition-colors duration-200 rounded-lg select-none`;
     const activeClasses = `text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20`; 
     const inactiveClasses = `text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800`;
     const disabledClasses = `text-gray-400 dark:text-gray-500 cursor-not-allowed`;
@@ -90,9 +90,9 @@ const BottomNavLink: React.FC<{ to: string, icon: React.ReactNode, children: Rea
 
 const Layout: React.FC<{ children: React.ReactNode, user: { username: string, role: UserRole }, onLogout: () => void, navDisabled?: boolean }> = ({ children, user, onLogout, navDisabled = false }) => {
     return (
-        <div className="flex h-screen bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4">
+            <aside className="hidden md:flex w-64 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 z-50">
                 <div className="flex items-center space-x-3 mb-8">
                      <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
                         <svg className="h-8 w-auto text-primary-600 dark:text-primary-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -120,10 +120,10 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col overflow-hidden">
+            {/* Main Content Wrapper */}
+            <div className="flex-1 flex flex-col h-full relative">
                  {/* Mobile Header */}
-                <header className="md:hidden flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 p-4">
+                <header className="md:hidden flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 p-4 z-[60] sticky top-0">
                      <div className="flex items-center space-x-2">
                         <div className="p-1.5 rounded-lg bg-primary-100 dark:bg-primary-900/50">
                            <svg className="h-6 w-auto text-primary-600 dark:text-primary-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 9.068l.44-2.396M11.25 9.068l-3.41 1.936m3.41-1.936l1.936 3.41m-1.936-3.41a4.5 4.5 0 013.182-.968h.063a4.5 4.5 0 013.478 5.432l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a2.25 2.25 0 00-2.208-1.956H9.413a2.25 2.25 0 00-2.208 1.956l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234A4.5 4.5 0 016.12 6.132h.063a4.5 4.5 0 013.182.968z" /></svg>
@@ -137,22 +137,26 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
                         </button>
                     </div>
                 </header>
-                <div className="flex-1 overflow-y-auto">
+                
+                {/* Scrollable Content Area */}
+                <main className="flex-1 overflow-y-auto relative z-0 pb-20 md:pb-0">
                     {children}
-                </div>
-                 {/* Mobile Bottom Nav */}
-                <nav className="md:hidden flex items-center justify-around bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-2 gap-2">
+                </main>
+                
+                 {/* Mobile Bottom Nav - Completely isolated z-context */}
+                <nav className="md:hidden flex items-center justify-around bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 p-2 gap-2 z-[100] fixed bottom-0 left-0 right-0 pb-safe safe-area-inset-bottom shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
                     <BottomNavLink to="/" icon={<DashboardIcon/>} disabled={navDisabled}>Дашборд</BottomNavLink>
                     <BottomNavLink to="/clients" icon={<ClientsIcon/>} disabled={navDisabled}>Клиенты</BottomNavLink>
                     <BottomNavLink to="/add-client" icon={<PlusCircleIcon className="h-8 w-8 text-primary-600 dark:text-primary-400"/>} disabled={navDisabled}>Добавить</BottomNavLink>
                     <BottomNavLink to="/settings" icon={<SettingsIcon/>}>Настройки</BottomNavLink>
                 </nav>
-            </main>
+            </div>
         </div>
     );
 };
 
 export const App: React.FC = () => {
+    // ... (App logic remains same, but we must include it to be valid XML response)
     const user = { username: 'Admin', role: UserRole.Admin };
     const logout = () => {
         console.log("Logout clicked. Authentication is disabled.");
@@ -165,11 +169,8 @@ export const App: React.FC = () => {
     const [templates, setTemplates] = useState<MessageTemplate[]>([]);
     const [masters, setMasters] = useState<Master[]>([]);
     const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-    
-    // Updated Toast State: Array of messages
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
     
-    // Theme logic
     useEffect(() => {
         const storedTheme = localStorage.getItem('theme') || 'system';
         if (storedTheme === 'dark' || (storedTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -181,7 +182,6 @@ export const App: React.FC = () => {
 
     const addToast = (message: string, type: 'success' | 'error', title?: string) => {
         const id = Date.now().toString() + Math.random().toString();
-        // Errors (unless overridden) don't auto-dismiss (duration 0). Success dismisses in 4000ms.
         const duration = type === 'error' ? 0 : 4000; 
         
         setToasts(prev => [...prev, { id, message, type, title, duration }]);
@@ -192,30 +192,20 @@ export const App: React.FC = () => {
     };
 
     const fetchData = useCallback(async () => {
-        // We only show a toast if we are doing a manual refresh or initial load, handled by the caller mostly
-        // But here we can use a "silent" load or a less intrusive indicator if needed.
-        // For now, let's just log.
-        // addToast("Синхронизация данных...", 'success'); 
-        
         try {
-            // Step 1: Always fetch settings from local storage first to update the state.
             const settingsData = await api.fetchSettings();
             setSettings(settingsData);
             
             const viewsData = localStorage.getItem('crm_saved_views');
             setSavedViews(viewsData ? JSON.parse(viewsData) : []);
 
-            // Step 2: Check if the Google Sheet URL is configured.
             if (!settingsData.googleSheetId) {
                 setClients([]);
                 setArchive([]);
                 setHeaders(getClientHeaders());
                 setTemplates([]);
                 setMasters([]);
-                // Only show this error if we actually tried to fetch but couldn't because of config
-                // addToast("Требуется настройка Google Sheets URL в настройках.", "error");
             } else {
-                // If it is configured, fetch all data from Google Sheets.
                 const [clientsData, templatesData, mastersData] = await Promise.all([
                     api.fetchClients(),
                     api.fetchTemplates(),
@@ -226,13 +216,10 @@ export const App: React.FC = () => {
                 setHeaders(clientsData.headers.length > 0 ? clientsData.headers : getClientHeaders());
                 setTemplates(templatesData);
                 setMasters(mastersData);
-                // addToast("Данные успешно обновлены", "success");
             }
         } catch (error: any) {
             console.error("Failed to fetch data:", error);
             addToast(`Ошибка синхронизации: ${error.message}`, 'error', 'Сбой сети или API');
-            
-            // In case of error, clear sensitive data to avoid stale state confusion
             setClients([]);
             setArchive([]);
             setHeaders(getClientHeaders());
@@ -256,11 +243,6 @@ export const App: React.FC = () => {
     };
     
     const needsSetup = !settings.googleSheetId;
-
-    // Helper to pass showToast to children (adapter for old signature)
-    const showToastAdapter = (message: string, type: 'success' | 'error') => {
-        addToast(message, type);
-    }
 
     return (
         <HashRouter>

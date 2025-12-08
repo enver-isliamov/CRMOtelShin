@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SmartTireInput } from './SmartTireInput';
 import { TireGroup, PRICE_BY_DIAMETER, DEFAULT_PRICE } from '../../types';
 import { Button } from './Button';
@@ -23,6 +23,9 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
   
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(groups.length === 0);
+
+  // Ref to track the last notified draft to prevent infinite loops
+  const prevDraftJSON = useRef<string>('');
 
   // Automatically open form if last group is removed
   useEffect(() => {
@@ -76,7 +79,15 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
           dot: dotInputs.filter(Boolean).join(' / ')
       };
       
-      onDraftChange(isFormOpen ? draft : null);
+      const payload = isFormOpen ? draft : null;
+      const payloadJSON = JSON.stringify(payload);
+
+      // CRITICAL FIX: Only call onDraftChange if the object actually changed.
+      // This prevents infinite render loops with the parent component.
+      if (prevDraftJSON.current !== payloadJSON) {
+          prevDraftJSON.current = payloadJSON;
+          onDraftChange(payload);
+      }
   }, [currentValue, currentSeason, currentCount, currentHasRims, dotInputs, isFormOpen, editingGroupId, onDraftChange]);
 
   useEffect(() => {

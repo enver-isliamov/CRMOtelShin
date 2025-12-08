@@ -1,5 +1,4 @@
 
-
 export interface Client {
   id: string;
   'Дата добавления'?: string;
@@ -31,6 +30,7 @@ export interface Client {
   'Услуга: Мойка'?: boolean;
   'Услуга: Упаковка'?: boolean;
   photoUrls?: string[];
+  metadata?: string; // New field for JSON data
   [key:string]: any;
 }
 
@@ -45,7 +45,7 @@ export interface TireGroup {
   season: 'Лето' | 'Зима';
   hasRims: 'Да' | 'Нет';
   pricePerMonth: number;
-  dot: string; // Added field per user request
+  dot: string; 
 }
 
 // Price mapping by diameter (R)

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Client, Settings, TireGroup, PRICE_BY_DIAMETER, DEFAULT_PRICE } from '../types';
 import { api } from '../services/api';
@@ -40,12 +40,12 @@ const generateContractNumber = () => {
     return `${year}${month}${day}-${hours}${minutes}`;
 }
 
-const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], draftGroup: TireGroup | null, updates: Partial<Client> = {}): Partial<Client> => {
-    const nextState = { ...baseData, ...updates };
+const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], draftGroup: TireGroup | null): Partial<Client> => {
+    const nextState = { ...baseData };
 
-    // 1. Calculate dates
-    if ('Начало' in updates || 'Срок' in updates || !nextState['Окончание']) {
-        const startDate = new Date(nextState['Начало']!);
+    // 1. Calculate dates (if Start date or Duration changes, which are in baseData)
+    if (nextState['Начало'] && nextState['Срок']) {
+        const startDate = new Date(nextState['Начало']);
         const storageMonths = Number(nextState['Срок']);
         
         if (!isNaN(startDate.getTime()) && storageMonths > 0) {
@@ -59,8 +59,7 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
         }
     }
     
-    // 2. Calculate Prices
-    // We combine saved groups + the current draft group (if it has a valid diameter)
+    // 2. Calculate Prices from Groups
     let calcGroups = [...tireGroups];
     if (draftGroup && draftGroup.diameter) {
         const existingIdx = calcGroups.findIndex(g => g.id === draftGroup.id);
@@ -100,6 +99,7 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
         });
     } else {
          if (!draftGroup?.diameter) {
+             // Fallback default if no groups
              totalTireCount = 4;
              totalMonthlyPrice = DEFAULT_PRICE; 
          }
@@ -122,22 +122,6 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
         nextState['Договор'] = generateContractNumber();
     }
 
-    // 4. Status Logic
-    const debt = Number(nextState['Долг'] || 0);
-    const total = Number(nextState['Общая сумма'] || 0);
-
-    if (debt > 0) {
-        if (debt >= total) {
-             nextState['Статус сделки'] = 'Без оплаты';
-        } else {
-             nextState['Статус сделки'] = 'Частичная оплата';
-        }
-    } else {
-        if (nextState['Статус сделки'] === 'Без оплаты' || nextState['Статус сделки'] === 'Частичная оплата') {
-             nextState['Статус сделки'] = 'Оплачено';
-        }
-    }
-
     return nextState;
 };
 
@@ -145,10 +129,19 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
 const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
     if (!client) return [];
     
-    // Check if we have JSON in 'Заказ - QR'
+    if (client.metadata) {
+        try {
+            const parsed = JSON.parse(client.metadata);
+            if (parsed.groups && Array.isArray(parsed.groups)) {
+                return parsed.groups;
+            }
+        } catch (e) {
+            console.warn("Failed to parse metadata JSON", e);
+        }
+    }
+
     const qrData = client['Заказ - QR'] || '';
     const jsonMatch = qrData.match(/\|\|JSON:(.*)$/);
-    
     if (jsonMatch) {
         try {
             const parsed = JSON.parse(jsonMatch[1]);
@@ -156,11 +149,10 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
                 return parsed.groups;
             }
         } catch (e) {
-            console.warn("Failed to parse groups JSON", e);
+            console.warn("Failed to parse legacy JSON groups", e);
         }
     }
 
-    // Fallback for legacy
     const sizeStr = client['Размер шин'] || '';
     const diaMatch = sizeStr.match(/R(\d+)/i);
     const diameter = diaMatch ? diaMatch[1] : '16'; 
@@ -200,7 +192,8 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
         'DOT-код': '',
         'Услуга: Вывоз': false, 'Услуга: Мойка': false, 'Услуга: Упаковка': false,
         'photoUrls': [],
-        'id': `c${Date.now()}` 
+        'id': `c${Date.now()}`,
+        'metadata': '' 
     };
     
     let initialState: Partial<Client>;
@@ -301,23 +294,27 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     
     // State
     const [tireGroups, setTireGroups] = useState<TireGroup[]>([]);
-    const [draftGroup, setDraftGroup] = useState<TireGroup | null>(null); // State for real-time calculation
+    const [draftGroup, setDraftGroup] = useState<TireGroup | null>(null);
     
     const [formData, setFormData] = useState<Partial<Client>>(() => {
-        const init = getInitialState(originalClient);
-        return init;
+        return getInitialState(originalClient);
     });
     
-    // Initialize groups if reordering
     useEffect(() => {
         if (originalClient && tireGroups.length === 0) {
             const extractedGroups = parseGroupsFromClient(originalClient);
             if (extractedGroups.length > 0) {
                 setTireGroups(extractedGroups);
+                // Initial calc
                 setFormData(prev => calculateAllFields(prev, extractedGroups, null));
             }
         }
     }, [originalClient]);
+
+    // Recalculate fields whenever groups, draft, or key form data changes
+    useEffect(() => {
+        setFormData(prev => calculateAllFields(prev, tireGroups, draftGroup));
+    }, [tireGroups, draftGroup, formData['Срок'], formData['Начало'], formData['Услуга: Мойка'], formData['Услуга: Упаковка']]);
 
     const [description, setDescription] = useState('');
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
@@ -325,20 +322,18 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     const [loadingMessage, setLoadingMessage] = useState('Оформление...');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     
-    const handleChange = (updates: Partial<Client>) => {
-        setFormData(currentData => calculateAllFields(currentData, tireGroups, draftGroup, updates));
-    };
+    // Handlers wrapped in useCallback to be stable props
+    const handleChange = useCallback((updates: Partial<Client>) => {
+        setFormData(prev => ({ ...prev, ...updates }));
+    }, []);
 
-    const handleGroupsChange = (newGroups: TireGroup[]) => {
+    const handleGroupsChange = useCallback((newGroups: TireGroup[]) => {
         setTireGroups(newGroups);
-        // Force recalculation when groups change
-        setFormData(currentData => calculateAllFields(currentData, newGroups, draftGroup));
-    };
+    }, []);
     
-    const handleDraftChange = (newDraft: TireGroup | null) => {
+    const handleDraftChange = useCallback((newDraft: TireGroup | null) => {
         setDraftGroup(newDraft);
-        setFormData(currentData => calculateAllFields(currentData, tireGroups, newDraft));
-    }
+    }, []);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -358,7 +353,6 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         
         const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
         
-        // Build detailed tire groups message
         let tiresDetails = '';
         if (tireGroups.length > 0) {
             tiresDetails = tireGroups.map((g, i) => {
@@ -370,7 +364,6 @@ ${g.count}шт • ${g.brand} ${g.model}
 Сезон: ${g.season} | Диски: ${rimText}${dotText}`;
             }).join('\n\n');
         } else {
-            // Fallback for flat structure or if empty
             tiresDetails = (client['Заказ - QR'] || '').split('||JSON:')[0];
         }
 
@@ -415,7 +408,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
         setIsLoading(true);
         setToast(null);
 
-        // Prepare the base data object
         let dataForSubmission = { ...formData };
         if (!dataForSubmission.id) dataForSubmission.id = `c${Date.now()}`;
         
@@ -423,32 +415,33 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
             dataForSubmission['Телефон'] = '+7' + dataForSubmission['Телефон'];
         }
         
-        // SERIALIZE GROUPS INTO FLATTENED FIELDS
-        
-        // 1. Brand_Model: Combine unique brands/models
-        const brands = Array.from(new Set(tireGroups.map(g => `${g.brand} ${g.model}`.trim())));
-        dataForSubmission['Бренд_Модель'] = brands.join(' // ');
+        const brands = Array.from(new Set(tireGroups.map(g => {
+            const b = g.brand === 'Не указан' ? '' : g.brand;
+            return `${b} ${g.model}`.trim();
+        }))).filter(Boolean);
+        dataForSubmission['Бренд_Модель'] = brands.join('\n');
 
-        // 2. Size: Combine dimensions
         const sizes = tireGroups.map(g => `${g.count}x ${g.width}/${g.profile}R${g.diameter}`);
-        dataForSubmission['Размер шин'] = sizes.join(' // ');
+        dataForSubmission['Размер шин'] = sizes.join('\n');
 
-        // 3. QR / Description field: Readable summary + Hidden JSON
-        const readableDesc = tireGroups.map(g => `${g.count}x ${g.brand} ${g.model} ${g.width}/${g.profile}R${g.diameter}`).join(' // ');
+        const readableDesc = tireGroups.map(g => {
+            const brandStr = g.brand === 'Не указан' ? '' : g.brand;
+            return `${g.count}x ${brandStr} ${g.model} ${g.width}/${g.profile}R${g.diameter}`.replace(/\s+/g, ' ').trim();
+        }).join('\n');
         
         let fullReadable = readableDesc;
-        if (description) fullReadable += ` >> ${description}`;
+        if (description) fullReadable += `\n>> ${description}`;
+
+        dataForSubmission['Заказ - QR'] = fullReadable;
 
         const jsonPayload = JSON.stringify({ groups: tireGroups, note: description });
-        dataForSubmission['Заказ - QR'] = `${fullReadable}||JSON:${jsonPayload}`;
+        dataForSubmission.metadata = jsonPayload;
 
-        // Ensure DOT is synced
         if (!dataForSubmission['DOT-код']) {
              dataForSubmission['DOT-код'] = tireGroups.map(g => g.dot).filter(Boolean).join(' / ');
         }
         
         try {
-            // Step 1: Upload photos
             const uploadedUrls: string[] = [];
             if (filesToUpload.length > 0) {
                 for (const [index, file] of filesToUpload.entries()) {
@@ -464,7 +457,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 photoUrls: [...new Set([...existingUrls, ...uploadedUrls])]
             };
 
-            // Step 3: API call
             let processedClient: Client;
             if (originalClient && originalClient.id) {
                 setLoadingMessage('Архивация и обновление...');
@@ -474,8 +466,11 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 processedClient = await api.addClient(finalClientData);
             }
 
-            // Step 4: Notifications
-            setLoadingMessage('Отправка уведомлений...');
+            setLoadingMessage('Готово!');
+            setToast({ message: 'Клиент успешно добавлен!', type: 'success' });
+            
+            onClientAdd(); 
+
             const allRecipientIds = [
                 ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
                 ...(settings.managerIds?.split(',').map(id => id.trim()).filter(Boolean) || [])
@@ -484,12 +479,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
 
             if (uniqueIds.length > 0) {
                 const message = formatManagerMessage(finalClientData);
-                await Promise.all(uniqueIds.map(id => api.sendMessage(id, message)));
+                Promise.all(uniqueIds.map(id => api.sendMessage(id, message))).catch(console.error);
             }
             
-            setToast({ message: 'Клиент успешно добавлен!', type: 'success' });
-            await onClientAdd();
-            setTimeout(() => navigate('/clients', { replace: true }), 1500);
+            setTimeout(() => navigate('/clients', { replace: true }), 300);
 
         } catch (error: any) {
             setToast({ message: `Ошибка: ${error.message}`, type: 'error' });

@@ -73,34 +73,50 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: 
     </div>
 );
 
-// Helper to extract JSON groups from string
-const TireGroupsView: React.FC<{ qrString: string }> = ({ qrString }) => {
-    const jsonMatch = qrString?.match(/\|\|JSON:(.*)$/);
-    if (!jsonMatch) return null;
-
-    try {
-        const parsed = JSON.parse(jsonMatch[1]);
-        if (parsed.groups && Array.isArray(parsed.groups)) {
-            return (
-                 <div className="col-span-2 space-y-2 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
-                    <p className="text-xs font-bold text-gray-500 uppercase">Состав комплекта:</p>
-                    {parsed.groups.map((g: TireGroup, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900/40 p-2 rounded">
-                             <span>
-                                 <span className="font-bold">{g.count} шт</span> • {g.brand} {g.model}
-                             </span>
-                             <span className="font-mono text-gray-600 dark:text-gray-400">
-                                 {g.width}/{g.profile} R{g.diameter}
-                             </span>
-                        </div>
-                    ))}
-                 </div>
-            );
-        }
-    } catch (e) {
-        return null;
+// Helper to extract JSON groups
+const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
+    let groups: TireGroup[] = [];
+    
+    // 1. Try reading from metadata
+    if (client.metadata) {
+        try {
+            const parsed = JSON.parse(client.metadata);
+            if (parsed.groups && Array.isArray(parsed.groups)) {
+                groups = parsed.groups;
+            }
+        } catch(e) {}
     }
-    return null;
+    
+    // 2. Try legacy field if empty
+    if (groups.length === 0 && client['Заказ - QR']) {
+        const jsonMatch = client['Заказ - QR'].match(/\|\|JSON:(.*)$/);
+        if (jsonMatch) {
+            try {
+                const parsed = JSON.parse(jsonMatch[1]);
+                if (parsed.groups && Array.isArray(parsed.groups)) {
+                    groups = parsed.groups;
+                }
+            } catch (e) {}
+        }
+    }
+
+    if (groups.length === 0) return null;
+
+    return (
+         <div className="col-span-2 space-y-2 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
+            <p className="text-xs font-bold text-gray-500 uppercase">Состав комплекта:</p>
+            {groups.map((g: TireGroup, idx: number) => (
+                <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900/40 p-2 rounded">
+                     <span>
+                         <span className="font-bold">{g.count} шт</span> • {g.brand} {g.model}
+                     </span>
+                     <span className="font-mono text-gray-600 dark:text-gray-400">
+                         {g.width}/{g.profile} R{g.diameter}
+                     </span>
+                </div>
+            ))}
+         </div>
+    );
 };
 
 const ClientDetailModal: React.FC<{
@@ -191,7 +207,7 @@ const ClientDetailModal: React.FC<{
             return (
                  <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {headers.filter(h => h !== 'id' && h !== 'photoUrls').map(header => (
+                        {headers.filter(h => h !== 'id' && h !== 'photoUrls' && h !== 'metadata').map(header => (
                             <Input
                                 key={header}
                                 label={header}
@@ -270,7 +286,7 @@ const ClientDetailModal: React.FC<{
                              <DetailItem label="Бренд" value={formData['Бренд_Модель']} className="col-span-2" />
                              <DetailItem label="Размер шин" value={formData['Размер шин']} className="col-span-2" />
                              
-                             <TireGroupsView qrString={formData['Заказ - QR'] || ''} />
+                             <TireGroupsView client={client} />
 
                              <DetailItem label="Сезон" value={formData['Сезон']} />
                              <DetailItem label="Кол-во" value={`${formData['Кол-во шин']} шт.`} />
