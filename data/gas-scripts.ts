@@ -2,12 +2,12 @@
 
 export const CRM_CODE = `/**
  * ==========================================
- *  ВЕРСИЯ CRM: 3.4.0 (Bot Integration)
+ *  ВЕРСИЯ CRM: 3.4.1 (Template Fix)
  * ==========================================
  */
 
 // --- КОНФИГУРАЦИЯ CRM ---
-const CRM_SCRIPT_VERSION = "3.4.0";
+const CRM_SCRIPT_VERSION = "3.4.1";
 const SHEET_NAME_CLIENTS = "WebBase";
 const SHEET_NAME_TEMPLATES = "Шаблоны сообщений";
 const SHEET_NAME_MASTERS = "мастера";
@@ -93,6 +93,7 @@ function routeActionCRM(payload) {
     case 'delete': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_CLIENTS, payload.clientId, 'id') };
     case 'bulkdelete': return { status: 'success', message: crmBulkDeleteRows(ss, SHEET_NAME_CLIENTS, payload.clientIds, 'id') };
     case 'reorder': return crmReorderClient(ss, payload.oldClientId, payload.client, user);
+    case 'addtemplate': return { status: 'success', message: crmAddRow(ss, SHEET_NAME_TEMPLATES, payload.template, user) };
     case 'updatetemplate': return { status: 'success', message: crmUpdateTemplate(ss, payload.template) };
     case 'deletetemplate': return { status: 'success', message: crmDeleteTemplate(ss, payload.templateName) };
     case 'addmaster': return { status: 'success', message: crmAddRow(ss, SHEET_NAME_MASTERS, payload.master, user) };

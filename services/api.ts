@@ -1,4 +1,5 @@
 
+
 import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCurrency, parseDuration } from '../types';
 
 const getSettingsFromStorage = (): Settings => {
@@ -203,6 +204,11 @@ export const api = {
 
   updateTemplate: async (template: MessageTemplate): Promise<MessageTemplate> => {
     await postToGoogleSheet({ action: 'updatetemplate', template: template });
+    return template;
+  },
+  
+  addTemplate: async (template: MessageTemplate): Promise<MessageTemplate> => {
+    await postToGoogleSheet({ action: 'addtemplate', template: template });
     return template;
   },
   
