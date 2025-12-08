@@ -161,7 +161,21 @@ const ClientDetailModal: React.FC<{
             if (selectedTemplate) {
                 let content = selectedTemplate['Содержимое (HTML)'];
                 Object.keys(formData).forEach(key => {
-                    content = content.replace(new RegExp(`{{${key}}}`, 'g'), String(formData[key as keyof Client] || ''));
+                    let value = formData[key as keyof Client];
+                    
+                    // FIX: Format dates if they appear as ISO strings
+                    if ((key === 'Начало' || key === 'Окончание' || key === 'Напомнить') && typeof value === 'string') {
+                        if (value.includes('T')) {
+                            value = value.split('T')[0];
+                        }
+                    }
+                    
+                    // FIX: Format currency
+                    if ((key === 'Общая сумма' || key === 'Долг' || key === 'Цена за месяц') && typeof value === 'number') {
+                         value = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(value);
+                    }
+
+                    content = content.replace(new RegExp(`{{${key}}}`, 'g'), String(value || ''));
                 });
                 setPreview(content);
             }
