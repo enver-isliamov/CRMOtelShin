@@ -213,7 +213,7 @@ const ClientDetailModal: React.FC<{
             tiresText = groups.map((g, i) => `<b>📦 Комплект ${i + 1}:</b>
 ${g.count}шт • ${g.brand} ${g.model}
 Размер: <b>${g.width}/${g.profile} R${g.diameter}</b>
-Сезон: ${g.season} | Диски: ${g.hasRims}`).join('\n\n');
+Сезон: ${g.season} | Диски: ${g.hasRims}${g.dot ? `\nDOT: <b>${g.dot}</b>` : ''}`).join('\n\n');
         } else {
             tiresText = (client['Заказ - QR'] || '').split('||JSON:')[0];
         }
