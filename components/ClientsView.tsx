@@ -24,6 +24,7 @@ const BookmarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns
 const XMarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 const FilterIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>;
+const ReceiptIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 
 // Section Icons
 const TireIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clipRule="evenodd" /></svg>;
@@ -74,10 +75,8 @@ const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: 
 );
 
 // Helper to extract JSON groups
-const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
+const getTireGroups = (client: Client): TireGroup[] => {
     let groups: TireGroup[] = [];
-    
-    // 1. Try reading from metadata
     if (client.metadata) {
         try {
             const parsed = JSON.parse(client.metadata);
@@ -86,8 +85,6 @@ const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
             }
         } catch(e) {}
     }
-    
-    // 2. Try legacy field if empty
     if (groups.length === 0 && client['Заказ - QR']) {
         const jsonMatch = client['Заказ - QR'].match(/\|\|JSON:(.*)$/);
         if (jsonMatch) {
@@ -99,6 +96,11 @@ const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
             } catch (e) {}
         }
     }
+    return groups;
+}
+
+const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
+    const groups = getTireGroups(client);
 
     if (groups.length === 0) return null;
 
@@ -147,19 +149,22 @@ const ClientDetailModal: React.FC<{
     }, [client]);
 
     useEffect(() => {
-        if (templates.length > 0 && !selectedTemplateName) {
+        if (mode === 'message' && templates.length > 0 && !selectedTemplateName && preview === '') {
             setSelectedTemplateName(templates[0]?.['Название шаблона'] || '');
         }
-    }, [templates, selectedTemplateName]);
+    }, [templates, selectedTemplateName, mode, preview]);
 
     useEffect(() => {
-        const selectedTemplate = templates.find(t => t['Название шаблона'] === selectedTemplateName);
-        if (selectedTemplate && formData) {
-            let content = selectedTemplate['Содержимое (HTML)'];
-            Object.keys(formData).forEach(key => {
-                content = content.replace(new RegExp(`{{${key}}}`, 'g'), String(formData[key as keyof Client] || ''));
-            });
-            setPreview(content);
+        // Only update preview from template if we have a template selected AND we are not in custom mode (where template name is empty)
+        if (selectedTemplateName && formData) {
+            const selectedTemplate = templates.find(t => t['Название шаблона'] === selectedTemplateName);
+            if (selectedTemplate) {
+                let content = selectedTemplate['Содержимое (HTML)'];
+                Object.keys(formData).forEach(key => {
+                    content = content.replace(new RegExp(`{{${key}}}`, 'g'), String(formData[key as keyof Client] || ''));
+                });
+                setPreview(content);
+            }
         }
     }, [selectedTemplateName, templates, formData]);
     
@@ -198,6 +203,49 @@ const ClientDetailModal: React.FC<{
         navigate('/add-client', { state: { clientToReorder: client } });
         onClose();
     };
+
+    const handleGenerateReceipt = () => {
+        const groups = getTireGroups(client);
+        const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
+        
+        let tiresText = '';
+        if (groups.length > 0) {
+            tiresText = groups.map((g, i) => `<b>📦 Комплект ${i + 1}:</b>
+${g.count}шт • ${g.brand} ${g.model}
+Размер: <b>${g.width}/${g.profile} R${g.diameter}</b>
+Сезон: ${g.season} | Диски: ${g.hasRims}`).join('\n\n');
+        } else {
+            tiresText = (client['Заказ - QR'] || '').split('||JSON:')[0];
+        }
+
+        const receiptHtml = `
+<b>📃 ДЕТАЛИ ЗАКАЗА (ДОГОВОР)</b>
+
+👤 <b>Клиент:</b> ${client['Имя клиента']}
+🚗 <b>Авто:</b> ${client['Номер Авто']}
+📞 <b>Телефон:</b> ${client['Телефон']}
+
+🔢 <b>Договор №:</b> <code>${client['Договор']}</code>
+📅 <b>Срок хранения:</b> ${client['Срок']} мес.
+(с ${formatDateForDisplay(client['Начало'])} по ${formatDateForDisplay(client['Окончание'])})
+
+- - - - - - - - - - - - - -
+${tiresText}
+- - - - - - - - - - - - - -
+
+💰 <b>Сумма заказа:</b> ${formatCurrency(client['Общая сумма'])}
+(Тариф: ${formatCurrency(client['Цена за месяц'])}/мес)
+${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${formatCurrency(client['Долг'])}` : ''}
+
+📍 <b>Склад:</b> ${client['Склад хранения']}
+
+<i>Приём и хранение осуществляется на условиях публичной оферты otelshin.ru/dogovor</i>
+`.trim().replace(/\n/g, '<br/>');
+
+        setPreview(receiptHtml);
+        setSelectedTemplateName(''); // Clear template selection so it doesn't overwrite
+        setMode('message');
+    };
     
     
     const renderContent = () => {
@@ -228,13 +276,25 @@ const ClientDetailModal: React.FC<{
                 <div className="space-y-4">
                     <div>
                         <label htmlFor="template" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Шаблон</label>
-                        <select id="template" value={selectedTemplateName} onChange={e => setSelectedTemplateName(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150">
+                        <select 
+                            id="template" 
+                            value={selectedTemplateName} 
+                            onChange={e => setSelectedTemplateName(e.target.value)} 
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150"
+                        >
+                            <option value="">-- Индивидуальное сообщение / Чек --</option>
                             {templates.map(t => <option key={t['Название шаблона']} value={t['Название шаблона']}>{t['Название шаблона']}</option>)}
                         </select>
                     </div>
                     <div>
-                        <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-2">Предпросмотр</h4>
-                        <div className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 min-h-[150px] max-h-[30vh] overflow-y-auto" dangerouslySetInnerHTML={{ __html: preview.replace(/\n/g, '<br />') }} />
+                        <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-2">Сообщение (HTML)</h4>
+                        <div 
+                            className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 min-h-[150px] max-h-[30vh] overflow-y-auto font-mono text-sm whitespace-pre-wrap outline-none focus:ring-2 focus:ring-primary-500" 
+                            contentEditable
+                            onInput={(e) => setPreview(e.currentTarget.innerText)} // Allow editing manual text
+                            dangerouslySetInnerHTML={{ __html: preview }}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Вы можете редактировать текст выше перед отправкой.</p>
                     </div>
                 </div>
             )
@@ -333,7 +393,7 @@ const ClientDetailModal: React.FC<{
             return (
                 <>
                     <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting}>Назад</Button>
-                    <Button onClick={handleSendMessage} disabled={isSubmitting || templates.length === 0 || !client?.['Chat ID']}>{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
+                    <Button onClick={handleSendMessage} disabled={isSubmitting || (!selectedTemplateName && !preview) || !client?.['Chat ID']}>{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
                 </>
             );
         }
@@ -342,6 +402,7 @@ const ClientDetailModal: React.FC<{
                 <Button size="sm" variant="primary" onClick={() => setMode('edit')}><EditIcon/> <span className="ml-1">Изменить</span></Button>
                 <Button size="sm" variant="secondary" onClick={handleNewOrder} className="!bg-green-100 !text-green-800 hover:!bg-green-200 dark:!bg-green-800/40 dark:!text-green-200 dark:hover:!bg-green-800/60"><DocumentPlusIcon className="h-4 w-4"/> <span className="ml-1">Новый заказ</span></Button>
                 <Button size="sm" variant="secondary" onClick={() => setMode('message')}><MessageIcon/> <span className="ml-1">Сообщение</span></Button>
+                <Button size="sm" variant="secondary" onClick={handleGenerateReceipt} className="!bg-indigo-100 !text-indigo-800 hover:!bg-indigo-200 dark:!bg-indigo-900/40 dark:!text-indigo-200"><ReceiptIcon className="h-4 w-4"/> <span className="ml-1">Чек/Договор</span></Button>
                 <div className="flex-grow"></div>
                 <Button size="sm" variant="danger" onClick={handleDelete} disabled={isSubmitting}><DeleteIcon/> <span className="ml-1">Удалить</span></Button>
             </div>

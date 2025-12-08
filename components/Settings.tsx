@@ -856,42 +856,67 @@ const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
     const descriptionText = `
 ### 2.1. Дашборд (Панель мониторинга)
 Централизованное представление ключевых бизнес-метрик:
-- **Финансовые показатели:** Отображение общей выручки, текущего месячного дохода (в реальном времени) и общей суммы задолженностей.
+- **Финансовые показатели:** Отображение общей выручки, текущего месячного дохода и общей суммы задолженностей.
+- **Живая аналитика:** Виджеты "Доход в реальном времени" и "Всего заработано" с анимацией накопления средств.
 - **Клиентская база:** Общее количество активных клиентов.
-- **Список должников:** Быстрый доступ к клиентам с просроченной оплатой с возможностью отправки напоминания в один клик.
+- **Список должников:** Быстрый доступ к клиентам с просроченной оплатой.
 - **Список "напоминаний":** Отображение клиентов, у которых срок хранения подходит к концу в ближайшие 30 дней.
 
 ### 2.2. Управление клиентами
-- **Единая база:** Просмотр, поиск и фильтрация всех клиентов в удобной табличной форме.
-- **Карточка клиента:** Детальная информация о каждом клиенте, включая контактные данные, информацию об автомобиле, историю всех заказов и прикрепленные фотографии.
+- **Единая база:** Просмотр, поиск и фильтрация всех клиентов.
+- **Карточка клиента:** Детальная информация, история заказов и фото.
 - **Массовые действия:** Возможность выбора нескольких клиентов для массовой рассылки или удаления.
-- **Сохраненные виды:** Пользователи могут сохранять свои настройки фильтров и сортировки для быстрого доступа к нужным сегментам базы.
+- **Сохраненные виды:** Создание персональных наборов фильтров (по статусу, складу, долгу) для быстрого переключения между сегментами базы.
 
-### 2.3. Создание и управление заказами
-- **Гибкая форма:** Удобная форма для добавления нового клиента или оформления нового заказа для уже существующего.
-- **Автоматические расчеты:** Система автоматически рассчитывает стоимость хранения, дату окончания и дату напоминания на основе введенных данных.
-- **Управление услугами:** Легкое добавление дополнительных услуг (мойка, упаковка, вывоз) к заказу.
-- **Архивация:** При оформлении нового заказа для старого клиента, предыдущий заказ автоматически переносится в архив, сохраняя полную историю взаимодействия.
+### 2.3. Продвинутое оформление заказов
+- **Мульти-комплекты:** Поддержка **разношироких шин** и разных осей. Возможность добавить несколько групп шин в один заказ (например, 2 передних + 2 задних с разными параметрами).
+- **Детализация:** Указание DOT-кода для каждой шины отдельно.
+- **Умный ввод:** Автодополнение брендов и моделей шин, визуальный селектор размеров.
+- **Авто-расчеты:** Калькуляция стоимости с учетом дисков и доп. услуг для каждой группы шин.
+- **Архивация:** При оформлении нового заказа для старого клиента, предыдущий заказ автоматически переносится в архив.
 
-### 2.4. Фотографии
-- **Визуальное подтверждение:** Возможность загружать фотографии шин клиента через drag-and-drop или напрямую с камеры устройства.
-- **Интеграция с Google Drive:** Все фотографии надежно хранятся в специальной папке на Google Диске пользователя, структурированные по номеру договора.
+### 2.4. Телеграм Бот и ЛК Клиента (v2.0)
+- **Полноценный Бот:** Встроенный скрипт (\`Bot.gs\`) обеспечивает работу Telegram-бота.
+- **Личный кабинет:** Клиенты могут видеть статус своих шин, сроки хранения и фото договора прямо в Telegram.
+- **Продление и Выдача:** Заявки на продление хранения или выдачу шин оформляются через бота и попадают менеджеру.
+- **Мастера:** Уведомления мастерам о новых записях.
 
-### 2.5. Автоматизация и уведомления
-- **Интеграция с Telegram:** Настройка и отправка автоматических уведомлений клиентам и менеджерам через Telegram-бота.
-- **Шаблоны сообщений:** Создание и редактирование шаблонов для различных типов уведомлений (напоминание о долге, об окончании хранения и т.д.).
+### 2.5. Управление Мастерами
+- **Справочник сотрудников:** Ведение списка мастеров/партнеров.
+- **Запись:** Функционал для записи клиента к конкретному мастеру на определенное время.
+- **Уведомления:** Автоматическая отправка деталей записи мастеру в Telegram.
+
+### 2.6. Технологии и Настройки
+- **Фото:** Загрузка и хранение фото на Google Drive.
+- **Архитектура:** Использование \`metadata\` для хранения сложных структур данных (группы шин) в Google Sheets.
+- **WYSIWYG:** Визуальный редактор HTML для настройки шаблонов сообщений.
 `;
 
     const promptText = `
 System Prompt:
-You are a world-class senior frontend engineer specializing in React, TypeScript, and Google Cloud integrations. Your task is to build a comprehensive CRM application for a tire storage business from scratch.
+You are a world-class senior frontend engineer. Build a CRM for a tire storage business.
 
-**Название Приложения:** Tire Storage CRM
+**App Name:** Tire Storage CRM (CRM-OtelShun.ru)
 
-**Основные Технологии:**
-*   **Frontend:** React, TypeScript, React Router, Tailwind CSS.
-*   **Backend:** Google Sheets acting as a database, accessed via a Google Apps Script (GAS) deployed as a web app.
-*   **API Communication:** The frontend communicates with the GAS URL by sending \`POST\` requests with a JSON payload specifying the desired \`action\`.
+**Tech Stack:** React 19, TypeScript, Tailwind CSS, Google Sheets (Backend), Google Apps Script.
+
+**Architecture:**
+*   **Frontend:** Single Page App.
+*   **Backend:** GAS Web App (\`doPost\`).
+*   **Files:** \`Code.gs\` (CRM logic), \`Bot.gs\` (Telegram Bot logic), \`Router.gs\` (Entry point).
+*   **Data:** Clients stored in 'WebBase' sheet. Complex data (tire groups) stored as JSON string in \`metadata\` column.
+
+**Key Features:**
+1.  **Multi-Group Tire Input:** Support for adding multiple groups of tires (e.g., staggered sets) per client. UI handles Brand/Model/Size/DOT per group.
+2.  **Masters & Scheduling:** 'Masters' tab to manage employees. Schedule appointments and send Telegram notifications to masters.
+3.  **Telegram Bot Integration:** Backend handles webhooks for a client-facing bot (Signup, Personal Cabinet, Extension flows).
+4.  **Dashboard:** Real-time income counters, expiration lists.
+5.  **Settings:** Config for Scripts, Visual Editor for templates (HTML), Masters management.
+6.  **Saved Views:** Filter presets for the client list.
+
+**Data Model:**
+*   \`Client\`: Includes \`metadata\` (JSON) for \`TireGroup[]\`.
+*   \`TireGroup\`: { brand, model, size, season, rims, dot, price }.
 `;
 
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -923,7 +948,7 @@ You are a world-class senior frontend engineer specializing in React, TypeScript
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
             <h3 className="text-xl font-semibold">О проекте Tire Storage CRM</h3>
             <p>Это приложение разработано для упрощения управления клиентской базой шинного хранения.</p>
-            <p><b>Версия приложения:</b> 1.2.0</p>
+            <p><b>Версия приложения:</b> 3.4.1</p>
             
             <Expander title="Подробное описание функций" isExpanded={isDescriptionExpanded} setExpanded={setIsDescriptionExpanded}>
                 <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />
