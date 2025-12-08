@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Settings as SettingsType, MessageTemplate, Master, Client, AppLog } from '../types';
 import { api, getClientHeaders } from '../services/api';
@@ -15,7 +16,9 @@ const TelegramIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-
 const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>;
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
-
+const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
+const ChevronUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>;
+const CopyIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg>;
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode, icon: React.ReactNode }> = ({ active, onClick, children, icon }) => (
     <button
@@ -33,24 +36,47 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
 );
 
 // --- Responsive Code Viewer Component ---
-// FIX: Using grid grid-cols-1 to force the container to respect parent width and enable proper internal scrolling
-const CodeViewer: React.FC<{ code: string; onCopy: (c: string) => void }> = ({ code, onCopy }) => (
-    <div className="relative w-full max-w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-[#1e1e1e] shadow-sm group grid grid-cols-1">
-        <div className="absolute top-2 right-2 z-10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <button 
-                onClick={() => onCopy(code)} 
-                className="bg-gray-700/80 hover:bg-gray-600 text-gray-200 px-2.5 py-1 rounded-md text-xs font-medium border border-gray-600 shadow-sm backdrop-blur-sm transition-colors"
-            >
-                Копировать
-            </button>
+// FIX: Using collapsible logic and strict width constraints to prevent mobile layout breaking
+const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) => void }> = ({ code, title, onCopy }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    return (
+        <div className="w-full max-w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-[#1e1e1e] shadow-sm overflow-hidden flex flex-col">
+            {/* Header Bar */}
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                <span className="font-mono text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 truncate mr-2">
+                    {title}
+                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <button 
+                        onClick={() => onCopy(code)} 
+                        className="flex items-center gap-1 text-xs bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 px-2 py-1.5 rounded text-gray-700 dark:text-gray-200 transition-colors"
+                        title="Копировать код"
+                    >
+                        <CopyIcon />
+                        <span className="hidden sm:inline">Копировать</span>
+                    </button>
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 text-primary-700 dark:text-primary-300 px-2 py-1.5 rounded transition-colors font-medium"
+                    >
+                         {isExpanded ? <ChevronUpIcon/> : <ChevronDownIcon/>}
+                         <span>{isExpanded ? 'Свернуть' : 'Показать код'}</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            {isExpanded && (
+                <div className="w-full overflow-x-auto custom-scrollbar bg-[#1e1e1e]">
+                    <pre className="p-3 text-[10px] sm:text-xs leading-relaxed text-gray-300 font-mono w-max min-w-full selection:bg-gray-600">
+                        <code>{code.trim()}</code>
+                    </pre>
+                </div>
+            )}
         </div>
-        <div className="w-full overflow-x-auto custom-scrollbar">
-            <pre className="p-4 text-[10px] sm:text-xs leading-relaxed text-gray-300 font-mono w-max min-w-full selection:bg-gray-600">
-                <code>{code.trim()}</code>
-            </pre>
-        </div>
-    </div>
-);
+    );
+};
 
 const GeneralSettingsTab: React.FC<{ 
     settings: SettingsType, 
@@ -682,8 +708,8 @@ const MastersTab: React.FC<{
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
-            <h3 className="text-xl font-semibold">Настройка Google Apps Script (Интеграция)</h3>
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 text-yellow-800 dark:text-yellow-200 rounded-md space-y-2">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Настройка Google Apps Script</h3>
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 text-yellow-800 dark:text-yellow-200 rounded-md space-y-2 text-sm">
                 <p className="font-bold">⚠️ ВАЖНО: Настройка Токена и ID Админа</p>
                 <p>В этой версии токен бота и ID админа не задаются в коде напрямую. Используйте <b>Свойства скрипта</b>:</p>
                 <ol className="list-decimal list-inside">
@@ -694,36 +720,41 @@ const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
                 </ol>
             </div>
             
-            <div className="space-y-4 text-gray-700 dark:text-gray-300">
-                <h4 className="text-lg font-semibold">Файл 1: Code.gs (Основная логика CRM)</h4>
-                <p>Вставьте этот код в файл <code>Code.gs</code>. Он отвечает за работу веб-интерфейса CRM.</p>
+            <div className="space-y-6">
+                <div>
+                    <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Файл 1: Code.gs (Основная логика CRM)</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Вставьте этот код в файл <code>Code.gs</code>. Он отвечает за работу веб-интерфейса CRM.</p>
+                    <CodeViewer code={CRM_CODE} title="Code.gs" onCopy={onCopy} />
+                </div>
 
-                <CodeViewer code={CRM_CODE} onCopy={onCopy} />
-
-                <h4 className="text-lg font-semibold mt-8">Файл 2: Bot.gs (Телеграм Бот)</h4>
-                <p>Создайте файл <code>Bot.gs</code> и вставьте туда этот код. Он содержит логику кнопок, меню и ЛК.</p>
-
-                <CodeViewer code={BOT_CODE} onCopy={onCopy} />
+                <div>
+                    <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Файл 2: Bot.gs (Телеграм Бот)</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Создайте файл <code>Bot.gs</code> и вставьте туда этот код. Он содержит логику кнопок, меню и ЛК.</p>
+                    <CodeViewer code={BOT_CODE} title="Bot.gs" onCopy={onCopy} />
+                </div>
                 
-                <h4 className="text-lg font-semibold mt-8">Файл 3: Router.gs (Маршрутизатор)</h4>
-                <p>Создайте файл <code>Router.gs</code>. Он перенаправляет запросы либо в CRM, либо в Бота.</p>
+                <div>
+                    <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Файл 3: Router.gs (Маршрутизатор)</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Создайте файл <code>Router.gs</code>. Он перенаправляет запросы либо в CRM, либо в Бота.</p>
+                    <CodeViewer code={ROUTER_CODE} title="Router.gs" onCopy={onCopy} />
+                </div>
 
-                <CodeViewer code={ROUTER_CODE} onCopy={onCopy} />
-
-                <h4 className="text-lg font-semibold mt-8">Финальный шаг: Развертывание</h4>
-                 <ol className="list-decimal list-inside space-y-3 pl-4">
-                    <li>Сохраните все файлы.</li>
-                    <li>В редакторе скриптов нажмите синюю кнопку <b>"Начать развертывание" (Deploy)</b>.</li>
-                    <li>Выберите <b>"Новое развертывание" (New deployment)</b>.</li>
-                    <li>Тип: <b>Веб-приложение</b>. Доступ: <b>Все (Anyone)</b>.</li>
-                    <li>Нажмите кнопку <b>"Развернуть" (Deploy)</b>.</li>
-                    <li>Скопируйте полученный URL (Web App URL) и вставьте его в поле выше.</li>
-                    <li>
-                        <b>Настройка Webhook для бота:</b><br/>
-                        Чтобы бот начал отвечать, нужно один раз открыть в браузере ссылку:<br/>
-                        <code className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 rounded block w-full break-all whitespace-pre-wrap font-mono text-xs sm:text-sm my-2">https://api.telegram.org/bot[ВАШ_ТОКЕН]/setWebhook?url=[ВАШ_WEB_APP_URL]</code>
-                    </li>
-                </ol>
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                     <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Финальный шаг: Развертывание</h4>
+                     <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 pl-2">
+                        <li>Сохраните все файлы.</li>
+                        <li>В редакторе скриптов нажмите синюю кнопку <b>"Начать развертывание" (Deploy)</b>.</li>
+                        <li>Выберите <b>"Новое развертывание" (New deployment)</b>.</li>
+                        <li>Тип: <b>Веб-приложение</b>. Доступ: <b>Все (Anyone)</b>.</li>
+                        <li>Нажмите кнопку <b>"Развернуть" (Deploy)</b>.</li>
+                        <li>Скопируйте полученный URL (Web App URL) и вставьте его в поле на вкладке "Основные".</li>
+                        <li>
+                            <b>Настройка Webhook для бота:</b><br/>
+                            <span className="text-gray-500">Откройте в браузере:</span><br/>
+                            <code className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 rounded block w-full break-all whitespace-pre-wrap font-mono text-xs my-2">https://api.telegram.org/bot[ВАШ_ТОКЕН]/setWebhook?url=[ВАШ_WEB_APP_URL]</code>
+                        </li>
+                    </ol>
+                </div>
             </div>
         </div>
     );
@@ -899,7 +930,7 @@ You are a world-class senior frontend engineer specializing in React, TypeScript
             </Expander>
 
             <Expander title="Промт для воссоздания CRM" isExpanded={isPromptExpanded} setExpanded={setIsPromptExpanded}>
-                <CodeViewer code={promptText} onCopy={onCopy} />
+                <CodeViewer code={promptText} title="Prompt.txt" onCopy={onCopy} />
             </Expander>
         </div>
     );
