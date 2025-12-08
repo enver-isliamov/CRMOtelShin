@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Settings as SettingsType, MessageTemplate, Master, Client, AppLog } from '../types';
 import { api, getClientHeaders } from '../services/api';
@@ -15,7 +14,7 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
     <button
         type="button"
         onClick={onClick}
-        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors duration-200 focus:outline-none ${
+        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 transition-colors duration-200 focus:outline-none whitespace-nowrap ${
             active
             ? 'border-primary-500 text-primary-600 dark:text-primary-300'
             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
@@ -56,8 +55,8 @@ const GeneralSettingsTab: React.FC<{
 
     return (
         <div className="space-y-6">
-            <div className="flex items-end gap-2">
-                <div className="flex-grow">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="w-full sm:flex-grow">
                      <Input 
                         label="URL скрипта Google Apps" 
                         value={settings.googleSheetId} 
@@ -69,7 +68,7 @@ const GeneralSettingsTab: React.FC<{
                     variant="outline" 
                     onClick={handleTestConnection} 
                     disabled={isTesting || !settings.googleSheetId}
-                    className="h-[46px] flex-shrink-0"
+                    className="w-full sm:w-auto h-[46px] flex-shrink-0"
                 >
                     {isTesting ? 'Проверка...' : 'Проверить'}
                 </Button>
@@ -398,8 +397,8 @@ const MastersTab: React.FC<{
                 </ol>
             </div>
 
-            <div className="text-right">
-                <Button onClick={() => { setEditingMaster(null); setFormModalOpen(true); }}>Добавить мастера</Button>
+            <div className="flex justify-end sm:block text-right">
+                <Button onClick={() => { setEditingMaster(null); setFormModalOpen(true); }} className="w-full sm:w-auto">Добавить мастера</Button>
             </div>
             {masters && masters.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -536,7 +535,7 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Системные логи</h3>
-                <Button onClick={fetchLogs} disabled={isLoading} variant="outline">
+                <Button onClick={fetchLogs} disabled={isLoading} variant="outline" className="text-sm">
                     {isLoading ? 'Загрузка...' : 'Обновить'}
                 </Button>
             </div>
@@ -770,7 +769,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
       <ToastContainer toasts={localToasts} removeToast={removeLocalToast} />
       
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
+        <nav className="-mb-px flex space-x-4 overflow-x-auto pb-1 no-scrollbar" aria-label="Tabs">
             {TABS.map(tab => (
                  <TabButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} icon={tab.icon}>
                     {tab.label}
@@ -790,7 +789,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
       
       {activeTab === 'general' && (
           <div className="flex justify-end mt-6">
-              <Button onClick={handleSave} disabled={isSaving} size="lg">
+              <Button onClick={handleSave} disabled={isSaving} size="lg" className="w-full sm:w-auto">
                   {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
               </Button>
           </div>

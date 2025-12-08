@@ -1,5 +1,3 @@
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { LiveIncomeCounter } from './ui/LiveIncomeCounter';
@@ -62,18 +60,22 @@ const TotalRevenueCard: React.FC<{allOrders: Client[]}> = ({ allOrders }) => {
     const formatCurrency = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(value);
     
     return (
-         <Card className="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col bg-gradient-to-br from-blue-500 to-sky-600 dark:from-blue-600 dark:to-sky-700 text-white shadow-lg">
-            <div className="flex items-start justify-between">
+         <Card className="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col bg-gradient-to-br from-blue-500 to-sky-600 dark:from-blue-600 dark:to-sky-700 text-white shadow-lg overflow-hidden relative">
+            <div className="flex items-start justify-between z-10 relative">
                 <p className="text-sm font-medium text-white/80 truncate">Общая выручка</p>
                 <div className="flex-shrink-0 bg-white/20 text-white rounded-lg p-2">
                     <CurrencyRubleIcon />
                 </div>
             </div>
-            <div className="mt-1 flex-grow">
+            <div className="mt-1 flex-grow z-10 relative">
                 <p className="text-3xl font-bold">{formatCurrency(animatedValue)}</p>
             </div>
-             <div className="mt-auto pt-4">
+             <div className="mt-auto pt-4 z-10 relative">
                <p className="text-xs text-white/70">Сумма всех активных и архивных заказов.</p>
+            </div>
+             {/* Decorative Background Icon */}
+            <div className="absolute -bottom-6 -right-6 text-white/10 pointer-events-none">
+                <CurrencyRubleIcon className="h-32 w-32 rotate-12" />
             </div>
         </Card>
     );
@@ -188,7 +190,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
                     </div>
                 </div>
                 <div className="mt-1">
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white break-words">{value}</p>
                 </div>
             </Card>
         </div>
@@ -198,9 +200,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
         <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6">
                 {/* Row 1: Main Financial Widgets */}
-                <div className="col-span-2 sm:col-span-2 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '0ms'}}>
+                <div className="col-span-1 sm:col-span-2 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '0ms'}}>
                     <TotalEarningsCounter 
                         clients={clients} 
                         totalArchivedRevenue={totalArchivedRevenue}
@@ -208,13 +210,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
                     />
                 </div>
                 
-                <div className="col-span-2 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '50ms'}}>
-                    <Card className="h-full bg-gradient-to-br from-green-500 to-cyan-600 dark:from-green-600 dark:to-cyan-700 text-white shadow-lg">
+                <div className="col-span-1 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '50ms'}}>
+                    <Card className="h-full bg-gradient-to-br from-green-500 to-cyan-600 dark:from-green-600 dark:to-cyan-700 text-white shadow-lg overflow-hidden">
                         <LiveIncomeCounter monthlyIncome={globalStats.activeContractsMonthlyIncome} />
                     </Card>
                 </div>
                 
-                <div className="col-span-2 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '100ms'}}>
+                <div className="col-span-1 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '100ms'}}>
                      <TotalRevenueCard allOrders={allOrders} />
                 </div>
                 
@@ -227,10 +229,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
                 </div>
                 
                 {/* Row 3: Lists */}
-                 <div className="col-span-2 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '250ms'}}>
+                 <div className="col-span-1 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '250ms'}}>
                     <ExpiringClientsList clients={clients} onRemind={handleSendExpiryReminder} />
                 </div>
-                 <div className="col-span-2 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '300ms'}}>
+                 <div className="col-span-1 sm:col-span-2 lg:col-span-3 min-h-[450px] animate-slide-in-bottom" style={{animationDelay: '300ms'}}>
                     <DebtorsList debtors={globalStats.debtors} onRemind={handleSendDebtReminder} />
                 </div>
             </div>

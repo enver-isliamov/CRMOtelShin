@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Client, parseDate } from '../../types';
 import { Card } from './Card';
@@ -100,11 +99,11 @@ export const TotalEarningsCounter: React.FC<TotalEarningsCounterProps> = ({ clie
     }
     
     return (
-        <Card className="h-full bg-gradient-to-br from-primary-600 to-indigo-700 dark:from-primary-700 dark:to-indigo-800 text-white shadow-lg overflow-hidden">
+        <Card className="h-full bg-gradient-to-br from-primary-600 to-indigo-700 dark:from-primary-700 dark:to-indigo-800 text-white shadow-lg overflow-hidden relative">
              <div className="z-10 relative">
                 <dl>
                     <dt className="text-sm font-medium text-white/80 truncate">Всего заработано</dt>
-                    <dd className="text-4xl font-bold tracking-tight mt-1">
+                    <dd className="text-3xl sm:text-4xl font-bold tracking-tight mt-1">
                         {formatCurrency(animatedDisplayValue)}
                     </dd>
                     <dd className="text-xs text-white/60 mt-1">
@@ -114,8 +113,8 @@ export const TotalEarningsCounter: React.FC<TotalEarningsCounterProps> = ({ clie
                     </dd>
                 </dl>
              </div>
-             <div className="absolute -bottom-8 -right-8 text-white/10">
-                <TrendingUpIcon className="h-40 w-40" />
+             <div className="absolute -bottom-4 -right-4 sm:-bottom-8 sm:-right-8 text-white/10 pointer-events-none">
+                <TrendingUpIcon className="h-24 w-24 sm:h-40 sm:w-40" />
             </div>
         </Card>
     );

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 
 // Custom hook to animate numbers
@@ -78,7 +76,7 @@ export const LiveIncomeCounter: React.FC<LiveIncomeCounterProps> = ({ monthlyInc
     }
     
     return (
-        <div className="h-full relative overflow-hidden">
+        <div className="h-full relative overflow-hidden p-6 sm:p-6">
             <div className="z-10 relative">
                 <dl>
                     <dt className="text-sm font-medium text-white/80 truncate">Доход в реальном времени</dt>
@@ -86,12 +84,12 @@ export const LiveIncomeCounter: React.FC<LiveIncomeCounterProps> = ({ monthlyInc
                         {formatCurrency(animatedValue)}
                     </dd>
                 </dl>
-                <div className="mt-4 flex items-center space-x-1">
+                <div className="mt-4 flex items-center space-x-1 overflow-x-auto no-scrollbar pb-1 -ml-1 pl-1">
                     {RATES.map(rate => (
                        <button
                          key={rate.id}
                          onClick={() => setActiveRateId(rate.id)}
-                         className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+                         className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
                             activeRateId === rate.id 
                                 ? 'bg-white text-cyan-600 shadow' 
                                 : 'bg-white/20 text-white/80 hover:bg-white/40'
@@ -103,8 +101,8 @@ export const LiveIncomeCounter: React.FC<LiveIncomeCounterProps> = ({ monthlyInc
                 </div>
             </div>
             
-            <div className="absolute -bottom-4 -right-4 text-white/10">
-                <ClockIcon className="h-28 w-28 animate-spin-slow" />
+            <div className="absolute -bottom-4 -right-4 text-white/10 pointer-events-none">
+                <ClockIcon className="h-20 w-20 sm:h-28 sm:w-28 animate-spin-slow" />
             </div>
         </div>
     );
