@@ -171,9 +171,6 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
         if (countMatch) {
             count = parseInt(countMatch[1], 10);
         } else if (sizeLines.length > 1) {
-            // If we have multiple lines but no "Nx", assume 2 per axle implies 2 tires (common for staggered)
-            // But safest is to default to 2 if there are exactly 2 lines and total should be 4? 
-            // Let's stick to parsing or default.
             count = 2; // Heuristic: if multiple lines, likely 2 per line.
         }
 
@@ -204,7 +201,7 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
             season: client['Сезон'] || 'Лето',
             hasRims: client['Наличие дисков'] || 'Нет',
             pricePerMonth: Number(client['Цена за месяц']) || DEFAULT_PRICE, // Approximate, will recalculate
-            dot: '' // DOTs hard to extract from unstructured string, leave empty
+            dot: '' 
         };
     });
 };
@@ -233,9 +230,13 @@ const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Cli
             const parsed = parseDate(dateVal);
             return parsed ? formatDate(parsed) : '';
         };
+        
+        const rawPhone = String(sourceClient['Телефон'] || '');
+        const phone = rawPhone.startsWith('+7') ? rawPhone.substring(2) : rawPhone;
 
         return {
             ...sourceClient,
+            'Телефон': phone,
             'Начало': safeFormat(sourceClient['Начало']),
             'Окончание': safeFormat(sourceClient['Окончание']),
             'Напомнить': safeFormat(sourceClient['Напомнить']),
@@ -248,16 +249,14 @@ const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Cli
             ? rawPhone.substring(2) 
             : rawPhone;
 
-        // Here we ensure we carry over ONLY the contact/car info, but RESET contract info
         return {
-            ...defaultOrderState, // Resets dates, contract #, debt
+            ...defaultOrderState, 
             'Имя клиента': sourceClient['Имя клиента'],
             'Телефон': phone,
             'Адрес клиента': sourceClient['Адрес клиента'],
             'Chat ID': sourceClient['Chat ID'],
             'Номер Авто': sourceClient['Номер Авто'],
             'Источник трафика': sourceClient['Источник трафика'],
-            // Keep warehouse as it's likely the same
             'Склад хранения': sourceClient['Склад хранения'] || defaultOrderState['Склад хранения']
         };
     }
@@ -352,19 +351,21 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     });
     
     const [isInitialized, setIsInitialized] = useState(false);
+    const justLoadedRef = useRef(false);
 
     useEffect(() => {
         // If we are editing or reordering, we try to restore tire groups from the source client
-        // This ensures the "Edit" screen shows the correct groups, even if they were saved as simple text before.
         if (sourceClient && tireGroups.length === 0 && !isInitialized) {
             const extractedGroups = parseGroupsFromClient(sourceClient);
             if (extractedGroups.length > 0) {
                 setTireGroups(extractedGroups);
                 
-                // If it's a NEW ORDER (reorder), we trigger calculation once to update prices based on these tires
-                // but keep the new contract dates from getInitialState.
-                // If it's EDIT, we generally trust the existing data, but recalculating keeps consistency.
-                if (mode !== 'edit') {
+                if (mode === 'edit') {
+                    // In edit mode, we want to respect the DB values initially, 
+                    // so we flag to skip the next recalculation effect
+                    justLoadedRef.current = true;
+                } else {
+                    // For reorder, we want to recalc immediately based on the restored tires + new defaults
                     setFormData(prev => calculateAllFields(prev, extractedGroups, null));
                 }
             }
@@ -382,8 +383,11 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
 
     // Recalculate fields whenever tire groups change
     useEffect(() => {
-        // Prevent overwrite on initial load for Edit mode to respect DB values initially
-        if (mode === 'edit' && !isInitialized) return;
+        // Skip recalculation if we just loaded the data in Edit mode (preserving existing DB values)
+        if (justLoadedRef.current) {
+            justLoadedRef.current = false;
+            return;
+        }
 
         setFormData(prev => calculateAllFields(prev, tireGroups, draftGroup));
     }, [tireGroups, draftGroup, formData['Срок'], formData['Начало'], formData['Услуга: Мойка'], formData['Услуга: Упаковка']]);
