@@ -37,7 +37,8 @@ const generateContractNumber = () => {
     const day = String(now.getDate()).padStart(2, '0');
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}${month}${day}-${hours}${minutes}`;
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
 const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], draftGroup: TireGroup | null): Partial<Client> => {
@@ -200,7 +201,7 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
             count: count,
             season: client['Сезон'] || 'Лето',
             hasRims: client['Наличие дисков'] || 'Нет',
-            pricePerMonth: Number(client['Цена за месяц']) || DEFAULT_PRICE, // Approximate, will recalculate
+            pricePerMonth: Number(client['Цена за месяц']) || DEFAULT_PRICE, 
             dot: '' 
         };
     });
@@ -209,6 +210,8 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
 const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Client): Partial<Client> => {
     const currentMonth = new Date().getMonth(); 
     const defaultSeason = (currentMonth >= 10 || currentMonth <= 1) ? 'Лето' : 'Зима';
+    // Generate a truly unique ID to avoid collision issues in React Key or List finding
+    const uniqueId = `c${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     const defaultOrderState: Partial<Client> = {
         'Склад хранения': 'AYU-46', 'Ячейка': '', 'Источник трафика': '', 'Заказ - QR': '', 'Бренд_Модель': '',
@@ -219,7 +222,7 @@ const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Cli
         'DOT-код': '',
         'Услуга: Вывоз': false, 'Услуга: Мойка': false, 'Услуга: Упаковка': false,
         'photoUrls': [],
-        'id': `c${Date.now()}`,
+        'id': uniqueId,
         'metadata': '',
         'Договор': generateContractNumber()
     };
@@ -352,6 +355,15 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     
     const [isInitialized, setIsInitialized] = useState(false);
     const justLoadedRef = useRef(false);
+
+    // CRITICAL FIX: Reset form when switching between clients (e.g. creating new order for A then B)
+    useEffect(() => {
+        setFormData(getInitialState(mode, sourceClient));
+        setTireGroups([]);
+        setDraftGroup(null);
+        setIsInitialized(false);
+        justLoadedRef.current = false;
+    }, [mode, sourceClient?.id]);
 
     useEffect(() => {
         // If we are editing or reordering, we try to restore tire groups from the source client
@@ -498,7 +510,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
         setToast(null);
 
         let dataForSubmission = { ...formData };
-        if (!dataForSubmission.id) dataForSubmission.id = `c${Date.now()}`;
+        if (!dataForSubmission.id) {
+             // Fallback ID generation if not set
+             dataForSubmission.id = `c${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        }
         
         let phone = String(dataForSubmission['Телефон'] || '').trim();
         if (phone && !phone.startsWith('+7')) {

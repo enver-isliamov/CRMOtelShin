@@ -321,9 +321,9 @@ export const ClientsView: React.FC<{
       {/* Client List */}
       <Card className="!p-0 overflow-hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {sortedClients.map(client => (
+            {sortedClients.map((client, index) => (
                 <div 
-                    key={client.id} 
+                    key={client.id || index} 
                     onClick={(e) => handleRowClick(client, e)} 
                     className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                 >
