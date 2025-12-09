@@ -4,13 +4,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Client, MessageTemplate, TireGroup, formatDateForDisplay } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
-import { Input } from './ui/Input';
 import { Toast } from './ui/Toast';
-import { ImageUpload } from './ui/ImageUpload';
 import { PhotoGallery } from './ui/PhotoGallery';
 import { OrderHistory } from './ui/Timeline';
 
-// --- ICONS (Reused to maintain design consistency) ---
+// --- ICONS ---
 const ArrowLeftIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
 const EditIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>;
 const MessageIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>;
@@ -22,14 +20,6 @@ const ReceiptIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns=
 const TireIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clipRule="evenodd" /></svg>;
 const CashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M1 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm12 4a3 3 0 11-6 0 3 3 0 016 0zM4 9a1 1 0 100-2 1 1 0 000 2zm13-1a1 1 0 11-2 0 1 1 0 012 0zM1.75 14.5a.75.75 0 000 1.5c4.417 0 8.693.603 12.749 1.73 1.111.309 2.251-.512 2.251-1.696v-.784a.75.75 0 00-1.5 0v.784a.25.25 0 01-.35.216C11.536 15.583 7.772 15 4.25 15h-.75A1.5 1.5 0 002 16.5v.75a.75.75 0 001.5 0v-.75a.25.25 0 01.25-.25h.75c4.363 0 8.514.836 12.25 2.302a.75.75 0 00.55-1.396 35.808 35.808 0 00-14.73-2.003.75.75 0 00-.82.647z" clipRule="evenodd" /></svg>;
 const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.25 1.25 0 002.228-1.417a6.002 6.002 0 019.614 0a1.25 1.25 0 002.228 1.417a8.502 8.502 0 00-14.07 0z" /></svg>;
-
-const getFieldType = (fieldName: string) => {
-    const name = fieldName.toLowerCase();
-    if (name.includes('дата') || name.includes('начало') || name.includes('окончание') || name.includes('напомнить')) return 'date';
-    if (name.includes('цена') || name.includes('кол-во') || name.includes('сумма') || name.includes('долг') || name.includes('срок')) return 'number';
-    if (name.includes('телефон')) return 'tel';
-    return 'text';
-}
 
 // Helper to extract JSON groups
 const getTireGroups = (client: Client): TireGroup[] => {
@@ -117,15 +107,13 @@ interface ClientDetailsPageProps {
     refreshData: () => Promise<void>;
 }
 
-export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, headers, templates, refreshData }) => {
+export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, templates, refreshData }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     
-    // Find client immediately from props for instant display
     const [client, setClient] = useState<Client | undefined>(undefined);
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'photos'>('details');
-    const [mode, setMode] = useState<'view' | 'edit' | 'message'>('view');
-    const [formData, setFormData] = useState<Partial<Client> | null>(null);
+    const [mode, setMode] = useState<'view' | 'message'>('view');
     const [selectedTemplateName, setSelectedTemplateName] = useState<string>('');
     const [preview, setPreview] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -133,10 +121,8 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, h
 
     useEffect(() => {
         if (!id) return;
-        // Use String() for ID comparison to handle potential number/string mismatches from URL/Data
         const foundClient = clients.find(c => String(c.id) === String(id));
         setClient(foundClient);
-        setFormData(foundClient || null);
     }, [id, clients]);
 
     const showToast = (message: string, type: 'success' | 'error') => {
@@ -151,12 +137,12 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, h
     }, [templates, selectedTemplateName, mode, preview]);
 
     useEffect(() => {
-        if (selectedTemplateName && formData) {
+        if (selectedTemplateName && client) {
             const selectedTemplate = templates.find(t => t['Название шаблона'] === selectedTemplateName);
             if (selectedTemplate) {
                 let content = selectedTemplate['Содержимое (HTML)'];
-                Object.keys(formData).forEach(key => {
-                    let value = formData[key as keyof Client];
+                Object.keys(client).forEach(key => {
+                    let value = client[key as keyof Client];
                     if ((key === 'Начало' || key === 'Окончание' || key === 'Напомнить') && typeof value === 'string') {
                         if (value.includes('T')) value = value.split('T')[0];
                     }
@@ -168,28 +154,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, h
                 setPreview(content);
             }
         }
-    }, [selectedTemplateName, templates, formData]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value, type } = e.target;
-        const isNumber = type === 'number';
-        setFormData(prev => prev ? ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }) : null);
-    };
-
-    const handleSave = async () => {
-        if (!formData || !formData.id) return;
-        setIsSubmitting(true);
-        try {
-            await api.updateClient(formData as Client);
-            showToast('Клиент успешно обновлен', 'success');
-            await refreshData();
-            setMode('view');
-        } catch (e: any) {
-            showToast(e.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+    }, [selectedTemplateName, templates, client]);
 
     const handleDelete = async () => {
         if (!client) return;
@@ -224,6 +189,16 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, h
                 setIsSubmitting(false);
             }
         }
+    };
+
+    const handleEditClient = () => {
+        if (!client) return;
+        navigate('/add-client', { state: { clientToEdit: client } });
+    };
+
+    const handleNewOrder = () => {
+        if (!client) return;
+        navigate('/add-client', { state: { clientToReorder: client } });
     };
 
     const handleGenerateReceipt = () => {
@@ -267,8 +242,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         setMode('message');
     };
 
-    // --- Loading & Not Found States ---
-    
     if (clients.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-100 dark:bg-gray-950">
@@ -278,7 +251,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         );
     }
 
-    if (!client || !formData) {
+    if (!client) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-100 dark:bg-gray-950">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-sm w-full">
@@ -297,7 +270,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         );
     }
 
-    const descClean = (formData['Заказ - QR'] || '').split('||JSON:')[0];
+    const descClean = (client['Заказ - QR'] || '').split('||JSON:')[0];
 
     return (
         <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
@@ -311,20 +284,20 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     </button>
                     <div className="flex flex-col min-w-0">
                         <h1 className="text-lg font-bold leading-tight text-gray-900 dark:text-white truncate">
-                            {formData['Имя клиента']}
+                            {client['Имя клиента']}
                         </h1>
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="truncate">{formData['Номер Авто']}</span>
-                            {formData['Склад хранения'] && <span>• {formData['Склад хранения']}</span>}
+                            <span className="truncate">{client['Номер Авто']}</span>
+                            {client['Склад хранения'] && <span>• {client['Склад хранения']}</span>}
                         </div>
                     </div>
                 </div>
                 <div className="flex-shrink-0">
                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
-                         formData['Статус сделки'] === 'На складе' ? 'bg-green-100 text-green-800' : 
-                         formData['Статус сделки'] === 'Завершено' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'
+                         client['Статус сделки'] === 'На складе' ? 'bg-green-100 text-green-800' : 
+                         client['Статус сделки'] === 'Завершено' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'
                      }`}>
-                         {formData['Статус сделки']}
+                         {client['Статус сделки']}
                      </span>
                 </div>
             </div>
@@ -332,30 +305,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 sm:pb-6">
                 
-                {/* Mode: Edit */}
-                {mode === 'edit' && (
-                    <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold mb-4 dark:text-white">Редактирование</h3>
-                            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {headers.filter(h => h !== 'id' && h !== 'photoUrls' && h !== 'metadata').map(header => (
-                                        <Input
-                                            key={header}
-                                            label={header}
-                                            name={header}
-                                            value={formData[header as keyof Client] || ''}
-                                            type={getFieldType(header)}
-                                            onChange={handleChange}
-                                            required={header === 'Имя клиента'}
-                                        />
-                                    ))}
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-
                 {/* Mode: Message */}
                 {mode === 'message' && (
                     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -402,15 +351,15 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                             <div className="space-y-4 animate-in fade-in duration-300">
                                 {/* Key Metrics Grid */}
                                 <div className="grid grid-cols-2 gap-3">
-                                     <div className={`p-4 rounded-xl border ${Number(formData['Долг'] || 0) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800'}`}>
-                                        <p className={`text-xs font-bold uppercase tracking-wider ${Number(formData['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>Долг</p>
-                                        <p className={`text-xl sm:text-2xl font-black mt-1 ${Number(formData['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
-                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(formData['Долг'] || 0))}
+                                     <div className={`p-4 rounded-xl border ${Number(client['Долг'] || 0) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800'}`}>
+                                        <p className={`text-xs font-bold uppercase tracking-wider ${Number(client['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>Долг</p>
+                                        <p className={`text-xl sm:text-2xl font-black mt-1 ${Number(client['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
+                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
                                         </p>
                                     </div>
                                     <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-800">
                                         <p className="text-xs font-bold uppercase tracking-wider text-blue-500">Окончание</p>
-                                        <p className="text-xl sm:text-2xl font-black mt-1 text-blue-700 dark:text-blue-300">{formatDateForDisplay(formData['Окончание'])}</p>
+                                        <p className="text-xl sm:text-2xl font-black mt-1 text-blue-700 dark:text-blue-300">{formatDateForDisplay(client['Окончание'])}</p>
                                     </div>
                                 </div>
 
@@ -418,22 +367,22 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex justify-between items-center">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-bold">Договор №</p>
-                                        <p className="text-lg font-mono font-bold text-gray-900 dark:text-white">{formData['Договор']}</p>
+                                        <p className="text-lg font-mono font-bold text-gray-900 dark:text-white">{client['Договор']}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xs text-gray-500 uppercase font-bold">Ячейка</p>
-                                        <p className="text-lg font-bold text-gray-900 dark:text-white">{formData['Ячейка'] || '—'}</p>
+                                        <p className="text-lg font-bold text-gray-900 dark:text-white">{client['Ячейка'] || '—'}</p>
                                     </div>
                                 </div>
 
                                 <SectionBlock title="Шины и Хранение" icon={<TireIcon/>}>
-                                     <DetailItem label="Бренд" value={formData['Бренд_Модель']} className="col-span-1 sm:col-span-2" />
-                                     <DetailItem label="Размер шин" value={formData['Размер шин']} className="col-span-1 sm:col-span-2" />
+                                     <DetailItem label="Бренд" value={client['Бренд_Модель']} className="col-span-1 sm:col-span-2" />
+                                     <DetailItem label="Размер шин" value={client['Размер шин']} className="col-span-1 sm:col-span-2" />
                                      <TireGroupsView client={client} />
-                                     <DetailItem label="Сезон" value={formData['Сезон']} />
-                                     <DetailItem label="Кол-во" value={`${formData['Кол-во шин']} шт.`} />
-                                     <DetailItem label="Наличие дисков" value={formData['Наличие дисков']} />
-                                     <DetailItem label="DOT-код" value={formData['DOT-код']} />
+                                     <DetailItem label="Сезон" value={client['Сезон']} />
+                                     <DetailItem label="Кол-во" value={`${client['Кол-во шин']} шт.`} />
+                                     <DetailItem label="Наличие дисков" value={client['Наличие дисков']} />
+                                     <DetailItem label="DOT-код" value={client['DOT-код']} />
                                 </SectionBlock>
 
                                 <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-xl p-4">
@@ -442,16 +391,16 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 </div>
 
                                 <SectionBlock title="Финансы" icon={<CashIcon/>}>
-                                     <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} className="col-span-1 sm:col-span-1" />
-                                     <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Цена за месяц'] || 0))} />
-                                     <DetailItem label="Срок хранения" value={`${formData['Срок']} мес.`} />
-                                     <DetailItem label="Начало хранения" value={formatDateForDisplay(formData['Начало'])} />
+                                     <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Общая сумма'] || 0))} className="col-span-1 sm:col-span-1" />
+                                     <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Цена за месяц'] || 0))} />
+                                     <DetailItem label="Срок хранения" value={`${client['Срок']} мес.`} />
+                                     <DetailItem label="Начало хранения" value={formatDateForDisplay(client['Начало'])} />
                                 </SectionBlock>
 
                                 <SectionBlock title="Контакты" icon={<UserIcon/>}>
-                                    <DetailItem label="Телефон" value={formData['Телефон']} />
-                                    <DetailItem label="Chat ID" value={formData['Chat ID']} />
-                                    <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-1 sm:col-span-2" />
+                                    <DetailItem label="Телефон" value={client['Телефон']} />
+                                    <DetailItem label="Chat ID" value={client['Chat ID']} />
+                                    <DetailItem label="Адрес клиента" value={client['Адрес клиента']} className="col-span-1 sm:col-span-2" />
                                 </SectionBlock>
                             </div>
                         )}
@@ -470,7 +419,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     {mode === 'view' && (
                         <>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <Button size="md" variant="secondary" onClick={() => setMode('edit')} className="flex-1 sm:flex-none justify-center">
+                                <Button size="md" variant="secondary" onClick={handleEditClient} className="flex-1 sm:flex-none justify-center">
                                     <EditIcon/> <span className="ml-1">Изм.</span>
                                 </Button>
                                 <Button size="md" variant="secondary" onClick={() => setMode('message')} className="flex-1 sm:flex-none justify-center">
@@ -482,7 +431,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                             </div>
                             
                             <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                <Button size="md" variant="primary" onClick={() => navigate('/add-client', { state: { clientToReorder: client } })} className="flex-1 sm:flex-none justify-center !bg-green-600 hover:!bg-green-700">
+                                <Button size="md" variant="primary" onClick={handleNewOrder} className="flex-1 sm:flex-none justify-center !bg-green-600 hover:!bg-green-700">
                                     <DocumentPlusIcon className="w-5 h-5 mr-1"/> Новый заказ
                                 </Button>
                                 <Button size="md" variant="danger" onClick={handleDelete} className="justify-center px-3">
@@ -490,13 +439,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 </Button>
                             </div>
                         </>
-                    )}
-
-                    {mode === 'edit' && (
-                        <div className="flex w-full gap-3">
-                            <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting} className="flex-1">Отмена</Button>
-                            <Button onClick={handleSave} disabled={isSubmitting} className="flex-1">{isSubmitting ? 'Сохранение...' : 'Сохранить'}</Button>
-                        </div>
                     )}
 
                     {mode === 'message' && (

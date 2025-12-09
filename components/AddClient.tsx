@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Client, Settings, TireGroup, PRICE_BY_DIAMETER, DEFAULT_PRICE } from '../types';
+import { Client, Settings, TireGroup, PRICE_BY_DIAMETER, DEFAULT_PRICE, parseDate } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
@@ -105,8 +105,15 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
          }
     }
     
+    // Only update these fields if we are NOT editing an existing valid client record heavily
+    // But since tire config changes price, we usually want this. 
+    // We rely on initial state to set correct prices, and this runs to update them if tires change.
     nextState['Кол-во шин'] = totalTireCount;
+    
+    // Logic: If user manually changes price, we might not want to overwrite it constantly.
+    // But for now, let's keep the calculator authoritative for the suggested price.
     nextState['Цена за месяц'] = totalMonthlyPrice;
+    
     nextState['Наличие дисков'] = anyRims ? 'Да' : 'Нет';
     if (combinedDot) nextState['DOT-код'] = combinedDot.trim();
 
@@ -153,6 +160,9 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
         }
     }
 
+    // Legacy fallback parsing
+    if (!client['Размер шин']) return [];
+
     const sizeStr = client['Размер шин'] || '';
     const diaMatch = sizeStr.match(/R(\d+)/i);
     const diameter = diaMatch ? diaMatch[1] : '16'; 
@@ -179,7 +189,7 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
     }];
 };
 
-const getInitialState = (reorderClient?: Client): Partial<Client> => {
+const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Client): Partial<Client> => {
     const currentMonth = new Date().getMonth(); 
     const defaultSeason = (currentMonth >= 10 || currentMonth <= 1) ? 'Лето' : 'Зима';
 
@@ -193,34 +203,47 @@ const getInitialState = (reorderClient?: Client): Partial<Client> => {
         'Услуга: Вывоз': false, 'Услуга: Мойка': false, 'Услуга: Упаковка': false,
         'photoUrls': [],
         'id': `c${Date.now()}`,
-        'metadata': '' 
+        'metadata': '',
+        'Договор': generateContractNumber()
     };
     
-    let initialState: Partial<Client>;
-
-    if (reorderClient) {
-        const phone = reorderClient['Телефон']?.startsWith('+7') 
-            ? reorderClient['Телефон'].substring(2) 
-            : reorderClient['Телефон'];
-
-        initialState = {
-            ...defaultOrderState, 
-            'Имя клиента': reorderClient['Имя клиента'],
-            'Телефон': phone,
-            'Адрес клиента': reorderClient['Адрес клиента'],
-            'Chat ID': reorderClient['Chat ID'],
-            'Номер Авто': reorderClient['Номер Авто'],
-            'Источник трафика': reorderClient['Источник трафика'],
-            'Склад хранения': reorderClient['Склад хранения'] || defaultOrderState['Склад хранения']
+    if (mode === 'edit' && sourceClient) {
+        // Prepare dates for HTML input type="date" (YYYY-MM-DD)
+        const safeFormat = (dateVal: any) => {
+            const parsed = parseDate(dateVal);
+            return parsed ? formatDate(parsed) : '';
         };
-    } else {
-        initialState = {
-            ...defaultOrderState,
-            'Имя клиента': '', 'Телефон': '', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
+
+        return {
+            ...sourceClient,
+            'Начало': safeFormat(sourceClient['Начало']),
+            'Окончание': safeFormat(sourceClient['Окончание']),
+            'Напомнить': safeFormat(sourceClient['Напомнить']),
+        };
+    }
+
+    if (mode === 'reorder' && sourceClient) {
+        const rawPhone = String(sourceClient['Телефон'] || '');
+        const phone = rawPhone.startsWith('+7') 
+            ? rawPhone.substring(2) 
+            : rawPhone;
+
+        return {
+            ...defaultOrderState, 
+            'Имя клиента': sourceClient['Имя клиента'],
+            'Телефон': phone,
+            'Адрес клиента': sourceClient['Адрес клиента'],
+            'Chat ID': sourceClient['Chat ID'],
+            'Номер Авто': sourceClient['Номер Авто'],
+            'Источник трафика': sourceClient['Источник трафика'],
+            'Склад хранения': sourceClient['Склад хранения'] || defaultOrderState['Склад хранения']
         };
     }
     
-    return initialState;
+    return {
+        ...defaultOrderState,
+        'Имя клиента': '', 'Телефон': '', 'Адрес клиента': '', 'Chat ID': '', 'Номер Авто': '',
+    };
 };
 
 // --- Smart Duration Selector ---
@@ -290,29 +313,50 @@ const SmartDurationSelector: React.FC<{
 export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }> = ({ settings, onClientAdd }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const originalClient = location.state?.clientToReorder as Client | undefined;
     
+    // Determine Mode
+    const clientToEdit = location.state?.clientToEdit as Client | undefined;
+    const clientToReorder = location.state?.clientToReorder as Client | undefined;
+    
+    const mode: 'create' | 'edit' | 'reorder' = clientToEdit ? 'edit' : clientToReorder ? 'reorder' : 'create';
+    const sourceClient = clientToEdit || clientToReorder;
+
     // State
     const [tireGroups, setTireGroups] = useState<TireGroup[]>([]);
     const [draftGroup, setDraftGroup] = useState<TireGroup | null>(null);
     
     const [formData, setFormData] = useState<Partial<Client>>(() => {
-        return getInitialState(originalClient);
+        return getInitialState(mode, sourceClient);
     });
     
+    const [isInitialized, setIsInitialized] = useState(false);
+
     useEffect(() => {
-        if (originalClient && tireGroups.length === 0) {
-            const extractedGroups = parseGroupsFromClient(originalClient);
+        if (sourceClient && tireGroups.length === 0 && !isInitialized) {
+            const extractedGroups = parseGroupsFromClient(sourceClient);
             if (extractedGroups.length > 0) {
                 setTireGroups(extractedGroups);
-                // Initial calc
-                setFormData(prev => calculateAllFields(prev, extractedGroups, null));
+                // We run this once to align the groups but NOT to overwrite dates if we are editing
+                if (mode !== 'edit') {
+                    setFormData(prev => calculateAllFields(prev, extractedGroups, null));
+                }
             }
+            // For note description
+            if (sourceClient.metadata) {
+                try {
+                    const parsed = JSON.parse(sourceClient.metadata);
+                    if (parsed.note) setDescription(parsed.note);
+                } catch(e) {}
+            }
+            setIsInitialized(true);
         }
-    }, [originalClient]);
+    }, [sourceClient, mode, isInitialized]);
 
-    // Recalculate fields whenever groups, draft, or key form data changes
+    // Recalculate fields
     useEffect(() => {
+        // Prevent overwrite on initial load for Edit mode, only calculate if user interacts or groups change
+        if (mode === 'edit' && !isInitialized) return;
+
         setFormData(prev => calculateAllFields(prev, tireGroups, draftGroup));
     }, [tireGroups, draftGroup, formData['Срок'], formData['Начало'], formData['Услуга: Мойка'], formData['Услуга: Упаковка']]);
 
@@ -373,9 +417,11 @@ ${g.count}шт • ${g.brand} ${g.model}
         if (client['Услуга: Упаковка']) services.push('🧧 Упаковка');
         const servicesLine = services.length > 0 ? `\n<b>Доп. услуги:</b> ${services.join(', ')}` : '';
 
+        const title = mode === 'edit' ? '✏️ ИЗМЕНЕНИЕ ЗАКАЗА' : '✅✅✅ НОВЫЙ ЗАКАЗ ✅✅✅';
+
         return `
-✅✅✅ <b>НОВЫЙ ЗАКАЗ</b> ✅✅✅
-${originalClient ? '<i>(для существующего клиента)</i>\n' : ''}
+<b>${title}</b>
+${mode === 'reorder' ? '<i>(повторный заказ клиента)</i>\n' : ''}
 👤 <b>${client['Имя клиента']}</b>
 📞 <code>${client['Телефон']}</code>
 🚗 ${client['Номер Авто']}
@@ -413,8 +459,9 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
         let dataForSubmission = { ...formData };
         if (!dataForSubmission.id) dataForSubmission.id = `c${Date.now()}`;
         
-        if (dataForSubmission['Телефон'] && !dataForSubmission['Телефон'].startsWith('+7')) {
-            dataForSubmission['Телефон'] = '+7' + dataForSubmission['Телефон'];
+        let phone = String(dataForSubmission['Телефон'] || '').trim();
+        if (phone && !phone.startsWith('+7')) {
+            dataForSubmission['Телефон'] = '+7' + phone;
         }
         
         const brands = Array.from(new Set(tireGroups.map(g => {
@@ -453,38 +500,54 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 }
             }
 
-            const existingUrls = originalClient?.photoUrls || [];
+            const existingUrls = sourceClient?.photoUrls || [];
             const finalClientData = { 
                 ...dataForSubmission,
                 photoUrls: [...new Set([...existingUrls, ...uploadedUrls])]
             };
 
             let processedClient: Client;
-            if (originalClient && originalClient.id) {
-                setLoadingMessage('Архивация и обновление...');
-                processedClient = await api.reorderClient(originalClient.id, finalClientData);
+            
+            if (mode === 'edit') {
+                setLoadingMessage('Обновление данных...');
+                processedClient = await api.updateClient(finalClientData as Client);
+                setToast({ message: 'Данные клиента обновлены!', type: 'success' });
+            } else if (mode === 'reorder' && sourceClient) {
+                setLoadingMessage('Архивация и создание заказа...');
+                processedClient = await api.reorderClient(sourceClient.id, finalClientData);
+                setToast({ message: 'Новый заказ успешно создан!', type: 'success' });
             } else {
                 setLoadingMessage('Создание клиента...');
                 processedClient = await api.addClient(finalClientData);
+                setToast({ message: 'Клиент успешно добавлен!', type: 'success' });
             }
 
             setLoadingMessage('Готово!');
-            setToast({ message: 'Клиент успешно добавлен!', type: 'success' });
             
             onClientAdd(); 
 
-            const allRecipientIds = [
-                ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
-                ...(settings.managerIds?.split(',').map(id => id.trim()).filter(Boolean) || [])
-            ];
-            const uniqueIds = [...new Set(allRecipientIds)];
+            // Send notification only on create or reorder, or if specifically critical edit (optional)
+            if (mode !== 'edit' || (mode === 'edit' && window.confirm("Отправить уведомление менеджерам об изменениях?"))) {
+                const allRecipientIds = [
+                    ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
+                    ...(settings.managerIds?.split(',').map(id => id.trim()).filter(Boolean) || [])
+                ];
+                const uniqueIds = [...new Set(allRecipientIds)];
 
-            if (uniqueIds.length > 0) {
-                const message = formatManagerMessage(finalClientData);
-                Promise.all(uniqueIds.map(id => api.sendMessage(id, message))).catch(console.error);
+                if (uniqueIds.length > 0) {
+                    const message = formatManagerMessage(finalClientData);
+                    Promise.all(uniqueIds.map(id => api.sendMessage(id, message))).catch(console.error);
+                }
             }
             
-            setTimeout(() => navigate('/clients', { replace: true }), 300);
+            // Allow toast to be seen
+            setTimeout(() => {
+                if (mode === 'edit') {
+                    navigate(`/clients/${dataForSubmission.id}`, { replace: true });
+                } else {
+                    navigate('/clients', { replace: true });
+                }
+            }, 800);
 
         } catch (error: any) {
             setToast({ message: `Ошибка: ${error.message}`, type: 'error' });
@@ -492,12 +555,18 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
         }
     };
     
+    const pageTitle = mode === 'edit' 
+        ? `Редактирование: ${formData['Имя клиента']}` 
+        : mode === 'reorder' 
+            ? `Новый заказ для: ${formData['Имя клиента']}` 
+            : "Новый Клиент и Автомобиль";
+
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto">
                 
-                <Card title={originalClient ? `Новый заказ для: ${originalClient['Имя клиента']}` : "Клиент и Автомобиль"} actions={<UserIcon className="text-gray-400"/>}>
+                <Card title={pageTitle} actions={<UserIcon className="text-gray-400"/>}>
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
@@ -600,7 +669,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                             </div>
                             <div className="mt-4">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Статус сделки</label>
-                                <select name="Статус сделки" value={formData['Статус сделки']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                                <select name="Статус сделки" value={formData['Статус сделки']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
                                     <option>На складе</option>
                                     <option>Без оплаты</option>
                                     <option>Частичная оплата</option>
@@ -683,9 +752,12 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                     </div>
                 </Card>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-3">
+                    <Button type="button" variant="outline" size="lg" onClick={() => navigate(-1)} className="w-full sm:w-auto">
+                        Отмена
+                    </Button>
                     <Button type="submit" size="lg" disabled={isLoading} className="w-full sm:w-auto">
-                        {isLoading ? loadingMessage : originalClient ? 'Оформить новый заказ' : 'Оформить и уведомить'}
+                        {isLoading ? loadingMessage : mode === 'edit' ? 'Сохранить изменения' : mode === 'reorder' ? 'Оформить новый заказ' : 'Оформить и уведомить'}
                     </Button>
                 </div>
             </form>
