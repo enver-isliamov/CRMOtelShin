@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect, useCallback, Fragment, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Client, MessageTemplate, ClientEvent, SavedView, formatDateForDisplay, TireGroup } from '../types';
@@ -61,7 +63,7 @@ const SectionBlock: React.FC<{title: string, children: React.ReactNode, icon?: R
             {icon && <span className="text-gray-400 dark:text-gray-500">{icon}</span>}
             <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{title}</h4>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-4">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {children}
         </div>
     </div>
@@ -105,7 +107,7 @@ const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
     if (groups.length === 0) return null;
 
     return (
-         <div className="col-span-2 space-y-2 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
+         <div className="col-span-1 sm:col-span-2 space-y-2 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
             <p className="text-xs font-bold text-gray-500 uppercase">Состав комплекта:</p>
             {groups.map((g: TireGroup, idx: number) => (
                 <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900/40 p-2 rounded">
@@ -267,7 +269,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         
         if (mode === 'edit') {
             return (
-                 <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
+                 <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {headers.filter(h => h !== 'id' && h !== 'photoUrls' && h !== 'metadata').map(header => (
                             <Input
@@ -317,7 +319,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         const descClean = (formData['Заказ - QR'] || '').split('||JSON:')[0];
         
         return (
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
+            <div className="space-y-4">
                 {activeTab === 'details' && (
                     <div className="space-y-4">
                          {/* Status Header */}
@@ -357,8 +359,8 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                         </div>
 
                         <SectionBlock title="Шины и Хранение" icon={<TireIcon/>}>
-                             <DetailItem label="Бренд" value={formData['Бренд_Модель']} className="col-span-2" />
-                             <DetailItem label="Размер шин" value={formData['Размер шин']} className="col-span-2" />
+                             <DetailItem label="Бренд" value={formData['Бренд_Модель']} className="col-span-1 sm:col-span-2" />
+                             <DetailItem label="Размер шин" value={formData['Размер шин']} className="col-span-1 sm:col-span-2" />
                              
                              <TireGroupsView client={client} />
 
@@ -375,7 +377,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                         </div>
 
                         <SectionBlock title="Финансы" icon={<CashIcon/>}>
-                             <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} className="col-span-2 sm:col-span-1" />
+                             <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Общая сумма'] || 0))} className="col-span-1 sm:col-span-1" />
                              <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(formData['Цена за месяц'] || 0))} />
                              <DetailItem label="Срок хранения" value={`${formData['Срок']} мес.`} />
                              <DetailItem label="Начало хранения" value={formatDateForDisplay(formData['Начало'])} />
@@ -383,8 +385,8 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                         </SectionBlock>
 
                         <SectionBlock title="Контакты" icon={<UserIcon/>}>
-                            <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-2" />
-                            <DetailItem label="Chat ID" value={formData['Chat ID']} className="col-span-2" />
+                            <DetailItem label="Адрес клиента" value={formData['Адрес клиента']} className="col-span-1 sm:col-span-2" />
+                            <DetailItem label="Chat ID" value={formData['Chat ID']} className="col-span-1 sm:col-span-2" />
                         </SectionBlock>
                     </div>
                 )}
@@ -397,28 +399,30 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
     const renderFooter = () => {
         if (mode === 'edit') {
             return (
-                <>
-                    <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting}>Отмена</Button>
-                    <Button onClick={handleSave} disabled={isSubmitting}>{isSubmitting ? 'Сохранение...' : 'Сохранить'}</Button>
-                </>
+                <div className="flex w-full gap-2">
+                    <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting} className="flex-1 sm:flex-none">Отмена</Button>
+                    <Button onClick={handleSave} disabled={isSubmitting} className="flex-1 sm:flex-none">{isSubmitting ? 'Сохранение...' : 'Сохранить'}</Button>
+                </div>
             );
         }
         if (mode === 'message') {
             return (
-                <>
-                    <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting}>Назад</Button>
-                    <Button onClick={handleSendMessage} disabled={isSubmitting || (!selectedTemplateName && !preview) || !client?.['Chat ID']}>{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
-                </>
+                <div className="flex w-full gap-2">
+                    <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting} className="flex-1 sm:flex-none">Назад</Button>
+                    <Button onClick={handleSendMessage} disabled={isSubmitting || (!selectedTemplateName && !preview) || !client?.['Chat ID']} className="flex-1 sm:flex-none">{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
+                </div>
             );
         }
         return (
-            <div className='flex flex-wrap gap-2 w-full justify-start'>
+            <div className='grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:justify-start'>
                 <Button size="sm" variant="primary" onClick={() => setMode('edit')}><EditIcon/> <span className="ml-1">Изменить</span></Button>
                 <Button size="sm" variant="secondary" onClick={handleNewOrder} className="!bg-green-100 !text-green-800 hover:!bg-green-200 dark:!bg-green-800/40 dark:!text-green-200 dark:hover:!bg-green-800/60"><DocumentPlusIcon className="h-4 w-4"/> <span className="ml-1">Новый заказ</span></Button>
                 <Button size="sm" variant="secondary" onClick={() => setMode('message')}><MessageIcon/> <span className="ml-1">Сообщение</span></Button>
-                <Button size="sm" variant="secondary" onClick={handleGenerateReceipt} className="!bg-indigo-100 !text-indigo-800 hover:!bg-indigo-200 dark:!bg-indigo-900/40 dark:!text-indigo-200"><ReceiptIcon className="h-4 w-4"/> <span className="ml-1">Чек/Договор</span></Button>
-                <div className="flex-grow"></div>
-                <Button size="sm" variant="danger" onClick={handleDelete} disabled={isSubmitting}><DeleteIcon/> <span className="ml-1">Удалить</span></Button>
+                <Button size="sm" variant="secondary" onClick={handleGenerateReceipt} className="!bg-indigo-100 !text-indigo-800 hover:!bg-indigo-200 dark:!bg-indigo-900/40 dark:!text-indigo-200"><ReceiptIcon className="h-4 w-4"/> <span className="ml-1">Чек</span></Button>
+                
+                <div className="col-span-2 sm:col-span-0 sm:ml-auto">
+                    <Button size="sm" variant="danger" onClick={handleDelete} disabled={isSubmitting} className="w-full sm:w-auto"><DeleteIcon/> <span className="ml-1">Удалить</span></Button>
+                </div>
             </div>
         )
     }
@@ -446,7 +450,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
             isOpen={isOpen}
             onClose={onClose}
             title={modalTitleNode}
-            footer={<div className="flex justify-end w-full space-x-2">{renderFooter()}</div>}
+            footer={<div className="flex justify-end w-full">{renderFooter()}</div>}
         >
             <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
                 <nav className="-mb-px flex space-x-4" aria-label="Tabs">
@@ -795,7 +799,7 @@ export const ClientsView: React.FC<{
                 {savedViews.map(view => (
                     <span key={view.id} className="inline-flex flex-shrink-0 items-center gap-x-1 bg-gray-100 pl-2.5 pr-1 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-full border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         <button onClick={() => handleLoadView(view.id)}>{view.name}</button>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteView(view.id); }} className="p-0.5 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-400 hover:text-red-500">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteView(view.id); }} className="p-0.5 rounded-full hover:bg-gray-300 dark:hover:bg-gray-50 text-gray-400 hover:text-red-500">
                             <XMarkIcon className="h-3 w-3"/>
                         </button>
                     </span>
