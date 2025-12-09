@@ -105,15 +105,8 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
          }
     }
     
-    // Only update these fields if we are NOT editing an existing valid client record heavily
-    // But since tire config changes price, we usually want this. 
-    // We rely on initial state to set correct prices, and this runs to update them if tires change.
     nextState['Кол-во шин'] = totalTireCount;
-    
-    // Logic: If user manually changes price, we might not want to overwrite it constantly.
-    // But for now, let's keep the calculator authoritative for the suggested price.
     nextState['Цена за месяц'] = totalMonthlyPrice;
-    
     nextState['Наличие дисков'] = anyRims ? 'Да' : 'Нет';
     if (combinedDot) nextState['DOT-код'] = combinedDot.trim();
 
@@ -136,6 +129,7 @@ const calculateAllFields = (baseData: Partial<Client>, tireGroups: TireGroup[], 
 const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
     if (!client) return [];
     
+    // 1. Try Metadata (Structured JSON) - Most reliable
     if (client.metadata) {
         try {
             const parsed = JSON.parse(client.metadata);
@@ -147,6 +141,7 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
         }
     }
 
+    // 2. Try QR JSON - Fallback
     const qrData = client['Заказ - QR'] || '';
     const jsonMatch = qrData.match(/\|\|JSON:(.*)$/);
     if (jsonMatch) {
@@ -160,33 +155,58 @@ const parseGroupsFromClient = (client?: Partial<Client>): TireGroup[] => {
         }
     }
 
-    // Legacy fallback parsing
-    if (!client['Размер шин']) return [];
+    // 3. Smart String Parsing (For "2x 275/40R21 \n 2x ...")
+    const sizeString = client['Размер шин'] || '';
+    if (!sizeString) return [];
 
-    const sizeStr = client['Размер шин'] || '';
-    const diaMatch = sizeStr.match(/R(\d+)/i);
-    const diameter = diaMatch ? diaMatch[1] : '16'; 
+    const sizeLines = sizeString.split('\n').map(s => s.trim()).filter(Boolean);
+    const brandLines = (client['Бренд_Модель'] || '').split('\n').map(s => s.trim()).filter(Boolean);
     
-    const sizeFullMatch = sizeStr.match(/(\d+)\/?(\d*)/);
-    const width = sizeFullMatch ? sizeFullMatch[1] : '';
-    const profile = sizeFullMatch ? sizeFullMatch[2] : '';
+    // Attempt to map each line to a TireGroup
+    return sizeLines.map((line, index) => {
+        let count = 4; // Default
+        
+        // Check for "2x " prefix
+        const countMatch = line.match(/^(\d+)x/i);
+        if (countMatch) {
+            count = parseInt(countMatch[1], 10);
+        } else if (sizeLines.length > 1) {
+            // If we have multiple lines but no "Nx", assume 2 per axle implies 2 tires (common for staggered)
+            // But safest is to default to 2 if there are exactly 2 lines and total should be 4? 
+            // Let's stick to parsing or default.
+            count = 2; // Heuristic: if multiple lines, likely 2 per line.
+        }
 
-    const brandStr = client['Бренд_Модель'] || '';
-    const brandParts = brandStr.split(' ');
-    
-    return [{
-        id: 'legacy-group',
-        brand: brandParts[0] || 'Unknown',
-        model: brandParts.slice(1).join(' ') || '',
-        width,
-        profile,
-        diameter,
-        count: Number(client['Кол-во шин']) || 4,
-        season: client['Сезон'] || 'Лето',
-        hasRims: client['Наличие дисков'] || 'Нет',
-        pricePerMonth: Number(client['Цена за месяц']) || DEFAULT_PRICE,
-        dot: client['DOT-код'] || ''
-    }];
+        const sizeMatch = line.match(/(\d{3})\/?(\d{2})[R]?(\d{2})/i);
+        const width = sizeMatch ? sizeMatch[1] : '';
+        const profile = sizeMatch ? sizeMatch[2] : '';
+        const diameter = sizeMatch ? sizeMatch[3] : '';
+
+        // Try to match brand line-by-line, or use the first one for all
+        let brandStr = brandLines[index] || brandLines[0] || '';
+        let brand = 'Не указан';
+        let model = '';
+        
+        if (brandStr) {
+            const parts = brandStr.split(' ');
+            brand = parts[0];
+            model = parts.slice(1).join(' ');
+        }
+
+        return {
+            id: `restored-${index}-${Date.now()}`,
+            brand,
+            model,
+            width,
+            profile,
+            diameter,
+            count: count,
+            season: client['Сезон'] || 'Лето',
+            hasRims: client['Наличие дисков'] || 'Нет',
+            pricePerMonth: Number(client['Цена за месяц']) || DEFAULT_PRICE, // Approximate, will recalculate
+            dot: '' // DOTs hard to extract from unstructured string, leave empty
+        };
+    });
 };
 
 const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Client): Partial<Client> => {
@@ -228,14 +248,16 @@ const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Cli
             ? rawPhone.substring(2) 
             : rawPhone;
 
+        // Here we ensure we carry over ONLY the contact/car info, but RESET contract info
         return {
-            ...defaultOrderState, 
+            ...defaultOrderState, // Resets dates, contract #, debt
             'Имя клиента': sourceClient['Имя клиента'],
             'Телефон': phone,
             'Адрес клиента': sourceClient['Адрес клиента'],
             'Chat ID': sourceClient['Chat ID'],
             'Номер Авто': sourceClient['Номер Авто'],
             'Источник трафика': sourceClient['Источник трафика'],
+            // Keep warehouse as it's likely the same
             'Склад хранения': sourceClient['Склад хранения'] || defaultOrderState['Склад хранения']
         };
     }
@@ -332,16 +354,22 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
+        // If we are editing or reordering, we try to restore tire groups from the source client
+        // This ensures the "Edit" screen shows the correct groups, even if they were saved as simple text before.
         if (sourceClient && tireGroups.length === 0 && !isInitialized) {
             const extractedGroups = parseGroupsFromClient(sourceClient);
             if (extractedGroups.length > 0) {
                 setTireGroups(extractedGroups);
-                // We run this once to align the groups but NOT to overwrite dates if we are editing
+                
+                // If it's a NEW ORDER (reorder), we trigger calculation once to update prices based on these tires
+                // but keep the new contract dates from getInitialState.
+                // If it's EDIT, we generally trust the existing data, but recalculating keeps consistency.
                 if (mode !== 'edit') {
                     setFormData(prev => calculateAllFields(prev, extractedGroups, null));
                 }
             }
-            // For note description
+            
+            // Restore description note if present in metadata
             if (sourceClient.metadata) {
                 try {
                     const parsed = JSON.parse(sourceClient.metadata);
@@ -352,9 +380,9 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         }
     }, [sourceClient, mode, isInitialized]);
 
-    // Recalculate fields
+    // Recalculate fields whenever tire groups change
     useEffect(() => {
-        // Prevent overwrite on initial load for Edit mode, only calculate if user interacts or groups change
+        // Prevent overwrite on initial load for Edit mode to respect DB values initially
         if (mode === 'edit' && !isInitialized) return;
 
         setFormData(prev => calculateAllFields(prev, tireGroups, draftGroup));
@@ -366,7 +394,7 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
     const [loadingMessage, setLoadingMessage] = useState('Оформление...');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     
-    // Handlers wrapped in useCallback to be stable props
+    // Handlers
     const handleChange = useCallback((updates: Partial<Client>) => {
         setFormData(prev => ({ ...prev, ...updates }));
     }, []);
@@ -390,11 +418,20 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
         const formattedValue = value.toUpperCase().replace(/[^А-ЯA-Z0-9]/g, '');
         handleChange({ 'Номер Авто': formattedValue });
     };
+
+    const handleCancel = () => {
+        if (mode === 'edit' && sourceClient) {
+            // If editing, go back to that client's details
+            navigate(`/clients/${sourceClient.id}`);
+        } else {
+            // If creating new or reordering (new order), go back to list
+            navigate('/clients');
+        }
+    };
     
     const formatManagerMessage = (client: Partial<Client>): string => {
         const startDate = client['Начало'] ? new Date(client['Начало']).toLocaleDateString('ru-RU') : '-';
         const endDate = client['Окончание'] ? new Date(client['Окончание']).toLocaleDateString('ru-RU') : '-';
-        
         const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
         
         let tiresDetails = '';
@@ -526,7 +563,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
             
             onClientAdd(); 
 
-            // Send notification only on create or reorder, or if specifically critical edit (optional)
             if (mode !== 'edit' || (mode === 'edit' && window.confirm("Отправить уведомление менеджерам об изменениях?"))) {
                 const allRecipientIds = [
                     ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
@@ -540,7 +576,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 }
             }
             
-            // Allow toast to be seen
             setTimeout(() => {
                 if (mode === 'edit') {
                     navigate(`/clients/${dataForSubmission.id}`, { replace: true });
@@ -753,7 +788,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 </Card>
 
                 <div className="flex justify-end gap-3">
-                    <Button type="button" variant="outline" size="lg" onClick={() => navigate(-1)} className="w-full sm:w-auto">
+                    <Button type="button" variant="outline" size="lg" onClick={handleCancel} className="w-full sm:w-auto">
                         Отмена
                     </Button>
                     <Button type="submit" size="lg" disabled={isLoading} className="w-full sm:w-auto">
