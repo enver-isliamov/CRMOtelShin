@@ -3,12 +3,12 @@
 
 export const CRM_CODE = `/**
  * ==========================================
- *  ВЕРСИЯ CRM: 3.4.2 (Receipt Template)
+ *  ВЕРСИЯ CRM: 3.4.4 (Receipt Template Update)
  * ==========================================
  */
 
 // --- КОНФИГУРАЦИЯ CRM ---
-const CRM_SCRIPT_VERSION = "3.4.2";
+const CRM_SCRIPT_VERSION = "3.4.4";
 const SHEET_NAME_CLIENTS = "WebBase";
 const SHEET_NAME_TEMPLATES = "Шаблоны сообщений";
 const SHEET_NAME_MASTERS = "мастера";
@@ -299,8 +299,24 @@ function crmSendMessage(chatId, message) {
   const token = SCRIPT_PROPERTIES.getProperty('TELEGRAM_BOT_TOKEN');
   if (!token) throw new Error("Токен Telegram не настроен.");
   const sanitizedMessage = message.replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/p>/gi, '\\n').replace(/<p.*?>/gi, '').replace(/&nbsp;/g, ' ').trim();
+  
+  const payload = { 
+    chat_id: String(chatId), 
+    text: sanitizedMessage, 
+    parse_mode: "HTML" 
+  };
+
+  // AUTOMATIC BUTTON INJECTION FOR RECEIPT
+  if (message.indexOf('ДЕТАЛИ ЗАКАЗА') !== -1) {
+     payload.reply_markup = {
+        inline_keyboard: [
+           [{ text: "📱 Личный кабинет", url: "https://t.me/OtelShinBot/panel" }]
+        ]
+     };
+  }
+
   const url = "https://api.telegram.org/bot" + token + "/sendMessage";
-  UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", payload: JSON.stringify({ chat_id: String(chatId), text: sanitizedMessage, parse_mode: "HTML" }), muteHttpExceptions: true });
+  UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", payload: JSON.stringify(payload), muteHttpExceptions: true });
   return { status: "success", message: "Sent" };
 }
 
@@ -309,7 +325,7 @@ function crmGetTemplatesWithDefaults(ss) {
   const defaultTemplates = { 
     'Напоминание о задолженности': 'Здравствуйте, {{Имя клиента}}! Долг по договору №{{Договор}}: <b>{{Долг}} ₽</b>.', 
     'Напоминание об окончании хранения': 'Здравствуйте, {{Имя клиента}}! Срок хранения шин (дог. №{{Договор}}) истекает <b>{{Окончание}}</b>.',
-    'Чек (Детали заказа)': '<b>📃 ДЕТАЛИ ЗАКАЗА (ДОГОВОР)</b>\\n\\n👤 <b>Клиент:</b> {{Имя клиента}}\\n🚗 <b>Авто:</b> {{Номер Авто}}\\n📞 <b>Телефон:</b> {{Телефон}}\\n\\n🔢 <b>Договор №:</b> <code>{{Договор}}</code>\\n📅 <b>Срок хранения:</b> {{Срок}} мес.\\n(с {{Начало}} по {{Окончание}})\\n\\n- - - - - - - - - - - - - -\\n{{Заказ - QR}}\\nDOT: <b>{{DOT-код}}</b>\\n- - - - - - - - - - - - - -\\n\\n💰 <b>Сумма заказа:</b> {{Общая сумма}}\\n(Тариф: {{Цена за месяц}}/мес)\\n\\n📍 <b>Склад:</b> {{Склад хранения}}\\n\\n<i>Приём и хранение осуществляется на условиях публичной оферты otelshin.ru/dogovor</i>'
+    'Чек (Детали заказа)': '<b>📃 ДЕТАЛИ ЗАКАЗА (ДОГОВОР)</b>\\n\\n👤 <b>Клиент:</b> {{Имя клиента}}\\n🚗 <b>Авто:</b> {{Номер Авто}}\\n📞 <b>Телефон:</b> {{Телефон}}\\n\\n🔢 <b>Договор №:</b> <code>{{Договор}}</code>\\n📅 <b>Срок хранения:</b> {{Срок}} мес.\\n(с {{Начало}} по {{Окончание}})\\n\\n- - - - - - - - - - - - - -\\n{{Заказ - QR}}\\nДиски: <b>{{Наличие дисков}}</b> | DOT: <b>{{DOT-код}}</b>\\n- - - - - - - - - - - - - -\\n\\n💰 <b>Сумма заказа:</b> {{Общая сумма}}\\n(Тариф: {{Цена за месяц}}/мес)\\n\\n📍 <b>Склад:</b> {{Склад хранения}}\\n\\n<i>Приём и хранение осуществляется на условиях публичной оферты otelshin.ru/dogovor</i>'
   };
   const data = sheet.getDataRange().getValues();
   const existingTemplates = data.length > 1 ? data.slice(1).map(row => row[0]) : [];
