@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Client, MessageTemplate, TireGroup, formatDateForDisplay } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
@@ -110,6 +110,7 @@ interface ClientDetailsPageProps {
 export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, templates, refreshData }) => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     
     const [client, setClient] = useState<Client | undefined>(undefined);
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'photos'>('details');
@@ -120,10 +121,17 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
+        // PRIORITY 1: Check if client object was passed in navigation state
+        if (location.state?.client) {
+            setClient(location.state.client);
+            return;
+        }
+
+        // PRIORITY 2: Fallback to ID lookup (e.g. on direct link or reload)
         if (!id) return;
         const foundClient = clients.find(c => String(c.id) === String(id));
         setClient(foundClient);
-    }, [id, clients]);
+    }, [id, clients, location.state]);
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });

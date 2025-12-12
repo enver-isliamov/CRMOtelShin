@@ -152,7 +152,8 @@ export const ClientsView: React.FC<{
 
   const handleRowClick = (client: Client, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a')) return;
-    navigate(`/clients/${client.id}`);
+    // Pass the entire client object in state to handle duplicate IDs in the sheet
+    navigate(`/clients/${client.id}`, { state: { client } });
   };
   
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -202,6 +203,12 @@ export const ClientsView: React.FC<{
   };
   
   const isFiltersActive = filters.status !== 'all' || filters.warehouse !== 'all' || filters.debt;
+
+  // Check for duplicate IDs to warn user
+  const hasDuplicates = useMemo(() => {
+      const ids = clients.map(c => c.id);
+      return new Set(ids).size !== ids.length;
+  }, [clients]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -318,12 +325,23 @@ export const ClientsView: React.FC<{
         </div>
       </Card>
       
+      {hasDuplicates && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 p-3 rounded-lg flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <span className="font-bold">Внимание:</span> Обнаружены клиенты с одинаковыми ID в таблице. Возможны ошибки при отображении деталей. Рекомендуется удалить дубликаты в Google Таблице.
+              </div>
+          </div>
+      )}
+
       {/* Client List */}
       <Card className="!p-0 overflow-hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {sortedClients.map((client, index) => (
                 <div 
-                    key={client.id || index} 
+                    key={`${client.id}_${index}`} 
                     onClick={(e) => handleRowClick(client, e)} 
                     className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                 >
