@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard';
 import { ClientsView } from './components/ClientsView';
 import { ClientDetailsPage } from './components/ClientDetailsPage';
 import { Settings } from './components/Settings';
+import { MastersView } from './components/MastersView';
 import { AddClient } from './components/AddClient';
 import { UserRole, Client, MessageTemplate, Settings as SettingsType, Master, SavedView } from './types';
 import { api, getClientHeaders } from './services/api';
@@ -31,7 +32,7 @@ const ClientsIcon: React.FC<{className?: string}> = ({ className="h-5 w-5" }) =>
 const SettingsIcon: React.FC<{className?: string}> = ({ className="h-5 w-5" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.608 3.292 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const PlusCircleIcon: React.FC<{className?: string}> = ({ className="h-5 w-5" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const LogoutIcon: React.FC<{className?: string}> = ({ className="h-5 w-5" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
-const MenuIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>;
+const BadgeIcon: React.FC<{className?: string}> = ({ className="h-5 w-5" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" /></svg>;
 
 const NavLink: React.FC<{ to: string, icon: React.ReactNode, children: React.ReactNode, disabled?: boolean }> = ({ to, icon, children, disabled = false }) => {
     const location = useLocation();
@@ -110,6 +111,7 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
                 <nav className="flex flex-col space-x-0 space-y-2">
                     <NavLink to="/" icon={<DashboardIcon />} disabled={navDisabled}>Дашборд</NavLink>
                     <NavLink to="/clients" icon={<ClientsIcon />} disabled={navDisabled}>Клиенты</NavLink>
+                    <NavLink to="/masters" icon={<BadgeIcon />} disabled={navDisabled}>Мастера</NavLink>
                     <NavLink to="/add-client" icon={<PlusCircleIcon />} disabled={navDisabled}>Добавить</NavLink>
                     <NavLink to="/settings" icon={<SettingsIcon />}>Настройки</NavLink>
                 </nav>
@@ -152,11 +154,12 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
                 
                  {/* Mobile Bottom Nav - Completely isolated z-context. Hide on Detail Page */}
                 {!isDetailPage && (
-                    <nav className="md:hidden flex items-center justify-around bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 p-2 gap-2 z-[100] fixed bottom-0 left-0 right-0 pb-safe safe-area-inset-bottom shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
+                    <nav className="md:hidden flex items-center justify-around bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 p-2 gap-1 z-[100] fixed bottom-0 left-0 right-0 pb-safe safe-area-inset-bottom shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
                         <BottomNavLink to="/" icon={<DashboardIcon/>} disabled={navDisabled}>Дашборд</BottomNavLink>
                         <BottomNavLink to="/clients" icon={<ClientsIcon/>} disabled={navDisabled}>Клиенты</BottomNavLink>
+                        <BottomNavLink to="/masters" icon={<BadgeIcon/>} disabled={navDisabled}>Мастера</BottomNavLink>
                         <BottomNavLink to="/add-client" icon={<PlusCircleIcon className="h-8 w-8 text-primary-600 dark:text-primary-400"/>} disabled={navDisabled}>Добавить</BottomNavLink>
-                        <BottomNavLink to="/settings" icon={<SettingsIcon/>}>Настройки</BottomNavLink>
+                        <BottomNavLink to="/settings" icon={<SettingsIcon/>}>Настр.</BottomNavLink>
                     </nav>
                 )}
             </div>
@@ -261,6 +264,7 @@ export const App: React.FC = () => {
                     <Route path="/" element={needsSetup ? <Navigate to="/settings" replace /> : <Dashboard clients={clients} archive={archive} templates={templates} />} />
                     <Route path="/clients" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientsView clients={clients} headers={headers} templates={templates} refreshData={refreshData} savedViews={savedViews} onSaveViews={handleSaveViews} />} />
                     <Route path="/clients/:id" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={refreshData} />} />
+                    <Route path="/masters" element={needsSetup ? <Navigate to="/settings" replace /> : <MastersView masters={masters} setMasters={setMasters} clients={clients} />} />
                     <Route path="/add-client" element={needsSetup ? <Navigate to="/settings" replace /> : <AddClient settings={settings} onClientAdd={refreshData} />} />
                     <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={refreshData} needsSetup={needsSetup} />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
