@@ -15,6 +15,8 @@ const UserIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <s
 const TireIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 9.068l.44-2.396M11.25 9.068l-3.41 1.936m3.41-1.936l1.936 3.41M11.25 9.068a4.5 4.5 0 013.182-.968h.063a4.5 4.5 0 013.478 5.432l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a2.25 2.25 0 00-2.208-1.956H9.413a2.25 2.25 0 00-2.208 1.956l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a4.5 4.5 0 016.12 6.132h.063a4.5 4.5 0 013.182.968z" /></svg>;
 const CreditCardIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 21z" /></svg>;
 const ArrowLeftIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
+const CheckIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>;
+const SpinnerIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 
 const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; label: React.ReactNode}> = ({ name, checked, onChange, label }) => (
     <label className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800/60 rounded-lg cursor-pointer border-2 border-gray-200 dark:border-gray-700 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 dark:has-[:checked]:bg-primary-900/20 transition-all duration-200">
@@ -499,8 +501,8 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
 `.trim().replace(/^\s+/gm, '');
     };
     
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         
         if (tireGroups.length === 0) {
              setToast({ message: `Добавьте хотя бы одну группу шин в заказ!`, type: 'error' });
@@ -610,11 +612,13 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
         }
     };
     
-    const pageTitle = mode === 'edit' 
-        ? `Редактирование: ${formData['Имя клиента']}` 
+    const pageTitle = formData['Имя клиента'] || 'Новый Клиент';
+    
+    const modeDescription = mode === 'edit' 
+        ? 'Редактирование профиля' 
         : mode === 'reorder' 
-            ? `Новый заказ: ${formData['Имя клиента']}` 
-            : "Новый Клиент";
+            ? 'Создание нового заказа' 
+            : 'Добавление нового клиента';
 
     return (
         <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
@@ -631,16 +635,23 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                             {pageTitle}
                         </h1>
                         <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {mode === 'edit' ? 'Режим изменения данных' : 'Режим создания заказа'}
+                            {modeDescription}
                         </div>
                     </div>
                 </div>
                 
-                {mode === 'edit' && (
-                    <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide bg-yellow-100 text-yellow-800">
-                        EDIT
-                    </span>
-                )}
+                <button
+                    onClick={() => handleSubmit()}
+                    disabled={isLoading}
+                    className={`p-2 rounded-full transition-colors ${
+                        isLoading 
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400' 
+                        : 'bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50'
+                    }`}
+                    title="Сохранить"
+                >
+                    {isLoading ? <SpinnerIcon className="w-6 h-6" /> : <CheckIcon className="w-6 h-6" />}
+                </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
@@ -831,15 +842,6 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                         </div>
                         </div>
                     </Card>
-
-                    <div className="flex justify-end gap-3">
-                        <Button type="button" variant="outline" size="md" onClick={handleCancel} className="w-full sm:w-auto">
-                            Отмена
-                        </Button>
-                        <Button type="submit" size="md" disabled={isLoading} className="w-full sm:w-auto">
-                            {isLoading ? loadingMessage : mode === 'edit' ? 'Сохранить изменения' : mode === 'reorder' ? 'Оформить новый заказ' : 'Оформить и уведомить'}
-                        </Button>
-                    </div>
                 </form>
             </div>
         </div>
