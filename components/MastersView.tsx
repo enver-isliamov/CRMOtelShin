@@ -14,6 +14,7 @@ const TelegramIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-
 const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>;
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const MapPinIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>;
 
 const MasterFormModal: React.FC<{
     isOpen: boolean;
@@ -24,7 +25,7 @@ const MasterFormModal: React.FC<{
     const [formData, setFormData] = useState<Partial<Master>>({});
 
     useEffect(() => {
-        setFormData(master ? { ...master } : { 'Имя': '', 'chatId (Telegram)': '', 'Услуга': '', 'Телефон': '' });
+        setFormData(master ? { ...master } : { 'Имя': '', 'chatId (Telegram)': '', 'Услуга': '', 'Телефон': '', 'Адрес': '' });
     }, [master, isOpen]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,11 +43,14 @@ const MasterFormModal: React.FC<{
                 <Input name="Имя" label="Имя" value={formData['Имя'] || ''} onChange={handleChange} placeholder="Иван Иванов" required />
                 <Input name="chatId (Telegram)" label="Chat ID (Telegram)" value={formData['chatId (Telegram)'] || ''} onChange={handleChange} placeholder="123456789" required />
                 <Input name="Услуга" label="Услуга" value={formData['Услуга'] || ''} onChange={handleChange} placeholder="Шиномонтаж, Ремонт дисков" helperText="Перечислите услуги через запятую, если их несколько." />
-                <Input name="Телефон" label="Телефон" type="tel" value={formData['Телефон'] || ''} onChange={handleChange} placeholder="+7..." />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input name="Телефон" label="Телефон" type="tel" value={formData['Телефон'] || ''} onChange={handleChange} placeholder="+7..." />
+                    <Input name="Адрес" label="Адрес" value={formData['Адрес'] || ''} onChange={handleChange} placeholder="Ул. Ленина, д.1" />
+                </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-                <Button variant="outline" onClick={onClose}>Отмена</Button>
-                <Button onClick={handleSave}>Сохранить</Button>
+            <div className="flex w-full gap-3 mt-6">
+                <Button variant="outline" onClick={onClose} className="flex-1">Отмена</Button>
+                <Button onClick={handleSave} className="flex-1">Сохранить</Button>
             </div>
         </Modal>
     );
@@ -267,8 +271,13 @@ const MasterContactCard: React.FC<{
                         <PhoneIcon /> {master['Телефон']}
                     </a>
                 )}
+                {master['Адрес'] && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <MapPinIcon /> <span className="truncate" title={master['Адрес']}>{master['Адрес']}</span>
+                    </div>
+                )}
                 {services.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 pt-1">
                         {services.map(s => (
                             <span key={s} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
                                 {s}

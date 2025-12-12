@@ -60,32 +60,36 @@ const NavLink: React.FC<{ to: string, icon: React.ReactNode, children: React.Rea
     );
 };
 
-const BottomNavLink: React.FC<{ to: string, icon: React.ReactNode, children: React.ReactNode, disabled?: boolean }> = ({ to, icon, children, disabled = false }) => {
+const BottomNavLink: React.FC<{ to: string, icon: React.ReactNode, children?: React.ReactNode, disabled?: boolean, label: string }> = ({ to, icon, disabled = false, label }) => {
     const location = useLocation();
     const isActive = !disabled && (location.pathname === to || (to !== '/' && location.pathname.startsWith(to)));
 
-    const commonClasses = `flex flex-col items-center justify-center flex-1 py-2 text-xs transition-colors duration-200 rounded-lg select-none`;
-    const activeClasses = `text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20`; 
+    // Mobile nav optimized: No text, bigger icons, centered
+    const commonClasses = `flex items-center justify-center flex-1 py-3 transition-colors duration-200 select-none`;
+    const activeClasses = `text-primary-600 dark:text-primary-300 bg-primary-50/50 dark:bg-primary-900/20`; 
     const inactiveClasses = `text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800`;
-    const disabledClasses = `text-gray-400 dark:text-gray-500 cursor-not-allowed`;
+    const disabledClasses = `text-gray-300 dark:text-gray-600 cursor-not-allowed`;
+
+    // Clone icon to increase size for mobile touch targets
+    const sizedIcon = React.isValidElement(icon) 
+        ? React.cloneElement(icon, { className: "h-7 w-7" } as React.SVGProps<SVGSVGElement>) 
+        : icon;
 
     if (disabled) {
         const disabledIcon = to === '/add-client'
-            ? <PlusCircleIcon className="h-8 w-8 text-gray-400" />
-            : icon;
+            ? <PlusCircleIcon className="h-7 w-7 text-gray-300 dark:text-gray-600" />
+            : sizedIcon;
 
         return (
-            <span className={`${commonClasses} ${disabledClasses}`}>
+            <span className={`${commonClasses} ${disabledClasses}`} aria-label={label}>
                 {disabledIcon}
-                <span>{children}</span>
             </span>
         );
     }
     
     return (
-        <Link to={to} className={`${commonClasses} ${isActive ? activeClasses : inactiveClasses}`}>
-            {icon}
-            <span>{children}</span>
+        <Link to={to} className={`${commonClasses} ${isActive ? activeClasses : inactiveClasses}`} aria-label={label}>
+            {sizedIcon}
         </Link>
     );
 }
@@ -154,12 +158,12 @@ const Layout: React.FC<{ children: React.ReactNode, user: { username: string, ro
                 
                  {/* Mobile Bottom Nav - Completely isolated z-context. Hide on Detail Page */}
                 {!isDetailPage && (
-                    <nav className="md:hidden flex items-center justify-around bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 p-2 gap-1 z-[100] fixed bottom-0 left-0 right-0 pb-safe safe-area-inset-bottom shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
-                        <BottomNavLink to="/" icon={<DashboardIcon/>} disabled={navDisabled}>Дашборд</BottomNavLink>
-                        <BottomNavLink to="/clients" icon={<ClientsIcon/>} disabled={navDisabled}>Клиенты</BottomNavLink>
-                        <BottomNavLink to="/masters" icon={<BadgeIcon/>} disabled={navDisabled}>Мастера</BottomNavLink>
-                        <BottomNavLink to="/add-client" icon={<PlusCircleIcon className="h-8 w-8 text-primary-600 dark:text-primary-400"/>} disabled={navDisabled}>Добавить</BottomNavLink>
-                        <BottomNavLink to="/settings" icon={<SettingsIcon/>}>Настр.</BottomNavLink>
+                    <nav className="md:hidden flex items-center justify-around bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 px-2 z-[100] fixed bottom-0 left-0 right-0 pb-safe safe-area-inset-bottom shadow-[0_-1px_10px_rgba(0,0,0,0.05)] h-14">
+                        <BottomNavLink to="/" icon={<DashboardIcon/>} disabled={navDisabled} label="Дашборд" />
+                        <BottomNavLink to="/clients" icon={<ClientsIcon/>} disabled={navDisabled} label="Клиенты" />
+                        <BottomNavLink to="/masters" icon={<BadgeIcon/>} disabled={navDisabled} label="Мастера" />
+                        <BottomNavLink to="/add-client" icon={<PlusCircleIcon className="text-primary-600 dark:text-primary-400"/>} disabled={navDisabled} label="Добавить" />
+                        <BottomNavLink to="/settings" icon={<SettingsIcon/>} label="Настройки" />
                     </nav>
                 )}
             </div>
@@ -263,7 +267,7 @@ export const App: React.FC = () => {
                 <Routes>
                     <Route path="/" element={needsSetup ? <Navigate to="/settings" replace /> : <Dashboard clients={clients} archive={archive} templates={templates} />} />
                     <Route path="/clients" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientsView clients={clients} headers={headers} templates={templates} refreshData={refreshData} savedViews={savedViews} onSaveViews={handleSaveViews} />} />
-                    <Route path="/clients/:id" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={refreshData} />} />
+                    <Route path="/clients/:id" element={needsSetup ? <Navigate to="/settings" replace /> : <ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={refreshData} settings={settings} />} />
                     <Route path="/masters" element={needsSetup ? <Navigate to="/settings" replace /> : <MastersView masters={masters} setMasters={setMasters} clients={clients} />} />
                     <Route path="/add-client" element={needsSetup ? <Navigate to="/settings" replace /> : <AddClient settings={settings} onClientAdd={refreshData} />} />
                     <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={refreshData} needsSetup={needsSetup} />} />

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Client, MessageTemplate, TireGroup, formatDateForDisplay } from '../types';
+import { Client, MessageTemplate, TireGroup, formatDateForDisplay, Settings } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
@@ -15,6 +15,7 @@ const MessageIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) =>
 const DeleteIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>;
 const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 const ReceiptIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
+const ShieldCheckIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>;
 
 // Section Icons
 const TireIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clipRule="evenodd" /></svg>;
@@ -105,9 +106,10 @@ interface ClientDetailsPageProps {
     headers: string[];
     templates: MessageTemplate[];
     refreshData: () => Promise<void>;
+    settings: Settings;
 }
 
-export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, templates, refreshData }) => {
+export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, templates, refreshData, settings }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -115,6 +117,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [client, setClient] = useState<Client | undefined>(undefined);
     const [activeTab, setActiveTab] = useState<'details' | 'history' | 'photos'>('details');
     const [mode, setMode] = useState<'view' | 'message'>('view');
+    const [messageTarget, setMessageTarget] = useState<'client' | 'admin'>('client');
     const [selectedTemplateName, setSelectedTemplateName] = useState<string>('');
     const [preview, setPreview] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,13 +142,13 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
 
     // Template Logic
     useEffect(() => {
-        if (mode === 'message' && templates.length > 0 && !selectedTemplateName && preview === '') {
+        if (mode === 'message' && messageTarget === 'client' && templates.length > 0 && !selectedTemplateName && preview === '') {
             setSelectedTemplateName(templates[0]?.['Название шаблона'] || '');
         }
-    }, [templates, selectedTemplateName, mode, preview]);
+    }, [templates, selectedTemplateName, mode, preview, messageTarget]);
 
     useEffect(() => {
-        if (selectedTemplateName && client) {
+        if (selectedTemplateName && client && messageTarget === 'client') {
             const selectedTemplate = templates.find(t => t['Название шаблона'] === selectedTemplateName);
             if (selectedTemplate) {
                 let content = selectedTemplate['Содержимое (HTML)'];
@@ -162,7 +165,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
                 setPreview(content);
             }
         }
-    }, [selectedTemplateName, templates, client]);
+    }, [selectedTemplateName, templates, client, messageTarget]);
 
     const handleDelete = async () => {
         if (!client) return;
@@ -185,12 +188,24 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
         if (preview && client) {
             setIsSubmitting(true);
             try {
-                const result = await api.sendMessage(client['Chat ID'] as string, preview);
-                showToast(result.message, result.success ? 'success' : 'error');
-                if (result.success) {
-                    await refreshData();
-                    setMode('view');
+                if (messageTarget === 'admin') {
+                    // Send to all admins
+                    const adminIds = settings.adminIds.split(',').map(id => id.trim()).filter(Boolean);
+                    if (adminIds.length === 0) throw new Error("ID администраторов не настроены в настройках.");
+                    
+                    await Promise.all(adminIds.map(id => api.sendMessage(id, preview)));
+                    showToast(`Отправлено администраторам (${adminIds.length})`, 'success');
+                } else {
+                    // Send to client
+                    if (!client['Chat ID']) throw new Error("У клиента не указан Chat ID.");
+                    const result = await api.sendMessage(client['Chat ID'] as string, preview);
+                    showToast(result.message, result.success ? 'success' : 'error');
                 }
+                
+                if (messageTarget === 'client') {
+                    await refreshData(); // Refresh only if client interaction
+                }
+                setMode('view');
             } catch(e: any) {
                 showToast(e.message, 'error');
             } finally {
@@ -208,6 +223,45 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
         if (!client) return;
         navigate('/add-client', { state: { clientToReorder: client } });
     };
+
+    const handleAdminMessage = () => {
+        if (!client) return;
+        const groups = getTireGroups(client);
+        let tiresText = '';
+        if (groups.length > 0) {
+            tiresText = groups.map(g => `${g.count}шт ${g.brand} ${g.model} ${g.width}/${g.profile}R${g.diameter}`).join('\n');
+        } else {
+            tiresText = (client['Заказ - QR'] || '').split('||JSON:')[0];
+        }
+        
+        const summary = `
+<b>👤 Информация о клиенте</b>
+
+Клиент: <b>${client['Имя клиента']}</b>
+Авто: <b>${client['Номер Авто']}</b>
+Тел: <code>${client['Телефон']}</code>
+
+Договор: ${client['Договор']}
+Склад: ${client['Склад хранения']} / ${client['Ячейка']}
+Срок: до ${formatDateForDisplay(client['Окончание'])}
+
+📦 Шины:
+${tiresText}
+
+💰 Долг: ${client['Долг']} ₽
+`.trim().replace(/\n/g, '<br/>');
+
+        setPreview(summary);
+        setSelectedTemplateName('');
+        setMessageTarget('admin');
+        setMode('message');
+    }
+
+    const handleClientMessage = () => {
+        setMessageTarget('client');
+        setMode('message');
+        setPreview(''); // Will trigger template effect
+    }
 
     const handleGenerateReceipt = () => {
         if (!client) return;
@@ -247,6 +301,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
 
         setPreview(receiptHtml);
         setSelectedTemplateName(''); 
+        setMessageTarget('client');
         setMode('message');
     };
 
@@ -317,20 +372,27 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                 {mode === 'message' && (
                     <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold mb-4 dark:text-white">Отправка сообщения</h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold dark:text-white">
+                                    {messageTarget === 'admin' ? 'Сообщение администратору' : 'Сообщение клиенту'}
+                                </h3>
+                                {messageTarget === 'admin' && <ShieldCheckIcon className="w-6 h-6 text-blue-500"/>}
+                            </div>
                             <div className="space-y-4">
-                                <div>
-                                    <label htmlFor="template" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Шаблон</label>
-                                    <select 
-                                        id="template" 
-                                        value={selectedTemplateName} 
-                                        onChange={e => setSelectedTemplateName(e.target.value)} 
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150"
-                                    >
-                                        <option value="">-- Индивидуальное сообщение / Чек --</option>
-                                        {templates.map(t => <option key={t['Название шаблона']} value={t['Название шаблона']}>{t['Название шаблона']}</option>)}
-                                    </select>
-                                </div>
+                                {messageTarget === 'client' && (
+                                    <div>
+                                        <label htmlFor="template" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Шаблон</label>
+                                        <select 
+                                            id="template" 
+                                            value={selectedTemplateName} 
+                                            onChange={e => setSelectedTemplateName(e.target.value)} 
+                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150"
+                                        >
+                                            <option value="">-- Индивидуальное сообщение / Чек --</option>
+                                            {templates.map(t => <option key={t['Название шаблона']} value={t['Название шаблона']}>{t['Название шаблона']}</option>)}
+                                        </select>
+                                    </div>
+                                )}
                                 <div>
                                     <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-2">Сообщение (HTML)</h4>
                                     <div 
@@ -430,10 +492,15 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 <Button size="md" variant="secondary" onClick={handleEditClient} className="flex-1 sm:flex-none justify-center">
                                     <EditIcon/> <span className="ml-1">Изм.</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={() => setMode('message')} className="flex-1 sm:flex-none justify-center">
+                                {/* SMS Button */}
+                                <Button size="md" variant="secondary" onClick={handleClientMessage} className="flex-1 sm:flex-none justify-center" title="Написать клиенту">
                                     <MessageIcon/> <span className="ml-1">SMS</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleGenerateReceipt} className="flex-1 sm:flex-none justify-center !bg-indigo-50 !text-indigo-600 dark:!bg-indigo-900/30 dark:!text-indigo-300">
+                                {/* Admin Button */}
+                                <Button size="md" variant="secondary" onClick={handleAdminMessage} className="flex-1 sm:flex-none justify-center !bg-blue-50 !text-blue-600 dark:!bg-blue-900/30 dark:!text-blue-300" title="Написать админу">
+                                    <ShieldCheckIcon className="w-5 h-5"/> <span className="ml-1">Админу</span>
+                                </Button>
+                                <Button size="md" variant="secondary" onClick={handleGenerateReceipt} className="flex-1 sm:flex-none justify-center !bg-indigo-50 !text-indigo-600 dark:!bg-indigo-900/30 dark:!text-indigo-300" title="Чек">
                                     <ReceiptIcon className="w-5 h-5"/>
                                 </Button>
                             </div>
@@ -452,7 +519,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     {mode === 'message' && (
                         <div className="flex w-full gap-3">
                             <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting} className="flex-1">Назад</Button>
-                            <Button onClick={handleSendMessage} disabled={isSubmitting || !client?.['Chat ID']} className="flex-1">{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
+                            <Button onClick={handleSendMessage} disabled={isSubmitting || (messageTarget === 'client' && !client?.['Chat ID'])} className="flex-1">{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
                         </div>
                     )}
                 </div>

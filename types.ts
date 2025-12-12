@@ -86,6 +86,7 @@ export interface Master {
   'chatId (Telegram)': string;
   'Услуга'?: string;
   'Телефон'?: string;
+  'Адрес'?: string;
 }
 
 export enum UserRole {

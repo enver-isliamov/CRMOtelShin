@@ -807,10 +807,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 </Card>
 
                 <div className="flex justify-end gap-3">
-                    <Button type="button" variant="outline" size="lg" onClick={handleCancel} className="w-full sm:w-auto">
+                    <Button type="button" variant="outline" size="md" onClick={handleCancel} className="w-full sm:w-auto">
                         Отмена
                     </Button>
-                    <Button type="submit" size="lg" disabled={isLoading} className="w-full sm:w-auto">
+                    <Button type="submit" size="md" disabled={isLoading} className="w-full sm:w-auto">
                         {isLoading ? loadingMessage : mode === 'edit' ? 'Сохранить изменения' : mode === 'reorder' ? 'Оформить новый заказ' : 'Оформить и уведомить'}
                     </Button>
                 </div>
