@@ -14,6 +14,7 @@ import { ImageUpload } from './ui/ImageUpload';
 const UserIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>;
 const TireIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 9.068l.44-2.396M11.25 9.068l-3.41 1.936m3.41-1.936l1.936 3.41M11.25 9.068a4.5 4.5 0 013.182-.968h.063a4.5 4.5 0 013.478 5.432l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a2.25 2.25 0 00-2.208-1.956H9.413a2.25 2.25 0 00-2.208 1.956l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a4.5 4.5 0 016.12 6.132h.063a4.5 4.5 0 013.182.968z" /></svg>;
 const CreditCardIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 21z" /></svg>;
+const ArrowLeftIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
 
 const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; label: React.ReactNode}> = ({ name, checked, onChange, label }) => (
     <label className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800/60 rounded-lg cursor-pointer border-2 border-gray-200 dark:border-gray-700 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 dark:has-[:checked]:bg-primary-900/20 transition-all duration-200">
@@ -612,209 +613,235 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
     const pageTitle = mode === 'edit' 
         ? `Редактирование: ${formData['Имя клиента']}` 
         : mode === 'reorder' 
-            ? `Новый заказ для: ${formData['Имя клиента']}` 
-            : "Новый Клиент и Автомобиль";
+            ? `Новый заказ: ${formData['Имя клиента']}` 
+            : "Новый Клиент";
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto">
+            
+            {/* Sticky Header with Back Button (Similar to ClientDetailsPage) */}
+            <div className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <button onClick={handleCancel} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300">
+                        <ArrowLeftIcon />
+                    </button>
+                    <div className="flex flex-col min-w-0">
+                        <h1 className="text-lg font-bold leading-tight text-gray-900 dark:text-white truncate">
+                            {pageTitle}
+                        </h1>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {mode === 'edit' ? 'Режим изменения данных' : 'Режим создания заказа'}
+                        </div>
+                    </div>
+                </div>
                 
-                <Card title={pageTitle} actions={<UserIcon className="text-gray-400"/>}>
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
-                            <Input 
-                                label="Телефон" 
-                                name="Телефон" 
-                                value={formData['Телефон']} 
-                                onChange={handleInputChange} 
-                                prefix="+7"
-                                placeholder="(999) 123-45-67" 
-                                type="tel"
-                            />
-                        </div>
+                {mode === 'edit' && (
+                    <span className="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide bg-yellow-100 text-yellow-800">
+                        EDIT
+                    </span>
+                )}
+            </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input label="Номер Авто" name="Номер Авто" value={formData['Номер Авто']} onChange={(e) => handleCarNumberChange(e.target.value)} placeholder="A123BC777" />
-                            <Input label="Chat ID" name="Chat ID" value={formData['Chat ID']} onChange={handleInputChange} placeholder="123456789" />
-                        </div>
-
-                        <div className="w-full">
-                           <Input label="Адрес" name="Адрес клиента" value={formData['Адрес клиента']} onChange={handleInputChange} placeholder="Улица, № дома, квартира" helperText="Для услуги 'Вывоз шин'" />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 items-end">
-                            <Input label="Источник трафика" name="Источник трафика" value={formData['Источник трафика']} onChange={handleInputChange} placeholder="Авито, Сайт..." />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Договор №</label>
-                                <div className="flex items-center h-[46px] px-3 rounded-md bg-gray-100 dark:bg-gray-700/50">
-                                    <span className="font-mono text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 truncate">{formData['Договор']}</span>
-                                </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-6">
+                    
+                    <Card title="Контактные данные" actions={<UserIcon className="text-gray-400"/>}>
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
+                                <Input 
+                                    label="Телефон" 
+                                    name="Телефон" 
+                                    value={formData['Телефон']} 
+                                    onChange={handleInputChange} 
+                                    prefix="+7"
+                                    placeholder="(999) 123-45-67" 
+                                    type="tel"
+                                />
                             </div>
-                        </div>
-                    </div>
-                </Card>
 
-                <Card title="Шины и Услуги" actions={<TireIcon className="text-gray-400"/>}>
-                    <div className="space-y-6">
-                        
-                        <MultiTireInput 
-                            groups={tireGroups}
-                            onGroupsChange={handleGroupsChange}
-                            onDraftChange={handleDraftChange}
-                        />
-                        
-                        <div>
-                           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты (общее)</label>
-                           <textarea
-                               id="description"
-                               value={description}
-                               onChange={(e) => setDescription(e.target.value)}
-                               rows={3}
-                               placeholder="Без латок, с шипами, без порезов и т.д."
-                               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-150"
-                            />
-                        </div>
-                        
-                        <ImageUpload onFilesChange={setFilesToUpload} />
-
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Дополнительные услуги</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <CheckboxPill name="Услуга: Вывоз" checked={!!formData['Услуга: Вывоз']} onChange={handleInputChange} label={<>Вывоз шин <span className="text-green-600 font-bold">БЕСПЛАТНО</span></>} />
-                                <CheckboxPill name="Услуга: Мойка" checked={!!formData['Услуга: Мойка']} onChange={handleInputChange} label={<>Мойка колёс <span className="font-bold">200₽</span></>} />
-                                <CheckboxPill name="Услуга: Упаковка" checked={!!formData['Услуга: Упаковка']} onChange={handleInputChange} label={<>Упаковка в пакеты <span className="font-bold">350₽</span></>} />
-                            </div>
-                         </div>
-                    </div>
-                </Card>
-
-                <Card title="Финансы" actions={<CreditCardIcon className="text-gray-400"/>}>
-                    <div className="space-y-6">
-                        <div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Input label="Дата начала" name="Начало" type="date" value={formData['Начало']} onChange={handleInputChange} />
-                                
+                                <Input label="Номер Авто" name="Номер Авто" value={formData['Номер Авто']} onChange={(e) => handleCarNumberChange(e.target.value)} placeholder="A123BC777" />
+                                <Input label="Chat ID" name="Chat ID" value={formData['Chat ID']} onChange={handleInputChange} placeholder="123456789" />
+                            </div>
+
+                            <div className="w-full">
+                            <Input label="Адрес" name="Адрес клиента" value={formData['Адрес клиента']} onChange={handleInputChange} placeholder="Улица, № дома, квартира" helperText="Для услуги 'Вывоз шин'" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 items-end">
+                                <Input label="Источник трафика" name="Источник трафика" value={formData['Источник трафика']} onChange={handleInputChange} placeholder="Авито, Сайт..." />
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Срок хранения</label>
-                                    <div className="relative h-[46px] flex items-center justify-start px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-primary-500">
-                                         <SmartDurationSelector 
-                                            value={Number(formData['Срок'])} 
-                                            onChange={(val) => handleChange({ 'Срок': val })} 
-                                            minimal={true}
-                                        />
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Договор №</label>
+                                    <div className="flex items-center h-[46px] px-3 rounded-md bg-gray-100 dark:bg-gray-700/50">
+                                        <span className="font-mono text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 truncate">{formData['Договор']}</span>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4 mt-4">
-                                <Input label="Дата окончания" name="Окончание" type="date" value={formData['Окончание']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
-                                <Input label="Дата напоминания" name="Напомнить" type="date" value={formData['Напомнить']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
-                            </div>
                         </div>
-                        
-                        <hr className="dark:border-gray-700" />
+                    </Card>
 
-                        <div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Склад хранения" name="Склад хранения" value={formData['Склад хранения']} onChange={handleInputChange} placeholder="AYU-46" />
-                                <Input label="Ячейка" name="Ячейка" value={formData['Ячейка']} onChange={handleInputChange} placeholder="E-43" helperText="назначается на складе"/>
-                            </div>
-                            <div className="mt-4">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Статус сделки</label>
-                                <select name="Статус сделки" value={formData['Статус сделки']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
-                                    <option>На складе</option>
-                                    <option>Без оплаты</option>
-                                    <option>Частичная оплата</option>
-                                    <option>Оплачено</option>
-                                    <option>Завершено</option>
-                                </select>
-                            </div>
-                        </div>
-
-                         <hr className="dark:border-gray-700" />
-
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-lg space-y-3 border border-gray-200 dark:border-gray-700">
-                            <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200">Расчет стоимости</h4>
-
-                            <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                                <div className="flex justify-between">
-                                    <span>Хранение ({formData['Срок']} мес.)</span>
-                                    <span>
-                                        {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
-                                            (Number(formData['Цена за месяц']) || 0) * (Number(formData['Срок']) || 0)
-                                        )}
-                                    </span>
-                                </div>
-                                {formData['Услуга: Вывоз'] && (
-                                    <div className="flex justify-between">
-                                        <span>Вывоз шин</span>
-                                        <span className="font-bold text-green-600 dark:text-green-400">0 ₽</span>
-                                    </div>
-                                )}
-                                {formData['Наличие дисков'] === 'Да' && (
-                                    <div className="flex justify-between text-xs text-gray-500">
-                                        <span>(Включена наценка за диски)</span>
-                                    </div>
-                                )}
-                                {formData['Услуга: Мойка'] && (
-                                    <div className="flex justify-between">
-                                        <span>Мойка колёс</span>
-                                        <span>+ 200 ₽</span>
-                                    </div>
-                                )}
-                                {formData['Услуга: Упаковка'] && (
-                                    <div className="flex justify-between">
-                                        <span>Упаковка в пакеты</span>
-                                        <span>+ 350 ₽</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            <hr className="dark:border-gray-600" />
-                           
-                            <div className="flex justify-between items-center text-lg">
-                               <span className="font-bold text-gray-800 dark:text-gray-100">Итого к оплате:</span>
-                               <span className="font-bold text-primary-600 dark:text-primary-300 text-2xl">
-                                   {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(formData['Общая сумма'] || 0)}
-                               </span>
+                    <Card title="Шины и Услуги" actions={<TireIcon className="text-gray-400"/>}>
+                        <div className="space-y-6">
+                            
+                            <MultiTireInput 
+                                groups={tireGroups}
+                                onGroupsChange={handleGroupsChange}
+                                onDraftChange={handleDraftChange}
+                            />
+                            
+                            <div>
+                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты (общее)</label>
+                            <textarea
+                                id="description"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                rows={3}
+                                placeholder="Без латок, с шипами, без порезов и т.д."
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-150"
+                                />
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4 pt-2">
-                                 <Input 
-                                    label="Цена за месяц, ₽" 
-                                    name="Цена за месяц" 
-                                    type="number" 
-                                    inputMode="numeric" 
-                                    value={formData['Цена за месяц']} 
-                                    onChange={handleInputChange}
-                                    className="!bg-green-50/50 dark:!bg-green-900/20 !border-green-300 dark:!border-green-800 focus:!ring-green-500 text-green-800 dark:text-green-200 font-semibold"
-                                    helperText="Авторасчет (можно править)"
-                                />
-                                <Input 
-                                    label="Долг, ₽" 
-                                    name="Долг" 
-                                    type="number" 
-                                    inputMode="numeric" 
-                                    value={formData['Долг']} 
-                                    onChange={handleInputChange}
-                                    className="!bg-red-50/50 dark:!bg-red-900/20 !border-red-300 dark:!border-red-800 focus:!ring-red-500 text-red-800 dark:text-red-200 font-semibold"
-                                />
-                            </div>
-                       </div>
-                    </div>
-                </Card>
+                            <ImageUpload onFilesChange={setFilesToUpload} />
 
-                <div className="flex justify-end gap-3">
-                    <Button type="button" variant="outline" size="md" onClick={handleCancel} className="w-full sm:w-auto">
-                        Отмена
-                    </Button>
-                    <Button type="submit" size="md" disabled={isLoading} className="w-full sm:w-auto">
-                        {isLoading ? loadingMessage : mode === 'edit' ? 'Сохранить изменения' : mode === 'reorder' ? 'Оформить новый заказ' : 'Оформить и уведомить'}
-                    </Button>
-                </div>
-            </form>
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Дополнительные услуги</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <CheckboxPill name="Услуга: Вывоз" checked={!!formData['Услуга: Вывоз']} onChange={handleInputChange} label={<>Вывоз шин <span className="text-green-600 font-bold">БЕСПЛАТНО</span></>} />
+                                    <CheckboxPill name="Услуга: Мойка" checked={!!formData['Услуга: Мойка']} onChange={handleInputChange} label={<>Мойка колёс <span className="font-bold">200₽</span></>} />
+                                    <CheckboxPill name="Услуга: Упаковка" checked={!!formData['Услуга: Упаковка']} onChange={handleInputChange} label={<>Упаковка в пакеты <span className="font-bold">350₽</span></>} />
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card title="Финансы" actions={<CreditCardIcon className="text-gray-400"/>}>
+                        <div className="space-y-6">
+                            <div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input label="Дата начала" name="Начало" type="date" value={formData['Начало']} onChange={handleInputChange} />
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Срок хранения</label>
+                                        <div className="relative h-[46px] flex items-center justify-start px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-primary-500">
+                                            <SmartDurationSelector 
+                                                value={Number(formData['Срок'])} 
+                                                onChange={(val) => handleChange({ 'Срок': val })} 
+                                                minimal={true}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                    <Input label="Дата окончания" name="Окончание" type="date" value={formData['Окончание']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
+                                    <Input label="Дата напоминания" name="Напомнить" type="date" value={formData['Напомнить']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
+                                </div>
+                            </div>
+                            
+                            <hr className="dark:border-gray-700" />
+
+                            <div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input label="Склад хранения" name="Склад хранения" value={formData['Склад хранения']} onChange={handleInputChange} placeholder="AYU-46" />
+                                    <Input label="Ячейка" name="Ячейка" value={formData['Ячейка']} onChange={handleInputChange} placeholder="E-43" helperText="назначается на складе"/>
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Статус сделки</label>
+                                    <select name="Статус сделки" value={formData['Статус сделки']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                                        <option>На складе</option>
+                                        <option>Без оплаты</option>
+                                        <option>Частичная оплата</option>
+                                        <option>Оплачено</option>
+                                        <option>Завершено</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <hr className="dark:border-gray-700" />
+
+                            <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-lg space-y-3 border border-gray-200 dark:border-gray-700">
+                                <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200">Расчет стоимости</h4>
+
+                                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                    <div className="flex justify-between">
+                                        <span>Хранение ({formData['Срок']} мес.)</span>
+                                        <span>
+                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
+                                                (Number(formData['Цена за месяц']) || 0) * (Number(formData['Срок']) || 0)
+                                            )}
+                                        </span>
+                                    </div>
+                                    {formData['Услуга: Вывоз'] && (
+                                        <div className="flex justify-between">
+                                            <span>Вывоз шин</span>
+                                            <span className="font-bold text-green-600 dark:text-green-400">0 ₽</span>
+                                        </div>
+                                    )}
+                                    {formData['Наличие дисков'] === 'Да' && (
+                                        <div className="flex justify-between text-xs text-gray-500">
+                                            <span>(Включена наценка за диски)</span>
+                                        </div>
+                                    )}
+                                    {formData['Услуга: Мойка'] && (
+                                        <div className="flex justify-between">
+                                            <span>Мойка колёс</span>
+                                            <span>+ 200 ₽</span>
+                                        </div>
+                                    )}
+                                    {formData['Услуга: Упаковка'] && (
+                                        <div className="flex justify-between">
+                                            <span>Упаковка в пакеты</span>
+                                            <span>+ 350 ₽</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <hr className="dark:border-gray-600" />
+                            
+                                <div className="flex justify-between items-center text-lg">
+                                <span className="font-bold text-gray-800 dark:text-gray-100">Итого к оплате:</span>
+                                <span className="font-bold text-primary-600 dark:text-primary-300 text-2xl">
+                                    {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(formData['Общая сумма'] || 0)}
+                                </span>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 pt-2">
+                                    <Input 
+                                        label="Цена за месяц, ₽" 
+                                        name="Цена за месяц" 
+                                        type="number" 
+                                        inputMode="numeric" 
+                                        value={formData['Цена за месяц']} 
+                                        onChange={handleInputChange}
+                                        className="!bg-green-50/50 dark:!bg-green-900/20 !border-green-300 dark:!border-green-800 focus:!ring-green-500 text-green-800 dark:text-green-200 font-semibold"
+                                        helperText="Авторасчет (можно править)"
+                                    />
+                                    <Input 
+                                        label="Долг, ₽" 
+                                        name="Долг" 
+                                        type="number" 
+                                        inputMode="numeric" 
+                                        value={formData['Долг']} 
+                                        onChange={handleInputChange}
+                                        className="!bg-red-50/50 dark:!bg-red-900/20 !border-red-300 dark:!border-red-800 focus:!ring-red-500 text-red-800 dark:text-red-200 font-semibold"
+                                    />
+                                </div>
+                        </div>
+                        </div>
+                    </Card>
+
+                    <div className="flex justify-end gap-3">
+                        <Button type="button" variant="outline" size="md" onClick={handleCancel} className="w-full sm:w-auto">
+                            Отмена
+                        </Button>
+                        <Button type="submit" size="md" disabled={isLoading} className="w-full sm:w-auto">
+                            {isLoading ? loadingMessage : mode === 'edit' ? 'Сохранить изменения' : mode === 'reorder' ? 'Оформить новый заказ' : 'Оформить и уведомить'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 };
