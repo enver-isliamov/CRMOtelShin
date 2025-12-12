@@ -142,13 +142,13 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
 
     // Template Logic
     useEffect(() => {
-        if (mode === 'message' && messageTarget === 'client' && templates.length > 0 && !selectedTemplateName && preview === '') {
+        if (mode === 'message' && templates.length > 0 && !selectedTemplateName && preview === '') {
             setSelectedTemplateName(templates[0]?.['Название шаблона'] || '');
         }
-    }, [templates, selectedTemplateName, mode, preview, messageTarget]);
+    }, [templates, selectedTemplateName, mode, preview]);
 
     useEffect(() => {
-        if (selectedTemplateName && client && messageTarget === 'client') {
+        if (selectedTemplateName && client) {
             const selectedTemplate = templates.find(t => t['Название шаблона'] === selectedTemplateName);
             if (selectedTemplate) {
                 let content = selectedTemplate['Содержимое (HTML)'];
@@ -165,7 +165,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
                 setPreview(content);
             }
         }
-    }, [selectedTemplateName, templates, client, messageTarget]);
+    }, [selectedTemplateName, templates, client]);
 
     const handleDelete = async () => {
         if (!client) return;
@@ -226,41 +226,16 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
 
     const handleAdminMessage = () => {
         if (!client) return;
-        const groups = getTireGroups(client);
-        let tiresText = '';
-        if (groups.length > 0) {
-            tiresText = groups.map(g => `${g.count}шт ${g.brand} ${g.model} ${g.width}/${g.profile}R${g.diameter}`).join('\n');
-        } else {
-            tiresText = (client['Заказ - QR'] || '').split('||JSON:')[0];
-        }
-        
-        const summary = `
-<b>👤 Информация о клиенте</b>
-
-Клиент: <b>${client['Имя клиента']}</b>
-Авто: <b>${client['Номер Авто']}</b>
-Тел: <code>${client['Телефон']}</code>
-
-Договор: ${client['Договор']}
-Склад: ${client['Склад хранения']} / ${client['Ячейка']}
-Срок: до ${formatDateForDisplay(client['Окончание'])}
-
-📦 Шины:
-${tiresText}
-
-💰 Долг: ${client['Долг']} ₽
-`.trim().replace(/\n/g, '<br/>');
-
-        setPreview(summary);
         setSelectedTemplateName('');
         setMessageTarget('admin');
         setMode('message');
+        setPreview('');
     }
 
     const handleClientMessage = () => {
         setMessageTarget('client');
         setMode('message');
-        setPreview(''); // Will trigger template effect
+        setPreview('');
     }
 
     const handleGenerateReceipt = () => {
@@ -379,20 +354,18 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 {messageTarget === 'admin' && <ShieldCheckIcon className="w-6 h-6 text-blue-500"/>}
                             </div>
                             <div className="space-y-4">
-                                {messageTarget === 'client' && (
-                                    <div>
-                                        <label htmlFor="template" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Шаблон</label>
-                                        <select 
-                                            id="template" 
-                                            value={selectedTemplateName} 
-                                            onChange={e => setSelectedTemplateName(e.target.value)} 
-                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150"
-                                        >
-                                            <option value="">-- Индивидуальное сообщение / Чек --</option>
-                                            {templates.map(t => <option key={t['Название шаблона']} value={t['Название шаблона']}>{t['Название шаблона']}</option>)}
-                                        </select>
-                                    </div>
-                                )}
+                                <div>
+                                    <label htmlFor="template" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Шаблон</label>
+                                    <select 
+                                        id="template" 
+                                        value={selectedTemplateName} 
+                                        onChange={e => setSelectedTemplateName(e.target.value)} 
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150"
+                                    >
+                                        <option value="">-- Индивидуальное сообщение / Чек --</option>
+                                        {templates.map(t => <option key={t['Название шаблона']} value={t['Название шаблона']}>{t['Название шаблона']}</option>)}
+                                    </select>
+                                </div>
                                 <div>
                                     <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-2">Сообщение (HTML)</h4>
                                     <div 

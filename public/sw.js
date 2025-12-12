@@ -52,7 +52,8 @@ self.addEventListener('fetch', (event) => {
     fetch(event.request)
       .then((response) => {
         // Check if we received a valid response
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+        // IMPORTANT: Allow 'cors' type to cache CDN resources (React, Tailwind from esm.sh)
+        if (!response || response.status !== 200 || (response.type !== 'basic' && response.type !== 'cors')) {
           return response;
         }
 
