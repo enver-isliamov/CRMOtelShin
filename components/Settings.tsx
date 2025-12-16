@@ -83,11 +83,22 @@ const GeneralSettingsTab: React.FC<{
     const handleTestConnection = async () => {
         if (settings.apiMode === 'VERCEL') {
              setIsTesting(true);
+             const controller = new AbortController();
+             const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
+
              try {
                  const res = await fetch('/api/crm', { 
                      method: 'POST', 
-                     body: JSON.stringify({ action: 'testconnection' }) 
+                     body: JSON.stringify({ action: 'testconnection' }),
+                     signal: controller.signal
                  });
+                 clearTimeout(timeoutId);
+                 
+                 if (!res.ok) {
+                     if (res.status === 404) throw new Error("API еще не развернут. Дождитесь окончания сборки Vercel.");
+                     throw new Error(`Ошибка сервера: ${res.status}`);
+                 }
+
                  const result = await res.json();
                  if (result.status === 'success') {
                      showToast(`Vercel OK: ${result.message}`, 'success');
@@ -95,7 +106,11 @@ const GeneralSettingsTab: React.FC<{
                      throw new Error(result.message);
                  }
              } catch(e: any) {
-                 showToast(`Ошибка Vercel: ${e.message}`, 'error');
+                 if (e.name === 'AbortError') {
+                     showToast('Тайм-аут: Сервер не отвечает. Проверьте деплой.', 'error');
+                 } else {
+                     showToast(`Ошибка Vercel: ${e.message}`, 'error');
+                 }
              } finally {
                  setIsTesting(false);
              }
@@ -207,7 +222,6 @@ const GeneralSettingsTab: React.FC<{
     );
 };
 
-// ... (Rest of the Settings component logic is preserved, only GeneralSettingsTab is heavily modified)
 const TemplatesTab: React.FC<{ 
     templates: MessageTemplate[]; 
     setTemplates: React.Dispatch<React.SetStateAction<MessageTemplate[]>>;
