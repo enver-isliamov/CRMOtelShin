@@ -28,24 +28,19 @@ export default async function handler(request: Request) {
 
     switch (action) {
       case 'testconnection':
+        // Проверяем реальное подключение к БД
+        await sql`SELECT 1`;
         result = { status: 'success', message: 'Vercel Postgres Connected!', version: 'Vercel-1.0.0' };
         break;
 
       case 'getclients':
-        // Получаем активных клиентов
-        const clientsRes = await sql`
-          SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC;
-        `;
-        // Получаем архив
-        const archiveRes = await sql`
-          SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC LIMIT 500;
-        `;
-        
+        const clientsRes = await sql`SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC;`;
+        const archiveRes = await sql`SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC LIMIT 500;`;
         result = {
           status: 'success',
           clients: clientsRes.rows.map(row => row.data),
           archive: archiveRes.rows.map(row => row.data),
-          headers: [] // Фронтенд сам разберется с заголовками
+          headers: [] 
         };
         break;
 
@@ -65,16 +60,13 @@ export default async function handler(request: Request) {
             FALSE
           )
         `;
-        
         await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${newClient.id}, 'Клиент создан', 'New record', ${user})`;
-        
         result = { status: 'success', newId: newClient.id };
         break;
 
       case 'update':
         const clientToUpdate = body.client;
         const id = clientToUpdate.id;
-        
         await sql`
           UPDATE clients 
           SET 
@@ -86,28 +78,15 @@ export default async function handler(request: Request) {
             updated_at = NOW()
           WHERE id = ${id}
         `;
-        
         await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${id}, 'Данные обновлены', 'Update record', ${user})`;
-        
         result = { status: 'success', message: 'Updated' };
         break;
 
       case 'reorder':
         const oldClientId = body.oldClientId;
         const newOrderData = body.client;
-        
-        // Шаг 1: Архивируем текущий заказ
-        await sql`
-          UPDATE clients 
-          SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() 
-          WHERE id = ${oldClientId}
-        `;
-        
-        // Шаг 2: Создаем новый заказ
-        if (!newOrderData.id || newOrderData.id === oldClientId) {
-             newOrderData.id = `vc_ro_${Date.now()}`;
-        }
-        
+        await sql`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = ${oldClientId}`;
+        if (!newOrderData.id || newOrderData.id === oldClientId) { newOrderData.id = `vc_ro_${Date.now()}`; }
         await sql`
           INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
           VALUES (
@@ -120,10 +99,8 @@ export default async function handler(request: Request) {
             FALSE
           )
         `;
-        
         await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${oldClientId}, 'Архивация (Reorder)', 'Moved to archive', ${user})`;
         await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${newOrderData.id}, 'Новый заказ (Reorder)', 'Created from previous', ${user})`;
-
         result = { status: 'success', message: 'Reordered', newId: newOrderData.id };
         break;
 
@@ -134,14 +111,7 @@ export default async function handler(request: Request) {
         
       case 'gethistory':
          const historyRes = await sql`SELECT * FROM history WHERE client_id = ${body.clientId} ORDER BY created_at DESC`;
-         const history = historyRes.rows.map(row => ({
-             id: row.id,
-             clientId: row.client_id,
-             timestamp: row.created_at,
-             user: row.user_name,
-             action: row.action,
-             details: row.details
-         }));
+         const history = historyRes.rows.map(row => ({ id: row.id, clientId: row.client_id, timestamp: row.created_at, user: row.user_name, action: row.action, details: row.details }));
          result = { status: 'success', history };
          break;
 
@@ -151,20 +121,26 @@ export default async function handler(request: Request) {
 
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' 
-      },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('API Error:', error);
+    
+    // Красивое сообщение об ошибке подключения для фронтенда
+    if (error.message && (error.message.includes('missing_connection_string') || error.message.includes('POSTGRES_URL'))) {
+        return new Response(JSON.stringify({ 
+            status: 'error', 
+            message: 'Ошибка подключения к БД Vercel. Попробуйте сделать Redeploy в панели Vercel, чтобы применить настройки.' 
+        }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+    }
+
     return new Response(JSON.stringify({ status: 'error', message: (error as Error).message }), {
       status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' 
-      },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
 }
