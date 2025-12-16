@@ -13,6 +13,8 @@ import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
 const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
 const ChevronUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>;
 const CopyIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg>;
+const ServerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const CloudIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode, icon: React.ReactNode }> = ({ active, onClick, children, icon }) => (
     <button
@@ -73,12 +75,33 @@ const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) =>
 
 const GeneralSettingsTab: React.FC<{ 
     settings: SettingsType, 
-    onChange: (field: keyof SettingsType, value: string) => void,
+    onChange: (field: keyof SettingsType, value: any) => void,
     showToast: (message: string, type: 'success' | 'error') => void;
 }> = ({ settings, onChange, showToast }) => {
     const [isTesting, setIsTesting] = useState(false);
 
     const handleTestConnection = async () => {
+        if (settings.apiMode === 'VERCEL') {
+             setIsTesting(true);
+             try {
+                 const res = await fetch('/api/crm', { 
+                     method: 'POST', 
+                     body: JSON.stringify({ action: 'testconnection' }) 
+                 });
+                 const result = await res.json();
+                 if (result.status === 'success') {
+                     showToast(`Vercel OK: ${result.message}`, 'success');
+                 } else {
+                     throw new Error(result.message);
+                 }
+             } catch(e: any) {
+                 showToast(`Ошибка Vercel: ${e.message}`, 'error');
+             } finally {
+                 setIsTesting(false);
+             }
+             return;
+        }
+
         if (!settings.googleSheetId) {
             showToast('Сначала вставьте URL скрипта', 'error');
             return;
@@ -87,12 +110,11 @@ const GeneralSettingsTab: React.FC<{
         try {
             const result = await api.testConnection(settings.googleSheetId);
             if (result.status === 'success') {
-                showToast(`Успех! Версия: ${result.version}.`, 'success');
+                showToast(`Google OK! Версия: ${result.version}.`, 'success');
             } else {
                 throw new Error(result.message || 'Неизвестная ошибка от скрипта.');
             }
         } catch (e: any) {
-            // Error handling is improved in api.ts, this will show the detailed message
             showToast(`Ошибка подключения: ${e.message}`, 'error');
         } finally {
             setIsTesting(false);
@@ -101,45 +123,91 @@ const GeneralSettingsTab: React.FC<{
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                <div className="w-full sm:flex-grow">
-                     <Input 
-                        label="URL скрипта Google Apps" 
-                        value={settings.googleSheetId} 
-                        onChange={e => onChange('googleSheetId', e.target.value)}
-                        helperText="URL веб-приложения, полученный после развертывания. Инструкция на вкладке 'Настройка GAS'."
-                    />
+            
+            {/* API MODE SWITCHER */}
+            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Источник данных (Backend)</h4>
+                <div className="flex gap-4">
+                    <label className={`flex-1 relative flex items-center justify-center p-4 cursor-pointer rounded-lg border-2 transition-all ${settings.apiMode === 'GAS' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                        <input type="radio" name="apiMode" value="GAS" checked={settings.apiMode === 'GAS'} onChange={() => onChange('apiMode', 'GAS')} className="sr-only" />
+                        <div className="text-center">
+                            <CloudIcon />
+                            <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">Google Sheets</div>
+                            <div className="text-xs text-gray-500">Классика (GAS)</div>
+                        </div>
+                    </label>
+                    <label className={`flex-1 relative flex items-center justify-center p-4 cursor-pointer rounded-lg border-2 transition-all ${settings.apiMode === 'VERCEL' ? 'border-black dark:border-white bg-gray-100 dark:bg-gray-700' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                        <input type="radio" name="apiMode" value="VERCEL" checked={settings.apiMode === 'VERCEL'} onChange={() => onChange('apiMode', 'VERCEL')} className="sr-only" />
+                        <div className="text-center">
+                            <ServerIcon />
+                            <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">Vercel Postgres</div>
+                            <div className="text-xs text-gray-500">Быстро (SQL)</div>
+                        </div>
+                    </label>
                 </div>
-                <Button 
-                    variant="outline" 
-                    onClick={handleTestConnection} 
-                    disabled={isTesting || !settings.googleSheetId}
-                    className="w-full sm:w-auto h-[46px] flex-shrink-0"
-                >
-                    {isTesting ? 'Проверка...' : 'Проверить'}
-                </Button>
             </div>
+
+            {settings.apiMode === 'GAS' ? (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                        <div className="w-full sm:flex-grow">
+                             <Input 
+                                label="URL скрипта Google Apps" 
+                                value={settings.googleSheetId} 
+                                onChange={e => onChange('googleSheetId', e.target.value)}
+                                helperText="URL веб-приложения, полученный после развертывания."
+                            />
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            onClick={handleTestConnection} 
+                            disabled={isTesting || !settings.googleSheetId}
+                            className="w-full sm:w-auto h-[46px] flex-shrink-0"
+                        >
+                            {isTesting ? 'Проверка...' : 'Проверить Google'}
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-black/5 dark:bg-white/5 rounded-lg">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                        Используется база данных <b>Vercel Postgres</b>. Конфигурация через переменные окружения.
+                    </p>
+                    <Button 
+                        variant="outline" 
+                        onClick={handleTestConnection} 
+                        disabled={isTesting}
+                        className="w-full sm:w-auto"
+                    >
+                        {isTesting ? 'Проверка...' : 'Проверить соединение с БД'}
+                    </Button>
+                </div>
+            )}
+
+            <hr className="dark:border-gray-700"/>
+
             <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-md">
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <b>Токен Telegram бота</b> теперь настраивается  в Google Apps Script. Инструкции смотрите на вкладке "Настройка GAS".
+                    <b>Токен Telegram бота</b> {settings.apiMode === 'GAS' ? 'настраивается в свойствах скрипта Google.' : 'должен быть в переменных окружения Vercel (TELEGRAM_BOT_TOKEN).'}
                 </p>
             </div>
             <Input 
                 label="Chat ID Администраторов" 
                 value={settings.adminIds} 
                 onChange={e => onChange('adminIds', e.target.value)}
-                helperText="ID чатов для админов, через запятую. Будут получать все уведомления."
+                helperText="ID чатов для админов, через запятую."
             />
             <Input 
                 label="Chat ID Менеджеров" 
                 value={settings.managerIds} 
                 onChange={e => onChange('managerIds', e.target.value)}
-                helperText="ID чатов для менеджеров, через запятую. Будут получать уведомления о новых клиентах."
+                helperText="ID чатов для менеджеров, через запятую."
             />
         </div>
     );
 };
 
+// ... (Rest of the Settings component logic is preserved, only GeneralSettingsTab is heavily modified)
 const TemplatesTab: React.FC<{ 
     templates: MessageTemplate[]; 
     setTemplates: React.Dispatch<React.SetStateAction<MessageTemplate[]>>;
@@ -452,8 +520,7 @@ const Expander: React.FC<{
         >
             <span>{title}</span>
             <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
         </button>
         {isExpanded && <div className="mt-4 prose prose-sm dark:prose-invert max-w-none animate-slide-in-bottom">{children}</div>}
     </div>
@@ -556,7 +623,7 @@ You are a world-class senior frontend engineer. Build a CRM for a tire storage b
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
             <h3 className="text-xl font-semibold">О проекте Tire Storage CRM</h3>
             <p>Это приложение разработано для упрощения управления клиентской базой шинного хранения.</p>
-            <p><b>Версия приложения:</b> 3.4.1</p>
+            <p><b>Версия приложения:</b> 3.5.0 (Vercel Native)</p>
             
             <Expander title="Подробное описание функций" isExpanded={isDescriptionExpanded} setExpanded={setIsDescriptionExpanded}>
                 <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />
@@ -580,7 +647,7 @@ interface SettingsProps {
 }
 
 export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemplates, clients, onSave, needsSetup }) => {
-  const [activeTab, setActiveTab] = useState(needsSetup ? 'gas' : 'general');
+  const [activeTab, setActiveTab] = useState(needsSetup ? 'general' : 'general');
   const [settings, setSettings] = useState(initialSettings);
   const [templates, setTemplates] = useState(initialTemplates);
   // Remove local toast state
@@ -605,7 +672,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
     setTemplates(initialTemplates);
   }, [initialTemplates]);
 
-  const handleSettingsChange = (field: keyof SettingsType, value: string) => {
+  const handleSettingsChange = (field: keyof SettingsType, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
   
@@ -633,7 +700,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
    const TABS = [
         { id: 'general', label: 'Основные', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.75a.75.75 0 01.75.75v1.5h-1.5v-1.5a.75.75 0 01.75-.75zM10 6a2.5 2.5 0 00-2.5 2.5v7.5a2.5 2.5 0 105 0v-7.5A2.5 2.5 0 0010 6zM8.75 8.5a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5z" /></svg> },
         { id: 'templates', label: 'Шаблоны', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-1.128c0-.416.16-.813.44-1.111h11.12c.28.298.44.7.44 1.11v1.129a.75.75 0 001.5 0V2.75a.75.75 0 00-1.5 0v1.128c0 .416-.16.813-.44 1.111H3.94c-.28-.298-.44-.7-.44-1.11V2.75z" /><path d="M6.25 7.5a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5h-7.5z" /></svg> },
-        { id: 'logs', label: 'Логи', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg> },
+        { id: 'logs', label: 'Логи', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg> },
         { id: 'gas', label: 'Настройка GAS', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M15.312 5.312a.75.75 0 010 1.062l-6.25 6.25a.75.75 0 01-1.062 0l-2.5-2.5a.75.75 0 011.062-1.062l1.97 1.97 5.72-5.72a.75.75 0 011.062 0z" clipRule="evenodd" /></svg> },
         { id: 'about', label: 'О проекте', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>}
     ];

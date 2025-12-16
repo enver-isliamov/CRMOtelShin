@@ -14,7 +14,7 @@ import { ToastContainer, ToastMessage } from './components/ui/Toast';
 
 const getInitialSettings = (): SettingsType => {
     const data = localStorage.getItem('crm_settings');
-    const defaults: SettingsType = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase' };
+    const defaults: SettingsType = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'GAS' };
     try {
         if (data) {
             return { ...defaults, ...JSON.parse(data) };

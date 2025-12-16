@@ -73,6 +73,7 @@ export interface Settings {
   managerIds:string;
   googleSheetId: string;
   sheetName: string;
+  apiMode: 'GAS' | 'VERCEL'; // New field: Backend switcher
 }
 
 export interface MessageTemplate {

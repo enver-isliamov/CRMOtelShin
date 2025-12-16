@@ -1,10 +1,9 @@
 
-
 import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCurrency, parseDuration } from '../types';
 
 const getSettingsFromStorage = (): Settings => {
     const data = localStorage.getItem('crm_settings');
-    const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase' };
+    const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'GAS' };
     if (data) {
         return { ...defaults, ...JSON.parse(data) };
     }
@@ -26,81 +25,93 @@ export const getClientHeaders = (): string[] => {
     return clientKeys.filter(h => h !== 'id').map(String);
 }
 
-
-// Google Sheets API interaction
-async function postToGoogleSheet(payload: object, customUrl?: string) {
+// Unified Request Handler
+async function requestAPI(action: string, payload: any = {}, customUrl?: string) {
     const settings = getSettingsFromStorage();
-    const url = customUrl ? customUrl.trim() : settings.googleSheetId.trim();
-    
-    if (!url) {
-        throw new Error("Google Sheet URL не настроен.");
-    }
-
+    const mode = settings.apiMode || 'GAS';
     const userJson = sessionStorage.getItem('user');
     const user = userJson ? JSON.parse(userJson) : { username: 'Admin' };
-    
-    // Flatten the structure. Do not nest 'payload'.
-    // GAS script should check e.postData.contents directly.
+
+    // Common payload enrichment
     const finalPayload = { 
+        action,
         ...payload, 
-        user: user.username // Add user context directly
+        user: user.username 
     };
-    
-    let responseText = "";
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            // Use text/plain to avoid CORS preflight options request which GAS hates.
-            // This is the standard "simple request" method for GAS.
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            },
-            body: JSON.stringify(finalPayload),
-        });
-        
-        responseText = await response.text();
-        
-        if (!response.ok) {
-            console.error("Google Script Network Error:", response.status, responseText);
-            throw new Error(`Сетевая ошибка (${response.status}). Ответ: ${responseText.substring(0, 100)}`);
-        }
-    } catch (netError: any) {
-        throw new Error(`Ошибка сети: ${netError.message}`);
-    }
-    
-    let result;
-    try {
-        result = JSON.parse(responseText);
-    } catch (e) {
-        console.error("JSON Parse Error. Raw text:", responseText);
-        throw new Error(`Ошибка обработки ответа сервера. Пришло: "${responseText.substring(0, 50)}..."`);
-    }
 
-    if (result.status !== 'success' && !result.success) { 
-        const scriptError = result.message || result.error || 'Неизвестная ошибка от скрипта.';
-        
-        // --- INTELLIGENT ERROR HANDLING FOR DEPLOYMENT ISSUES ---
-        // If the backend returns "Invalid Action" or the specific Russian translation "Неверное действие",
-        // it means the script running on the server is OLD and doesn't know about the new action (like 'testconnection').
-        // The user MUST redeploy a "New Version".
-        if (scriptError.includes('Invalid Action') || scriptError.includes('Неверное действие')) {
-             throw new Error(`ОШИБКА РАЗВЕРТЫВАНИЯ: Скрипт не узнал команду. \nПохоже, вы не создали "Новую Версию" при развертывании.\n\nЗайдите в редактор скриптов -> Начать развертывание -> Управление -> Редактировать -> Версия: "Новая версия" -> Развернуть.`);
+    if (mode === 'VERCEL') {
+        // --- VERCEL MODE ---
+        // Vercel handles requests via internal API routes (/api/crm)
+        try {
+            const response = await fetch('/api/crm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(finalPayload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                // If endpoint not found (404), it means Vercel functions aren't deployed or path is wrong
+                if (response.status === 404) {
+                     throw new Error(`API Vercel не найден (/api/crm). Проверьте деплой.`);
+                }
+                throw new Error(`Vercel API Error (${response.status}): ${errorText}`);
+            }
+
+            const result = await response.json();
+            if (result.status === 'error') {
+                throw new Error(result.message);
+            }
+            return result;
+        } catch (e: any) {
+            console.error("Vercel API Error:", e);
+            throw e;
         }
-        
-        // If debug info is present, include it
-        const debugInfo = result.debug ? ` (Debug: ${result.debug})` : '';
-        throw new Error(scriptError + debugInfo);
+    } else {
+        // --- GOOGLE SHEETS MODE (LEGACY) ---
+        const url = customUrl ? customUrl.trim() : settings.googleSheetId.trim();
+        if (!url) throw new Error("Google Sheet URL не настроен.");
+
+        let responseText = "";
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(finalPayload),
+            });
+            responseText = await response.text();
+            if (!response.ok) {
+                throw new Error(`Сетевая ошибка (${response.status}). Ответ: ${responseText.substring(0, 100)}`);
+            }
+        } catch (netError: any) {
+            throw new Error(`Ошибка сети GAS: ${netError.message}`);
+        }
+
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            throw new Error(`Ошибка обработки ответа сервера. Пришло: "${responseText.substring(0, 50)}..."`);
+        }
+
+        if (result.status !== 'success' && !result.success) { 
+            const scriptError = result.message || result.error || 'Неизвестная ошибка от скрипта.';
+            if (scriptError.includes('Invalid Action') || scriptError.includes('Неверное действие')) {
+                 throw new Error(`ОШИБКА РАЗВЕРТЫВАНИЯ: Скрипт не узнал команду.`);
+            }
+            throw new Error(scriptError);
+        }
+        return result;
     }
-    return result;
 }
-
 
 export const api = {
   fetchClients: async (): Promise<{ headers: string[], clients: Client[], archive: Client[] }> => {
     const headers = getClientHeaders();
     try {
-        const result = await postToGoogleSheet({ action: 'getclients' });
+        const result = await requestAPI('getclients');
 
         const processClients = (data: any[]): Client[] => {
             return (data || []).map((c: any) => ({
@@ -110,7 +121,7 @@ export const api = {
                 'Цена за месяц': parseCurrency(c['Цена за месяц']),
                 'Срок': parseDuration(c['Срок']),
                 'Кол-во шин': parseDuration(c['Кол-во шин']),
-                photoUrls: typeof c.photoUrls === 'string' && c.photoUrls.length > 0 ? c.photoUrls.split(',') : []
+                photoUrls: typeof c.photoUrls === 'string' && c.photoUrls.length > 0 ? c.photoUrls.split(',') : (Array.isArray(c.photoUrls) ? c.photoUrls : [])
             }));
         }
 
@@ -125,11 +136,12 @@ export const api = {
   },
 
   updateClient: async (updatedClient: Partial<Client>): Promise<Client> => {
+    // GAS expects comma string, Vercel can handle arrays but let's keep consistency for now
     const clientToSend = {
       ...updatedClient,
       photoUrls: Array.isArray(updatedClient.photoUrls) ? updatedClient.photoUrls.join(',') : updatedClient.photoUrls,
     };
-    await postToGoogleSheet({ action: 'update', client: clientToSend });
+    await requestAPI('update', { client: clientToSend });
     return updatedClient as Client;
   },
 
@@ -139,7 +151,7 @@ export const api = {
       photoUrls: (newClientData.photoUrls || []).join(','),
     };
 
-    const result = await postToGoogleSheet({ action: 'add', client: clientForSheet });
+    const result = await requestAPI('add', { client: clientForSheet });
     return { 
         ...newClientData, 
         id: result.newId || newClientData.id,
@@ -152,8 +164,7 @@ export const api = {
       photoUrls: (newClientData.photoUrls || []).join(','),
     };
     
-    const result = await postToGoogleSheet({
-        action: 'reorder',
+    const result = await requestAPI('reorder', {
         oldClientId: oldClientId,
         client: clientForSheet
     });
@@ -165,15 +176,15 @@ export const api = {
   },
 
   deleteClient: async (clientId: string): Promise<void> => {
-    await postToGoogleSheet({ action: 'delete', clientId: clientId });
+    await requestAPI('delete', { clientId: clientId });
   },
   
   bulkDeleteClients: async (clientIds: string[]): Promise<void> => {
-    await postToGoogleSheet({ action: 'bulkdelete', clientIds: clientIds });
+    await requestAPI('bulkdelete', { clientIds: clientIds });
   },
 
   fetchArchivedOrders: async (clientId: string): Promise<Client[]> => {
-    const result = await postToGoogleSheet({ action: 'getarchived', clientId });
+    const result = await requestAPI('getarchived', { clientId });
     return (result.orders || []).map((c: any) => ({
         ...c,
         photoUrls: typeof c.photoUrls === 'string' && c.photoUrls.length > 0 ? c.photoUrls.split(',') : []
@@ -193,35 +204,33 @@ export const api = {
 
   fetchTemplates: async (): Promise<MessageTemplate[]> => {
     try {
-        const result = await postToGoogleSheet({ action: 'gettemplates' });
+        const result = await requestAPI('gettemplates');
         return result.templates || [];
     } catch (error) {
-        // Suppress initial load error for cleaner UI if it's just empty
         console.warn("Template fetch failed:", error); 
         return [];
     }
   },
 
   updateTemplate: async (template: MessageTemplate): Promise<MessageTemplate> => {
-    await postToGoogleSheet({ action: 'updatetemplate', template: template });
+    await requestAPI('updatetemplate', { template: template });
     return template;
   },
   
   addTemplate: async (template: MessageTemplate): Promise<MessageTemplate> => {
-    await postToGoogleSheet({ action: 'addtemplate', template: template });
+    await requestAPI('addtemplate', { template: template });
     return template;
   },
   
   deleteTemplate: async(templateName: string): Promise<void> => {
-    await postToGoogleSheet({ action: 'deletetemplate', templateName: templateName });
+    await requestAPI('deletetemplate', { templateName: templateName });
   },
 
   saveTemplates: async (templates: MessageTemplate[]): Promise<MessageTemplate[]> => {
     try {
-        await postToGoogleSheet({ action: 'savetemplates', templates: templates });
+        await requestAPI('savetemplates', { templates: templates });
         return templates;
     } catch (error) {
-        console.error("Не удалось сохранить шаблоны в Google Sheets:", error);
         throw error;
     }
   },
@@ -232,8 +241,7 @@ export const api = {
       }
       
       try {
-          const result = await postToGoogleSheet({
-              action: 'sendMessage',
+          const result = await requestAPI('sendMessage', {
               chatId: chatId,
               message: message,
           });
@@ -245,7 +253,7 @@ export const api = {
   },
   
   bulkSendMessage: async (clientIds: string[], templateName: string): Promise<void> => {
-    await postToGoogleSheet({ action: 'bulksend', clientIds, templateName });
+    await requestAPI('bulksend', { clientIds, templateName });
   },
   
   uploadFile: async (file: File, client: Partial<Client>): Promise<{ fileUrl: string }> => {
@@ -256,8 +264,7 @@ export const api = {
                 const dataUrl = e.target.result as string;
                 const fileData = dataUrl.split(',')[1]; // Get base64 data
                 try {
-                    const result = await postToGoogleSheet({
-                        action: 'uploadfile',
+                    const result = await requestAPI('uploadfile', {
                         client: {
                             id: client.id,
                             'Имя клиента': client['Имя клиента'],
@@ -282,23 +289,27 @@ export const api = {
   
   fetchPhotosForContract: async (contractNumber: string): Promise<string[]> => {
     if (!contractNumber) return [];
-    const result = await postToGoogleSheet({ action: 'getphotos', contractNumber });
-    return result.photoUrls || [];
+    try {
+        const result = await requestAPI('getphotos', { contractNumber });
+        return result.photoUrls || [];
+    } catch(e) {
+        return [];
+    }
   },
 
   fetchClientHistory: async (clientId: string): Promise<ClientEvent[]> => {
-    const result = await postToGoogleSheet({ action: 'gethistory', clientId });
+    const result = await requestAPI('gethistory', { clientId });
     return result.history || [];
   },
 
   fetchLogs: async (): Promise<AppLog[]> => {
-    const result = await postToGoogleSheet({ action: 'getlogs' });
+    const result = await requestAPI('getlogs');
     return result.logs || [];
   },
 
   fetchMasters: async (): Promise<Master[]> => {
     try {
-        const result = await postToGoogleSheet({ action: 'getmasters' });
+        const result = await requestAPI('getmasters');
         return result.masters || [];
     } catch (error) {
         console.warn("Fetch masters failed:", error);
@@ -307,20 +318,19 @@ export const api = {
   },
   addMaster: async (master: Omit<Master, 'id'>): Promise<Master> => {
     const newMaster: Master = { ...master, id: `master_${Date.now()}` } as Master;
-    await postToGoogleSheet({ action: 'addmaster', master: newMaster });
+    await requestAPI('addmaster', { master: newMaster });
     return newMaster;
   },
   updateMaster: async (master: Master): Promise<Master> => {
-    await postToGoogleSheet({ action: 'updatemaster', master });
+    await requestAPI('updatemaster', { master });
     return master;
   },
   deleteMaster: async (masterId: string): Promise<void> => {
-    await postToGoogleSheet({ action: 'deletemaster', masterId });
+    await requestAPI('deletemaster', { masterId });
   },
-  // Specifically used for the "Test Connection" button
+  
+  // Helper for Settings page
   testConnection: async (url: string): Promise<any> => {
-    // We send a specific action to verify routing works
-    // IMPORTANT: 'testconnection' is handled BEFORE the main switch to ensure it works even if payload is weird
-    return await postToGoogleSheet({ action: 'testconnection' }, url);
+    return await requestAPI('testconnection', {}, url);
   },
 };
