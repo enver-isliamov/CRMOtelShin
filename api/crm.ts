@@ -223,7 +223,7 @@ export default async function handler(req: any, res: any) {
         try {
             await importClient.query('BEGIN');
             
-            // --- SELF-HEALING: Убеждаемся, что таблицы существуют перед импортом ---
+            // Self-healing: Ensure tables exist
             await importClient.query(`
                 CREATE TABLE IF NOT EXISTS clients (
                     id VARCHAR(255) PRIMARY KEY,
@@ -261,27 +261,37 @@ export default async function handler(req: any, res: any) {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             `);
-            // -----------------------------------------------------------------------
 
             let count = 0;
 
-            // 1. Clients & Archive
             const clientUpsert = `
                 INSERT INTO clients (id, contract, name, phone, status, is_archived, data, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (id) DO UPDATE SET
                     contract=EXCLUDED.contract, name=EXCLUDED.name, phone=EXCLUDED.phone,
-                    status=EXCLUDED.status, is_archived=EXCLUDED.is_archived, data=EXCLUDED.data;
+                    status=EXCLUDED.status, is_archived=EXCLUDED.is_archived, data=EXCLUDED.data,
+                    updated_at=NOW();
             `;
             
             const processClientBatch = async (list: any[], isArchived: boolean) => {
                 for (const c of list) {
                     let clientId = c.id;
+                    
+                    // FIX: Deterministic ID generation based on Contract
                     if (!clientId) {
-                        const contractPart = c['Договор'] ? String(c['Договор']).replace(/[^a-zA-Z0-9]/g, '') : 'nocontract';
-                        clientId = `mig_${isArchived?'arch':'cl'}_${contractPart}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+                        const contractPart = c['Договор'] ? String(c['Договор']).replace(/[^a-zA-Z0-9а-яА-Я]/g, '') : '';
+                        if (contractPart) {
+                             // Use 'mig_' prefix + contract number to create a STABLE ID.
+                             // Re-running import will produce same ID -> ON CONFLICT update -> No duplicate.
+                             clientId = `mig_contract_${contractPart}`;
+                        } else {
+                             // Only use random fallback if absolutely no data to latch onto
+                             clientId = `mig_random_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+                        }
                     }
+                    
                     const clientData = { ...c, id: clientId };
+                    
                     await importClient.query(clientUpsert, [
                         clientId, c['Договор'] || '', c['Имя клиента'] || '', c['Телефон'] || '',
                         isArchived ? 'В архиве' : (c['Статус сделки'] || 'На складе'),
@@ -298,7 +308,7 @@ export default async function handler(req: any, res: any) {
             if (masters && Array.isArray(masters)) {
                 for (const m of masters) {
                     if (!m['Имя']) continue;
-                    let mId = m.id || `m_mig_${Date.now()}_${Math.floor(Math.random()*100)}`;
+                    let mId = m.id || `m_mig_${m['Имя'].replace(/\s/g, '')}`; // Stable ID based on Name
                     const mData = { ...m, id: mId };
                     await importClient.query(
                         `INSERT INTO masters (id, name, chat_id, phone, services, address, data)
@@ -324,7 +334,7 @@ export default async function handler(req: any, res: any) {
             }
 
             await importClient.query('COMMIT');
-            result = { status: 'success', message: `Успешно перенесено ${count} объектов.` };
+            result = { status: 'success', message: `Успешно обработано ${count} записей (обновлено или добавлено).` };
         } catch(e) {
             await importClient.query('ROLLBACK');
             throw e;
@@ -332,6 +342,12 @@ export default async function handler(req: any, res: any) {
             importClient.release();
         }
         break;
+        
+      case 'reset_db':
+         // Опасная операция: удаление всех данных перед чистой миграцией
+         await pool.query('TRUNCATE TABLE clients, masters, templates, history');
+         result = { status: 'success', message: 'База данных полностью очищена.' };
+         break;
         
       case 'gethistory':
          const historyRes = await pool.query(`SELECT * FROM history WHERE client_id = $1 ORDER BY created_at DESC`, [body.clientId]);

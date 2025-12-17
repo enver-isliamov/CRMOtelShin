@@ -16,6 +16,7 @@ const CopyIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-
 const ServerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const CloudIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
 const ArrowPathIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.185m-3.18-3.183l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.185" /></svg>;
+const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode, icon: React.ReactNode }> = ({ active, onClick, children, icon }) => (
     <button
@@ -74,6 +75,7 @@ const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) =>
     );
 };
 
+// ... (GeneralSettingsTab omitted as unchanged) ...
 const GeneralSettingsTab: React.FC<{ 
     settings: SettingsType, 
     onChange: (field: keyof SettingsType, value: any) => void,
@@ -224,7 +226,7 @@ const GeneralSettingsTab: React.FC<{
     );
 };
 
-// ... (TemplatesTab omitted as it is unchanged) ...
+// ... (TemplatesTab omitted as unchanged) ...
 const TemplatesTab: React.FC<{ 
     templates: MessageTemplate[]; 
     setTemplates: React.Dispatch<React.SetStateAction<MessageTemplate[]>>;
@@ -398,7 +400,7 @@ const TemplatesTab: React.FC<{
     );
 };
 
-// ... (GasSetupTab, LogsTab omitted as they are unchanged) ...
+// ... (GasSetupTab, LogsTab omitted as unchanged) ...
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
@@ -589,6 +591,21 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
             setIsLoading(false);
         }
     };
+    
+    const handleClearDatabase = async () => {
+        if (!window.confirm("ВНИМАНИЕ! Это полностью удалит все данные из базы Vercel Postgres. Вы уверены?")) return;
+        
+        setIsLoading(true);
+        try {
+            await api.clearDatabase();
+            showToast('База данных успешно очищена.', 'success');
+            setImportStatus('База очищена. Можно начинать чистый импорт.');
+        } catch(e: any) {
+            showToast(`Ошибка очистки: ${e.message}`, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -596,7 +613,8 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
             <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 text-indigo-800 dark:text-indigo-200 rounded-md">
                 <p className="text-sm">
                     Этот инструмент переносит ВСЮ базу данных: Клиенты, Архив, Мастера и Шаблоны сообщений.
-                    Процесс безопасен и не удаляет данные из Google Sheets.
+                    <br/>
+                    <b>Совет:</b> Если у вас появляются дубликаты, сначала нажмите "Очистить базу данных", а затем "Начать миграцию".
                 </p>
             </div>
 
@@ -624,9 +642,21 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
                     <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4 font-bold text-xl">2</div>
                     <h4 className="font-bold text-lg mb-2">Загрузить в Postgres</h4>
                     <p className="text-sm text-gray-500 mb-4">Отправить данные в новую базу Vercel.</p>
-                    <Button onClick={handleImportToVercel} disabled={isLoading} className="w-full justify-center">
-                        {isLoading && fetchedData ? 'Импорт...' : 'Начать миграцию'}
-                    </Button>
+                    
+                    <div className="w-full space-y-3">
+                        <Button onClick={handleImportToVercel} disabled={isLoading} className="w-full justify-center">
+                            {isLoading && fetchedData ? 'Импорт...' : 'Начать миграцию'}
+                        </Button>
+                        
+                        <button 
+                            onClick={handleClearDatabase}
+                            disabled={isLoading}
+                            className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                        >
+                            ⚠️ Очистить базу данных перед импортом (удалить дубли)
+                        </button>
+                    </div>
+
                     {importStatus && (
                         <div className="mt-4 text-xs font-mono text-gray-600 dark:text-gray-300 w-full text-center animate-pulse">
                             {importStatus}

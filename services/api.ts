@@ -355,5 +355,9 @@ export const api = {
   importDataToVercel: async (clients: any[], archive: any[], masters?: any[], templates?: any[]): Promise<any> => {
       // Force Vercel request with comprehensive payload
       return await requestAPI('import', { clients, archive, masters, templates }, undefined, 'VERCEL');
+  },
+  
+  clearDatabase: async (): Promise<void> => {
+      return await requestAPI('reset_db', {}, undefined, 'VERCEL');
   }
 };
