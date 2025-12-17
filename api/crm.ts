@@ -1,30 +1,46 @@
 
 import { Pool } from 'pg';
 
-// Инициализация пула вне хендлера
-const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+// Используем глобальную переменную для кэширования пула между вызовами функции (Cold Start optimization)
+let cachedPool: Pool | null = null;
 
-// Создаем пул только если есть строка подключения, иначе ошибка будет внутри хендлера
-let pool: Pool | null = null;
-if (connectionString) {
-    pool = new Pool({
-      connectionString,
-      ssl: {
-        rejectUnauthorized: false // Важно для Supabase/Neon/Heroku
-      },
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+function getDbPool() {
+    if (cachedPool) {
+        return cachedPool;
+    }
+
+    const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+    
+    if (!connectionString) {
+        throw new Error("POSTGRES_URL environment variable is not defined");
+    }
+
+    // Создаем новый пул
+    cachedPool = new Pool({
+        connectionString,
+        ssl: {
+            rejectUnauthorized: false // Игнорируем ошибку self-signed certificate
+        },
+        max: 5, // Ограничиваем кол-во соединений для Serverless
+        connectionTimeoutMillis: 10000, // 10 секунд на подключение
+        idleTimeoutMillis: 30000,
     });
+
+    // Обработка ошибок пула, чтобы процесс не падал
+    cachedPool.on('error', (err) => {
+        console.error('Unexpected error on idle PostgreSQL client', err);
+        // Не сбрасываем cachedPool = null, pg сам попытается переподключиться
+    });
+
+    return cachedPool;
 }
 
 export default async function handler(req: any, res: any) {
-  // CORS Headers для всех ответов
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Обрабатываем CORS preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -34,11 +50,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    if (!pool) {
-        throw new Error("Connection string not found (POSTGRES_URL)");
-    }
-
-    // В Vercel Node Runtime req.body уже является объектом, если Content-Type: application/json
+    const pool = getDbPool();
+    
+    // Парсинг тела запроса (Vercel обычно парсит JSON сам, но на всякий случай)
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     
     if (!body || !body.action) {
@@ -86,10 +100,14 @@ export default async function handler(req: any, res: any) {
           ]
         );
         
-        await pool.query(
-            `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-            [newClient.id, 'Клиент создан', 'New record', user]
-        );
+        // Логируем в историю, но не блокируем ответ, если лог упадет
+        try {
+            await pool.query(
+                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
+                [newClient.id, 'Клиент создан', 'New record', user]
+            );
+        } catch (e) { console.error("History log failed", e); }
+
         result = { status: 'success', newId: newClient.id };
         break;
 
@@ -117,10 +135,13 @@ export default async function handler(req: any, res: any) {
            ]
         );
         
-        await pool.query(
-            `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-            [id, 'Данные обновлены', 'Update record', user]
-        );
+        try {
+            await pool.query(
+                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
+                [id, 'Данные обновлены', 'Update record', user]
+            );
+        } catch (e) { console.error("History log failed", e); }
+
         result = { status: 'success', message: 'Updated' };
         break;
 
@@ -128,33 +149,47 @@ export default async function handler(req: any, res: any) {
         const oldClientId = body.oldClientId;
         const newOrderData = body.client;
         
-        // 1. Archive old
-        await pool.query(`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = $1`, [oldClientId]);
-        
-        // 2. Create new
-        if (!newOrderData.id || newOrderData.id === oldClientId) { newOrderData.id = `vc_ro_${Date.now()}`; }
-        
-        await pool.query(
-          `INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
-           VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-          [
-            newOrderData.id,
-            newOrderData['Договор'] || '',
-            newOrderData['Имя клиента'] || '',
-            newOrderData['Телефон'] || '',
-            newOrderData['Статус сделки'] || 'На складе',
-            JSON.stringify(newOrderData)
-          ]
-        );
+        // Транзакция для атомарности
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // 1. Archive old
+            await client.query(`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = $1`, [oldClientId]);
+            
+            // 2. Create new
+            if (!newOrderData.id || newOrderData.id === oldClientId) { newOrderData.id = `vc_ro_${Date.now()}`; }
+            
+            await client.query(
+              `INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
+               VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
+              [
+                newOrderData.id,
+                newOrderData['Договор'] || '',
+                newOrderData['Имя клиента'] || '',
+                newOrderData['Телефон'] || '',
+                newOrderData['Статус сделки'] || 'На складе',
+                JSON.stringify(newOrderData)
+              ]
+            );
 
-        await pool.query(
-            `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-            [oldClientId, 'Архивация (Reorder)', 'Moved to archive', user]
-        );
-        await pool.query(
-            `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-            [newOrderData.id, 'Новый заказ (Reorder)', 'Created from previous', user]
-        );
+            await client.query(
+                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
+                [oldClientId, 'Архивация (Reorder)', 'Moved to archive', user]
+            );
+            await client.query(
+                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
+                [newOrderData.id, 'Новый заказ (Reorder)', 'Created from previous', user]
+            );
+            
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+        
         result = { status: 'success', message: 'Reordered', newId: newOrderData.id };
         break;
 
@@ -178,11 +213,12 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error('[CRM API] Error:', error);
     
-    if (error.message && (error.message.includes('Connection string') || error.code === 'ENOTFOUND')) {
-        return res.status(500).json({ 
-            status: 'error', 
-            message: 'Ошибка подключения к БД: проверьте POSTGRES_URL. ' + error.message 
-        });
+    // Специальная обработка ошибок подключения
+    if (error.message && (error.message.includes('password authentication') || error.code === '28P01')) {
+         return res.status(500).json({ status: 'error', message: 'Ошибка авторизации БД. Проверьте пароль в POSTGRES_URL.' });
+    }
+    if (error.message && error.message.includes('self-signed')) {
+         return res.status(500).json({ status: 'error', message: 'Ошибка SSL (Self-signed). Попробуем исправить...' });
     }
 
     return res.status(500).json({ status: 'error', message: (error as Error).message });
