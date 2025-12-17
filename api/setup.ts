@@ -1,15 +1,22 @@
 
 import { createPool } from '@vercel/postgres';
 
-export const config = {
-  runtime: 'edge',
-};
+// Убираем runtime: 'edge', чтобы использовать Node.js (более стабильно для подключения к БД)
+// export const config = {
+//   runtime: 'edge',
+// };
 
 export default async function handler(request: Request) {
-  // Ищем строку подключения. Сначала стандартную, потом вашу специфическую (с опечаткой)
-  const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+  // Ищем строку подключения. 
+  // Приоритет: 
+  // 1. Стандартная POSTGRES_URL
+  // 2. Ваша с опечаткой STOREGE_POSTGRES_URL
+  // 3. Версия без пулинга (иногда помогает) STOREGE_POSTGRES_URL_NON_POOLING
+  const connectionString = 
+    process.env.POSTGRES_URL || 
+    process.env.STOREGE_POSTGRES_URL || 
+    process.env.STOREGE_POSTGRES_URL_NON_POOLING;
   
-  // Создаем подключение вручную
   const db = createPool({ connectionString });
 
   try {
@@ -68,6 +75,8 @@ export default async function handler(request: Request) {
     
     const envKeys = Object.keys(process.env).filter(k => k.startsWith('POSTGRES') || k.startsWith('STOREGE') || k.startsWith('VERCEL'));
     const hasUrl = !!connectionString;
+    // Маскируем URL для безопасности
+    const maskedUrl = connectionString ? connectionString.substring(0, 15) + '...' : 'undefined';
 
     const htmlError = `
     <!DOCTYPE html>
@@ -95,11 +104,12 @@ export default async function handler(request: Request) {
             <div style="margin: 1.5rem 0;">
                 <strong>Статус строки подключения: </strong>
                 ${hasUrl ? '<span class="badge badge-green">НАЙДЕНА</span>' : '<span class="badge badge-red">ОТСУТСТВУЕТ</span>'}
+                <br/><br/>
+                <code style="font-size: 0.7rem">${maskedUrl}</code>
             </div>
 
             ${!hasUrl ? `
                 <p>⚠️ Переменная <code>POSTGRES_URL</code> (или <code>STOREGE_POSTGRES_URL</code>) не найдена.</p>
-                <p>Пожалуйста, сделайте <b>Redeploy</b> в панели Vercel, чтобы обновить переменные.</p>
             ` : ''}
 
             <h3>Отладочная информация:</h3>
@@ -110,6 +120,8 @@ export default async function handler(request: Request) {
 
             <p style="font-size: 0.875rem; color: #6b7280; margin-top: 2rem;">
                 Ошибка системы: <code>${error.message}</code>
+                <br/>
+                <small>Runtime: Node.js (Changed from Edge)</small>
             </p>
         </div>
     </body>
