@@ -3,6 +3,7 @@
   "name": "tire-storage-crm",
   "version": "3.6.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "start": "vite",

@@ -1,11 +1,6 @@
 
 import { createPool } from '@vercel/postgres';
 
-// Убираем runtime: 'edge', чтобы использовать Node.js (более стабильно для подключения к БД)
-// export const config = {
-//   runtime: 'edge',
-// };
-
 export default async function handler(request: Request) {
   // Ищем строку подключения. 
   // Приоритет: 
@@ -121,7 +116,7 @@ export default async function handler(request: Request) {
             <p style="font-size: 0.875rem; color: #6b7280; margin-top: 2rem;">
                 Ошибка системы: <code>${error.message}</code>
                 <br/>
-                <small>Runtime: Node.js (Changed from Edge)</small>
+                <small>Исправление: Добавлен "type": "module" в package.json</small>
             </p>
         </div>
     </body>
