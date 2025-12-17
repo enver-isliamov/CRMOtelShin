@@ -222,6 +222,47 @@ export default async function handler(req: any, res: any) {
         
         try {
             await importClient.query('BEGIN');
+            
+            // --- SELF-HEALING: Убеждаемся, что таблицы существуют перед импортом ---
+            await importClient.query(`
+                CREATE TABLE IF NOT EXISTS clients (
+                    id VARCHAR(255) PRIMARY KEY,
+                    contract VARCHAR(255),
+                    name VARCHAR(255),
+                    phone VARCHAR(50),
+                    status VARCHAR(50),
+                    is_archived BOOLEAN DEFAULT FALSE,
+                    data JSONB, 
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS masters (
+                    id VARCHAR(255) PRIMARY KEY,
+                    name VARCHAR(255),
+                    chat_id VARCHAR(255),
+                    phone VARCHAR(50),
+                    services TEXT,
+                    address TEXT,
+                    data JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS templates (
+                    name VARCHAR(255) PRIMARY KEY,
+                    content TEXT,
+                    data JSONB,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS history (
+                    id SERIAL PRIMARY KEY,
+                    client_id VARCHAR(255),
+                    action VARCHAR(255),
+                    details TEXT,
+                    user_name VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+            // -----------------------------------------------------------------------
+
             let count = 0;
 
             // 1. Clients & Archive
