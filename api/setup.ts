@@ -1,17 +1,27 @@
 
-import { sql } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
 
 export const config = {
   runtime: 'edge',
 };
 
 export default async function handler(request: Request) {
+  // Ищем строку подключения. Сначала стандартную, потом вашу специфическую (с опечаткой)
+  const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+  
+  // Создаем подключение вручную
+  const db = createPool({ connectionString });
+
   try {
+    if (!connectionString) {
+        throw new Error('missing_connection_string');
+    }
+
     // 1. Проверка соединения
-    await sql`SELECT 1`;
+    await db.sql`SELECT 1`;
 
     // 2. Создаем таблицу клиентов
-    await sql`
+    await db.sql`
       CREATE TABLE IF NOT EXISTS clients (
         id VARCHAR(255) PRIMARY KEY,
         contract VARCHAR(255),
@@ -26,7 +36,7 @@ export default async function handler(request: Request) {
     `;
 
     // 3. Создаем таблицу истории (логов)
-    await sql`
+    await db.sql`
       CREATE TABLE IF NOT EXISTS history (
         id SERIAL PRIMARY KEY,
         client_id VARCHAR(255),
@@ -38,7 +48,7 @@ export default async function handler(request: Request) {
     `;
 
     // 4. Создаем таблицу настроек
-    await sql`
+    await db.sql`
       CREATE TABLE IF NOT EXISTS settings (
         key VARCHAR(255) PRIMARY KEY,
         value JSONB
@@ -56,10 +66,8 @@ export default async function handler(request: Request) {
   } catch (error: any) {
     console.error("Setup Error:", error);
     
-    // ДИАГНОСТИКА: Собираем список ключей переменных (без значений, для безопасности)
-    // Чтобы понять, видит ли Vercel хоть что-то
-    const envKeys = Object.keys(process.env).filter(k => k.startsWith('POSTGRES') || k.startsWith('VERCEL'));
-    const hasUrl = !!process.env.POSTGRES_URL;
+    const envKeys = Object.keys(process.env).filter(k => k.startsWith('POSTGRES') || k.startsWith('STOREGE') || k.startsWith('VERCEL'));
+    const hasUrl = !!connectionString;
 
     const htmlError = `
     <!DOCTYPE html>
@@ -85,23 +93,19 @@ export default async function handler(request: Request) {
             <p>Не удалось подключиться к базе данных Vercel Postgres.</p>
             
             <div style="margin: 1.5rem 0;">
-                <strong>Статус переменной POSTGRES_URL: </strong>
+                <strong>Статус строки подключения: </strong>
                 ${hasUrl ? '<span class="badge badge-green">НАЙДЕНА</span>' : '<span class="badge badge-red">ОТСУТСТВУЕТ</span>'}
             </div>
 
             ${!hasUrl ? `
-                <p>⚠️ Сервер не видит строку подключения. Вероятные причины:</p>
-                <ol>
-                    <li>База данных не подключена к проекту в настройках Vercel.</li>
-                    <li>Вы не сделали <b>Redeploy</b> после подключения базы.</li>
-                    <li>Вы смотрите Environment Variables не той среды (например, Production вместо Preview).</li>
-                </ol>
+                <p>⚠️ Переменная <code>POSTGRES_URL</code> (или <code>STOREGE_POSTGRES_URL</code>) не найдена.</p>
+                <p>Пожалуйста, сделайте <b>Redeploy</b> в панели Vercel, чтобы обновить переменные.</p>
             ` : ''}
 
             <h3>Отладочная информация:</h3>
             <p>Доступные переменные (ключи):</p>
             <ul>
-                ${envKeys.length > 0 ? envKeys.map(k => `<li>${k}</li>`).join('') : '<li>Нет переменных POSTGRES_*</li>'}
+                ${envKeys.length > 0 ? envKeys.map(k => `<li>${k}</li>`).join('') : '<li>Нет переменных БД</li>'}
             </ul>
 
             <p style="font-size: 0.875rem; color: #6b7280; margin-top: 2rem;">

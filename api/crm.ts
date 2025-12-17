@@ -1,5 +1,5 @@
 
-import { sql } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
 
 // Vercel Serverless Function definition
 export default async function handler(request: Request) {
@@ -19,6 +19,10 @@ export default async function handler(request: Request) {
     return new Response(JSON.stringify({ status: 'error', message: 'Method not allowed' }), { status: 405 });
   }
 
+  // Подключение к БД с поддержкой нестандартного имени переменной (STOREGE_)
+  const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+  const db = createPool({ connectionString });
+
   try {
     const body = await request.json();
     const action = body.action;
@@ -28,14 +32,15 @@ export default async function handler(request: Request) {
 
     switch (action) {
       case 'testconnection':
+        if (!connectionString) throw new Error("Connection string not found (checked POSTGRES_URL and STOREGE_POSTGRES_URL)");
         // Проверяем реальное подключение к БД
-        await sql`SELECT 1`;
-        result = { status: 'success', message: 'Vercel Postgres Connected!', version: 'Vercel-1.0.0' };
+        await db.sql`SELECT 1`;
+        result = { status: 'success', message: 'Vercel Postgres Connected!', version: 'Vercel-1.0.1' };
         break;
 
       case 'getclients':
-        const clientsRes = await sql`SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC;`;
-        const archiveRes = await sql`SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC LIMIT 500;`;
+        const clientsRes = await db.sql`SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC;`;
+        const archiveRes = await db.sql`SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC LIMIT 500;`;
         result = {
           status: 'success',
           clients: clientsRes.rows.map(row => row.data),
@@ -48,7 +53,7 @@ export default async function handler(request: Request) {
         const newClient = body.client;
         if (!newClient.id) newClient.id = `vc_${Date.now()}`; 
         
-        await sql`
+        await db.sql`
           INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
           VALUES (
             ${newClient.id}, 
@@ -60,14 +65,14 @@ export default async function handler(request: Request) {
             FALSE
           )
         `;
-        await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${newClient.id}, 'Клиент создан', 'New record', ${user})`;
+        await db.sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${newClient.id}, 'Клиент создан', 'New record', ${user})`;
         result = { status: 'success', newId: newClient.id };
         break;
 
       case 'update':
         const clientToUpdate = body.client;
         const id = clientToUpdate.id;
-        await sql`
+        await db.sql`
           UPDATE clients 
           SET 
             contract = ${clientToUpdate['Договор'] || null},
@@ -78,16 +83,16 @@ export default async function handler(request: Request) {
             updated_at = NOW()
           WHERE id = ${id}
         `;
-        await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${id}, 'Данные обновлены', 'Update record', ${user})`;
+        await db.sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${id}, 'Данные обновлены', 'Update record', ${user})`;
         result = { status: 'success', message: 'Updated' };
         break;
 
       case 'reorder':
         const oldClientId = body.oldClientId;
         const newOrderData = body.client;
-        await sql`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = ${oldClientId}`;
+        await db.sql`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = ${oldClientId}`;
         if (!newOrderData.id || newOrderData.id === oldClientId) { newOrderData.id = `vc_ro_${Date.now()}`; }
-        await sql`
+        await db.sql`
           INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
           VALUES (
             ${newOrderData.id}, 
@@ -99,18 +104,18 @@ export default async function handler(request: Request) {
             FALSE
           )
         `;
-        await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${oldClientId}, 'Архивация (Reorder)', 'Moved to archive', ${user})`;
-        await sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${newOrderData.id}, 'Новый заказ (Reorder)', 'Created from previous', ${user})`;
+        await db.sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${oldClientId}, 'Архивация (Reorder)', 'Moved to archive', ${user})`;
+        await db.sql`INSERT INTO history (client_id, action, details, user_name) VALUES (${newOrderData.id}, 'Новый заказ (Reorder)', 'Created from previous', ${user})`;
         result = { status: 'success', message: 'Reordered', newId: newOrderData.id };
         break;
 
       case 'delete':
-        await sql`DELETE FROM clients WHERE id = ${body.clientId}`;
+        await db.sql`DELETE FROM clients WHERE id = ${body.clientId}`;
         result = { status: 'success', message: 'Deleted' };
         break;
         
       case 'gethistory':
-         const historyRes = await sql`SELECT * FROM history WHERE client_id = ${body.clientId} ORDER BY created_at DESC`;
+         const historyRes = await db.sql`SELECT * FROM history WHERE client_id = ${body.clientId} ORDER BY created_at DESC`;
          const history = historyRes.rows.map(row => ({ id: row.id, clientId: row.client_id, timestamp: row.created_at, user: row.user_name, action: row.action, details: row.details }));
          result = { status: 'success', history };
          break;
@@ -131,7 +136,7 @@ export default async function handler(request: Request) {
     if (error.message && (error.message.includes('missing_connection_string') || error.message.includes('POSTGRES_URL'))) {
         return new Response(JSON.stringify({ 
             status: 'error', 
-            message: 'Ошибка подключения к БД Vercel. Попробуйте сделать Redeploy в панели Vercel, чтобы применить настройки.' 
+            message: 'Ошибка подключения: переменная POSTGRES_URL не найдена. Проверьте настройки Vercel.' 
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
