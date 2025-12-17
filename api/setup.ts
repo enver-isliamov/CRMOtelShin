@@ -2,7 +2,7 @@
 import { Pool } from 'pg';
 
 export default async function handler(req: any, res: any) {
-  const connectionString = 
+  let connectionString = 
     process.env.POSTGRES_URL || 
     process.env.STOREGE_POSTGRES_URL || 
     process.env.STOREGE_POSTGRES_URL_NON_POOLING;
@@ -14,7 +14,19 @@ export default async function handler(req: any, res: any) {
       });
   }
 
-  // Создаем пул, который будет жить только время выполнения этой функции
+  // Очистка строки подключения от sslmode для предотвращения конфликтов
+  try {
+      if (connectionString.includes('sslmode=')) {
+          const url = new URL(connectionString);
+          url.searchParams.delete('sslmode');
+          url.searchParams.delete('sslrootcert');
+          connectionString = url.toString();
+      }
+  } catch (e) {
+      console.warn("Setup: Failed to clean connection string", e);
+  }
+
+  // Создаем пул
   const pool = new Pool({
     connectionString,
     ssl: {

@@ -9,17 +9,32 @@ function getDbPool() {
         return cachedPool;
     }
 
-    const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+    let connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
     
     if (!connectionString) {
         throw new Error("POSTGRES_URL environment variable is not defined");
+    }
+
+    // ХАК: Удаляем параметры sslmode из строки подключения, чтобы они не конфликтовали
+    // с явной настройкой ssl: { rejectUnauthorized: false }
+    try {
+        if (connectionString.includes('sslmode=')) {
+            const url = new URL(connectionString);
+            url.searchParams.delete('sslmode');
+            url.searchParams.delete('sslrootcert');
+            url.searchParams.delete('sslcert');
+            url.searchParams.delete('sslkey');
+            connectionString = url.toString();
+        }
+    } catch (e) {
+        console.warn("Failed to parse/clean connection string URL", e);
     }
 
     // Создаем новый пул
     cachedPool = new Pool({
         connectionString,
         ssl: {
-            rejectUnauthorized: false // Игнорируем ошибку self-signed certificate
+            rejectUnauthorized: false // Явно разрешаем Self-Signed сертификаты (Supabase/Neon)
         },
         max: 5, // Ограничиваем кол-во соединений для Serverless
         connectionTimeoutMillis: 10000, // 10 секунд на подключение
@@ -52,7 +67,7 @@ export default async function handler(req: any, res: any) {
   try {
     const pool = getDbPool();
     
-    // Парсинг тела запроса (Vercel обычно парсит JSON сам, но на всякий случай)
+    // Парсинг тела запроса
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     
     if (!body || !body.action) {
@@ -100,7 +115,6 @@ export default async function handler(req: any, res: any) {
           ]
         );
         
-        // Логируем в историю, но не блокируем ответ, если лог упадет
         try {
             await pool.query(
                 `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
@@ -149,7 +163,6 @@ export default async function handler(req: any, res: any) {
         const oldClientId = body.oldClientId;
         const newOrderData = body.client;
         
-        // Транзакция для атомарности
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -213,7 +226,6 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error('[CRM API] Error:', error);
     
-    // Специальная обработка ошибок подключения
     if (error.message && (error.message.includes('password authentication') || error.code === '28P01')) {
          return res.status(500).json({ status: 'error', message: 'Ошибка авторизации БД. Проверьте пароль в POSTGRES_URL.' });
     }
