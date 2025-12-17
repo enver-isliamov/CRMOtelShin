@@ -3,6 +3,8 @@ import { createPool } from '@vercel/postgres';
 
 // Vercel Serverless Function definition
 export default async function handler(request: Request) {
+  console.log(`[CRM API] Incoming request: ${request.method}`);
+
   // Обрабатываем CORS
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -21,12 +23,16 @@ export default async function handler(request: Request) {
 
   // Подключение к БД с поддержкой нестандартного имени переменной (STOREGE_)
   const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+  console.log(`[CRM API] Connection string present: ${!!connectionString}`);
+  
   const db = createPool({ connectionString });
 
   try {
     const body = await request.json();
     const action = body.action;
     const user = body.user || 'System';
+    
+    console.log(`[CRM API] Action: ${action}, User: ${user}`);
 
     let result;
 
@@ -34,7 +40,9 @@ export default async function handler(request: Request) {
       case 'testconnection':
         if (!connectionString) throw new Error("Connection string not found (checked POSTGRES_URL and STOREGE_POSTGRES_URL)");
         // Проверяем реальное подключение к БД
+        console.log(`[CRM API] Testing DB connection...`);
         await db.sql`SELECT 1`;
+        console.log(`[CRM API] DB Connection Successful!`);
         result = { status: 'success', message: 'Vercel Postgres Connected!', version: 'Vercel-1.0.1' };
         break;
 
@@ -130,7 +138,7 @@ export default async function handler(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('API Error:', error);
+    console.error('[CRM API] Error:', error);
     
     // Красивое сообщение об ошибке подключения для фронтенда
     if (error.message && (error.message.includes('missing_connection_string') || error.message.includes('POSTGRES_URL'))) {

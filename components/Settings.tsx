@@ -84,7 +84,8 @@ const GeneralSettingsTab: React.FC<{
         if (settings.apiMode === 'VERCEL') {
              setIsTesting(true);
              const controller = new AbortController();
-             const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
+             // INCREASED TIMEOUT: 30 seconds for cold starts
+             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
              try {
                  const res = await fetch('/api/crm', { 
@@ -96,7 +97,8 @@ const GeneralSettingsTab: React.FC<{
                  
                  if (!res.ok) {
                      if (res.status === 404) throw new Error("API еще не развернут. Дождитесь окончания сборки Vercel.");
-                     throw new Error(`Ошибка сервера: ${res.status}`);
+                     const text = await res.text();
+                     throw new Error(`Ошибка сервера (${res.status}): ${text}`);
                  }
 
                  const result = await res.json();
@@ -107,7 +109,7 @@ const GeneralSettingsTab: React.FC<{
                  }
              } catch(e: any) {
                  if (e.name === 'AbortError') {
-                     showToast('Тайм-аут: Сервер не отвечает. Проверьте деплой.', 'error');
+                     showToast('Тайм-аут: Сервер долго отвечает (Cold Start). Попробуйте еще раз через 10 секунд.', 'error');
                  } else {
                      showToast(`Ошибка Vercel: ${e.message}`, 'error');
                  }
@@ -637,7 +639,7 @@ You are a world-class senior frontend engineer. Build a CRM for a tire storage b
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
             <h3 className="text-xl font-semibold">О проекте Tire Storage CRM</h3>
             <p>Это приложение разработано для упрощения управления клиентской базой шинного хранения.</p>
-            <p><b>Версия приложения:</b> 3.5.0 (Vercel Native)</p>
+            <p><b>Версия приложения:</b> 3.6.2 (Vercel Native)</p>
             
             <Expander title="Подробное описание функций" isExpanded={isDescriptionExpanded} setExpanded={setIsDescriptionExpanded}>
                 <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />
