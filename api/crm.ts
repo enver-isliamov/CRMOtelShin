@@ -230,9 +230,25 @@ export default async function handler(req: any, res: any) {
 
             if (clients && Array.isArray(clients)) {
                 for (const c of clients) {
+                    // FIX: Ensure ID is never null. Use Contract or generate random if missing.
+                    let clientId = c.id;
+                    if (!clientId) {
+                        const contractPart = c['Договор'] ? String(c['Договор']).replace(/[^a-zA-Z0-9]/g, '') : 'nocontract';
+                        clientId = `mig_${contractPart}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                    }
+
+                    // Update the object's ID as well so JSONB matches
+                    const clientData = { ...c, id: clientId };
+
                     await importClient.query(upsertQuery, [
-                        c.id, c['Договор'] || '', c['Имя клиента'] || '', c['Телефон'] || '', 
-                        c['Статус сделки'] || 'На складе', false, JSON.stringify(c), c['Дата добавления'] || new Date()
+                        clientId, 
+                        c['Договор'] || '', 
+                        c['Имя клиента'] || '', 
+                        c['Телефон'] || '', 
+                        c['Статус сделки'] || 'На складе', 
+                        false, 
+                        JSON.stringify(clientData), 
+                        c['Дата добавления'] || new Date()
                     ]);
                     count++;
                 }
@@ -240,9 +256,23 @@ export default async function handler(req: any, res: any) {
 
             if (archive && Array.isArray(archive)) {
                 for (const a of archive) {
+                    let archiveId = a.id;
+                    if (!archiveId) {
+                        const contractPart = a['Договор'] ? String(a['Договор']).replace(/[^a-zA-Z0-9]/g, '') : 'nocontract';
+                        archiveId = `mig_arch_${contractPart}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                    }
+                    
+                    const archiveData = { ...a, id: archiveId };
+
                     await importClient.query(upsertQuery, [
-                        a.id, a['Договор'] || '', a['Имя клиента'] || '', a['Телефон'] || '', 
-                        'В архиве', true, JSON.stringify(a), a['Дата добавления'] || new Date()
+                        archiveId, 
+                        a['Договор'] || '', 
+                        a['Имя клиента'] || '', 
+                        a['Телефон'] || '', 
+                        'В архиве', 
+                        true, 
+                        JSON.stringify(archiveData), 
+                        a['Дата добавления'] || new Date()
                     ]);
                     count++;
                 }
