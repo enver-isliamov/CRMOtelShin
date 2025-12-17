@@ -585,7 +585,7 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
 
     return (
         <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Миграция данных (Google Sheets -> Vercel Postgres)</h3>
+            <h3 className="text-xl font-semibold">Миграция данных (Google Sheets &rarr; Vercel Postgres)</h3>
             <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 text-indigo-800 dark:text-indigo-200 rounded-md">
                 <p className="text-sm">
                     Этот инструмент позволяет перенести данные из Google Таблиц в базу данных Vercel Postgres. 
