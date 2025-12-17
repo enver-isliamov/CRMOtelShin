@@ -8,7 +8,6 @@ export const config = {
 export default async function handler(request: Request) {
   try {
     // 1. Проверка соединения
-    // Если переменных нет, этот запрос упадет с ошибкой 'missing_connection_string'
     await sql`SELECT 1`;
 
     // 2. Создаем таблицу клиентов
@@ -48,64 +47,74 @@ export default async function handler(request: Request) {
 
     return new Response(JSON.stringify({ 
       status: 'success', 
-      message: '✅ База данных успешно инициализирована! Таблицы созданы. Теперь можно пользоваться приложением.' 
+      message: '✅ База данных успешно инициализирована! Таблицы созданы.' 
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
-    console.error(error);
+    console.error("Setup Error:", error);
     
-    // Специальная обработка ошибки отсутствия переменных
-    if (error.message.includes('missing_connection_string') || error.message.includes('POSTGRES_URL')) {
-        const htmlError = `
-        <!DOCTYPE html>
-        <html lang="ru">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Ошибка подключения к БД</title>
-            <style>
-                body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; line-height: 1.5; max-width: 600px; margin: 0 auto; background: #f9fafb; }
-                .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e5e7eb; }
-                h1 { color: #dc2626; margin-top: 0; }
-                code { background: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: monospace; font-weight: bold; }
-                ol { padding-left: 1.5rem; }
-                li { margin-bottom: 0.5rem; }
-                .btn { display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; margin-top: 1rem; }
-                .btn:hover { background: #1d4ed8; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>⚠️ База данных не подключена</h1>
-                <p>Сервер Vercel не видит переменную <code>POSTGRES_URL</code>. Это нормально при первом запуске.</p>
-                
-                <h3>Как исправить (30 секунд):</h3>
-                <ol>
-                    <li>Откройте ваш проект в панели <b>Vercel</b>.</li>
-                    <li>Перейдите на вкладку <b>Deployments</b>.</li>
-                    <li>Нажмите на <b>три точки (...)</b> справа от последнего деплоя.</li>
-                    <li>Выберите пункт <b>Redeploy</b> и подтвердите.</li>
-                    <li>Дождитесь зеленого статуса <b>Ready</b>.</li>
-                    <li>Обновите эту страницу.</li>
-                </ol>
-                <br/>
-                <small>Техническая ошибка: ${error.message}</small>
-            </div>
-        </body>
-        </html>
-        `;
-        return new Response(htmlError, {
-            status: 500,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        });
-    }
+    // ДИАГНОСТИКА: Собираем список ключей переменных (без значений, для безопасности)
+    // Чтобы понять, видит ли Vercel хоть что-то
+    const envKeys = Object.keys(process.env).filter(k => k.startsWith('POSTGRES') || k.startsWith('VERCEL'));
+    const hasUrl = !!process.env.POSTGRES_URL;
 
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+    const htmlError = `
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Ошибка подключения к БД</title>
+        <style>
+            body { font-family: sans-serif; padding: 2rem; background: #f3f4f6; color: #1f2937; }
+            .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); max-width: 600px; margin: 0 auto; }
+            h1 { color: #dc2626; font-size: 1.5rem; margin-top: 0; }
+            code { background: #e5e7eb; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.9em; word-break: break-all; }
+            .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: bold; font-size: 0.875rem; }
+            .badge-red { background: #fee2e2; color: #991b1b; }
+            .badge-green { background: #d1fae5; color: #065f46; }
+            ul { text-align: left; background: #f9fafb; padding: 1rem 2rem; border-radius: 0.5rem; border: 1px solid #e5e7eb; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>⛔ Ошибка подключения</h1>
+            <p>Не удалось подключиться к базе данных Vercel Postgres.</p>
+            
+            <div style="margin: 1.5rem 0;">
+                <strong>Статус переменной POSTGRES_URL: </strong>
+                ${hasUrl ? '<span class="badge badge-green">НАЙДЕНА</span>' : '<span class="badge badge-red">ОТСУТСТВУЕТ</span>'}
+            </div>
+
+            ${!hasUrl ? `
+                <p>⚠️ Сервер не видит строку подключения. Вероятные причины:</p>
+                <ol>
+                    <li>База данных не подключена к проекту в настройках Vercel.</li>
+                    <li>Вы не сделали <b>Redeploy</b> после подключения базы.</li>
+                    <li>Вы смотрите Environment Variables не той среды (например, Production вместо Preview).</li>
+                </ol>
+            ` : ''}
+
+            <h3>Отладочная информация:</h3>
+            <p>Доступные переменные (ключи):</p>
+            <ul>
+                ${envKeys.length > 0 ? envKeys.map(k => `<li>${k}</li>`).join('') : '<li>Нет переменных POSTGRES_*</li>'}
+            </ul>
+
+            <p style="font-size: 0.875rem; color: #6b7280; margin-top: 2rem;">
+                Ошибка системы: <code>${error.message}</code>
+            </p>
+        </div>
+    </body>
+    </html>
+    `;
+
+    return new Response(htmlError, {
+        status: 500,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
   }
 }
