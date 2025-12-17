@@ -1,38 +1,50 @@
 
 import { Pool } from 'pg';
 
-// Инициализация пула вне хендлера для переиспользования соединений (best practice для Lambda)
+// Инициализация пула вне хендлера
 const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
 
-const pool = new Pool({
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false
-  },
-  max: 10, // Максимум 10 соединений в пуле
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
-
-export default async function handler(request: Request) {
-  // Обрабатываем CORS
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+// Создаем пул только если есть строка подключения, иначе ошибка будет внутри хендлера
+let pool: Pool | null = null;
+if (connectionString) {
+    pool = new Pool({
+      connectionString,
+      ssl: {
+        rejectUnauthorized: false // Важно для Supabase/Neon/Heroku
       },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
     });
+}
+
+export default async function handler(req: any, res: any) {
+  // CORS Headers для всех ответов
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Обрабатываем CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ status: 'error', message: 'Method not allowed' }), { status: 405 });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ status: 'error', message: 'Method not allowed' });
   }
 
   try {
-    const body = await request.json();
+    if (!pool) {
+        throw new Error("Connection string not found (POSTGRES_URL)");
+    }
+
+    // В Vercel Node Runtime req.body уже является объектом, если Content-Type: application/json
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    
+    if (!body || !body.action) {
+        return res.status(400).json({ status: 'error', message: 'Missing action in body' });
+    }
+
     const action = body.action;
     const user = body.user || 'System';
     
@@ -42,7 +54,6 @@ export default async function handler(request: Request) {
 
     switch (action) {
       case 'testconnection':
-        if (!connectionString) throw new Error("Connection string not found");
         await pool.query('SELECT 1');
         result = { status: 'success', message: 'Postgres (pg) Connected!', version: 'Vercel-PG-1.0' };
         break;
@@ -86,7 +97,6 @@ export default async function handler(request: Request) {
         const clientToUpdate = body.client;
         const id = clientToUpdate.id;
         
-        // В Postgres оператор || конкатенирует jsonb
         await pool.query(
           `UPDATE clients 
            SET 
@@ -163,27 +173,18 @@ export default async function handler(request: Request) {
         result = { status: 'error', message: `Action ${action} not implemented in Vercel backend yet` };
     }
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    });
+    return res.status(200).json(result);
 
   } catch (error: any) {
     console.error('[CRM API] Error:', error);
     
     if (error.message && (error.message.includes('Connection string') || error.code === 'ENOTFOUND')) {
-        return new Response(JSON.stringify({ 
+        return res.status(500).json({ 
             status: 'error', 
             message: 'Ошибка подключения к БД: проверьте POSTGRES_URL. ' + error.message 
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         });
     }
 
-    return new Response(JSON.stringify({ status: 'error', message: (error as Error).message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    });
+    return res.status(500).json({ status: 'error', message: (error as Error).message });
   }
 }
