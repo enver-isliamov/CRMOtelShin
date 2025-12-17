@@ -15,8 +15,6 @@ function getDbPool() {
         throw new Error("POSTGRES_URL environment variable is not defined");
     }
 
-    // ХАК: Удаляем параметры sslmode из строки подключения, чтобы они не конфликтовали
-    // с явной настройкой ssl: { rejectUnauthorized: false }
     try {
         if (connectionString.includes('sslmode=')) {
             const url = new URL(connectionString);
@@ -30,28 +28,24 @@ function getDbPool() {
         console.warn("Failed to parse/clean connection string URL", e);
     }
 
-    // Создаем новый пул
     cachedPool = new Pool({
         connectionString,
         ssl: {
-            rejectUnauthorized: false // Явно разрешаем Self-Signed сертификаты (Supabase/Neon)
+            rejectUnauthorized: false
         },
-        max: 5, // Ограничиваем кол-во соединений для Serverless
-        connectionTimeoutMillis: 10000, // 10 секунд на подключение
+        max: 5,
+        connectionTimeoutMillis: 10000,
         idleTimeoutMillis: 30000,
     });
 
-    // Обработка ошибок пула, чтобы процесс не падал
     cachedPool.on('error', (err) => {
         console.error('Unexpected error on idle PostgreSQL client', err);
-        // Не сбрасываем cachedPool = null, pg сам попытается переподключиться
     });
 
     return cachedPool;
 }
 
 export default async function handler(req: any, res: any) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -66,8 +60,6 @@ export default async function handler(req: any, res: any) {
 
   try {
     const pool = getDbPool();
-    
-    // Парсинг тела запроса
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     
     if (!body || !body.action) {
@@ -84,9 +76,10 @@ export default async function handler(req: any, res: any) {
     switch (action) {
       case 'testconnection':
         await pool.query('SELECT 1');
-        result = { status: 'success', message: 'Postgres (pg) Connected!', version: 'Vercel-PG-1.0' };
+        result = { status: 'success', message: 'Postgres (pg) Connected!', version: 'Vercel-PG-Full-1.0' };
         break;
 
+      // --- CLIENTS ---
       case 'getclients':
         const clientsRes = await pool.query(`SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC`);
         const archiveRes = await pool.query(`SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC LIMIT 500`);
@@ -101,100 +94,50 @@ export default async function handler(req: any, res: any) {
       case 'add':
         const newClient = body.client;
         if (!newClient.id) newClient.id = `vc_${Date.now()}`; 
-        
         await pool.query(
           `INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
            VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
           [
-            newClient.id,
-            newClient['Договор'] || '',
-            newClient['Имя клиента'] || '',
-            newClient['Телефон'] || '',
-            newClient['Статус сделки'] || 'На складе',
-            JSON.stringify(newClient)
+            newClient.id, newClient['Договор'] || '', newClient['Имя клиента'] || '', 
+            newClient['Телефон'] || '', newClient['Статус сделки'] || 'На складе', JSON.stringify(newClient)
           ]
         );
-        
-        try {
-            await pool.query(
-                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-                [newClient.id, 'Клиент создан', 'New record', user]
-            );
-        } catch (e) { console.error("History log failed", e); }
-
+        logHistory(pool, newClient.id, user, 'Клиент создан', 'New record');
         result = { status: 'success', newId: newClient.id };
         break;
 
       case 'update':
         const clientToUpdate = body.client;
         const id = clientToUpdate.id;
-        
         await pool.query(
-          `UPDATE clients 
-           SET 
-             contract = $1,
-             name = $2,
-             phone = $3,
-             status = $4,
-             data = data || $5::jsonb, 
-             updated_at = NOW()
-           WHERE id = $6`,
+          `UPDATE clients SET contract=$1, name=$2, phone=$3, status=$4, data=data || $5::jsonb, updated_at=NOW() WHERE id=$6`,
            [
-             clientToUpdate['Договор'] || null,
-             clientToUpdate['Имя клиента'] || null,
-             clientToUpdate['Телефон'] || null,
-             clientToUpdate['Статус сделки'] || null,
-             JSON.stringify(clientToUpdate),
-             id
+             clientToUpdate['Договор'], clientToUpdate['Имя клиента'], clientToUpdate['Телефон'], 
+             clientToUpdate['Статус сделки'], JSON.stringify(clientToUpdate), id
            ]
         );
-        
-        try {
-            await pool.query(
-                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-                [id, 'Данные обновлены', 'Update record', user]
-            );
-        } catch (e) { console.error("History log failed", e); }
-
+        logHistory(pool, id, user, 'Данные обновлены', 'Update record');
         result = { status: 'success', message: 'Updated' };
         break;
 
       case 'reorder':
         const oldClientId = body.oldClientId;
         const newOrderData = body.client;
-        
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            
-            // 1. Archive old
             await client.query(`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = $1`, [oldClientId]);
-            
-            // 2. Create new
             if (!newOrderData.id || newOrderData.id === oldClientId) { newOrderData.id = `vc_ro_${Date.now()}`; }
-            
             await client.query(
               `INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
                VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
               [
-                newOrderData.id,
-                newOrderData['Договор'] || '',
-                newOrderData['Имя клиента'] || '',
-                newOrderData['Телефон'] || '',
-                newOrderData['Статус сделки'] || 'На складе',
-                JSON.stringify(newOrderData)
+                newOrderData.id, newOrderData['Договор'] || '', newOrderData['Имя клиента'] || '',
+                newOrderData['Телефон'] || '', newOrderData['Статус сделки'] || 'На складе', JSON.stringify(newOrderData)
               ]
             );
-
-            await client.query(
-                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-                [oldClientId, 'Архивация (Reorder)', 'Moved to archive', user]
-            );
-            await client.query(
-                `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-                [newOrderData.id, 'Новый заказ (Reorder)', 'Created from previous', user]
-            );
-            
+            await logHistory(client, oldClientId, user, 'Архивация (Reorder)', 'Moved to archive');
+            await logHistory(client, newOrderData.id, user, 'Новый заказ (Reorder)', 'Created from previous');
             await client.query('COMMIT');
         } catch (e) {
             await client.query('ROLLBACK');
@@ -202,95 +145,151 @@ export default async function handler(req: any, res: any) {
         } finally {
             client.release();
         }
-        
         result = { status: 'success', message: 'Reordered', newId: newOrderData.id };
         break;
 
+      case 'delete':
+        await pool.query(`DELETE FROM clients WHERE id = $1`, [body.clientId]);
+        result = { status: 'success', message: 'Deleted' };
+        break;
+
+      // --- MASTERS ---
+      case 'getmasters':
+        const mastersRes = await pool.query(`SELECT data FROM masters ORDER BY created_at DESC`);
+        // Map data back to array
+        const mastersList = mastersRes.rows.map(row => row.data);
+        result = { status: 'success', masters: mastersList };
+        break;
+
+      case 'addmaster':
+        const newMaster = body.master;
+        if (!newMaster.id) newMaster.id = `m_${Date.now()}`;
+        await pool.query(
+            `INSERT INTO masters (id, name, chat_id, phone, services, address, data)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+                newMaster.id, newMaster['Имя'], newMaster['chatId (Telegram)'], 
+                newMaster['Телефон'], newMaster['Услуга'], newMaster['Адрес'], JSON.stringify(newMaster)
+            ]
+        );
+        result = { status: 'success', message: 'Master added' };
+        break;
+
+      case 'updatemaster':
+        const mUpd = body.master;
+        await pool.query(
+            `UPDATE masters SET name=$1, chat_id=$2, phone=$3, services=$4, address=$5, data=$6 WHERE id=$7`,
+            [
+                mUpd['Имя'], mUpd['chatId (Telegram)'], mUpd['Телефон'], 
+                mUpd['Услуга'], mUpd['Адрес'], JSON.stringify(mUpd), mUpd.id
+            ]
+        );
+        result = { status: 'success', message: 'Master updated' };
+        break;
+
+      case 'deletemaster':
+        await pool.query(`DELETE FROM masters WHERE id=$1`, [body.masterId]);
+        result = { status: 'success', message: 'Master deleted' };
+        break;
+
+      // --- TEMPLATES ---
+      case 'gettemplates':
+        const tplRes = await pool.query(`SELECT data FROM templates`);
+        result = { status: 'success', templates: tplRes.rows.map(row => row.data) };
+        break;
+
+      case 'addtemplate':
+      case 'updatetemplate': // Postgres UPSERT behavior mainly
+        const tpl = body.template;
+        const tplName = tpl['Название шаблона'];
+        await pool.query(
+            `INSERT INTO templates (name, content, data) VALUES ($1, $2, $3)
+             ON CONFLICT (name) DO UPDATE SET content=EXCLUDED.content, data=EXCLUDED.data, updated_at=NOW()`,
+            [tplName, tpl['Содержимое (HTML)'], JSON.stringify(tpl)]
+        );
+        result = { status: 'success', message: 'Template saved' };
+        break;
+
+      case 'deletetemplate':
+        await pool.query(`DELETE FROM templates WHERE name=$1`, [body.templateName]);
+        result = { status: 'success', message: 'Template deleted' };
+        break;
+
+      // --- IMPORT / MIGRATION (FULL) ---
       case 'import':
-        // Массовый импорт для миграции
-        const { clients, archive } = body;
+        const { clients, archive, masters, templates } = body;
         const importClient = await pool.connect();
         
         try {
             await importClient.query('BEGIN');
-            
             let count = 0;
-            const upsertQuery = `
+
+            // 1. Clients & Archive
+            const clientUpsert = `
                 INSERT INTO clients (id, contract, name, phone, status, is_archived, data, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (id) DO UPDATE SET
-                    contract = EXCLUDED.contract,
-                    name = EXCLUDED.name,
-                    phone = EXCLUDED.phone,
-                    status = EXCLUDED.status,
-                    is_archived = EXCLUDED.is_archived,
-                    data = EXCLUDED.data,
-                    updated_at = NOW();
+                    contract=EXCLUDED.contract, name=EXCLUDED.name, phone=EXCLUDED.phone,
+                    status=EXCLUDED.status, is_archived=EXCLUDED.is_archived, data=EXCLUDED.data;
             `;
-
-            if (clients && Array.isArray(clients)) {
-                for (const c of clients) {
-                    // FIX: Ensure ID is never null. Use Contract or generate random if missing.
+            
+            const processClientBatch = async (list: any[], isArchived: boolean) => {
+                for (const c of list) {
                     let clientId = c.id;
                     if (!clientId) {
                         const contractPart = c['Договор'] ? String(c['Договор']).replace(/[^a-zA-Z0-9]/g, '') : 'nocontract';
-                        clientId = `mig_${contractPart}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                        clientId = `mig_${isArchived?'arch':'cl'}_${contractPart}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
                     }
-
-                    // Update the object's ID as well so JSONB matches
                     const clientData = { ...c, id: clientId };
-
-                    await importClient.query(upsertQuery, [
-                        clientId, 
-                        c['Договор'] || '', 
-                        c['Имя клиента'] || '', 
-                        c['Телефон'] || '', 
-                        c['Статус сделки'] || 'На складе', 
-                        false, 
-                        JSON.stringify(clientData), 
-                        c['Дата добавления'] || new Date()
+                    await importClient.query(clientUpsert, [
+                        clientId, c['Договор'] || '', c['Имя клиента'] || '', c['Телефон'] || '',
+                        isArchived ? 'В архиве' : (c['Статус сделки'] || 'На складе'),
+                        isArchived, JSON.stringify(clientData), c['Дата добавления'] || new Date()
                     ]);
+                    count++;
+                }
+            };
+
+            if (clients && Array.isArray(clients)) await processClientBatch(clients, false);
+            if (archive && Array.isArray(archive)) await processClientBatch(archive, true);
+
+            // 2. Masters
+            if (masters && Array.isArray(masters)) {
+                for (const m of masters) {
+                    if (!m['Имя']) continue;
+                    let mId = m.id || `m_mig_${Date.now()}_${Math.floor(Math.random()*100)}`;
+                    const mData = { ...m, id: mId };
+                    await importClient.query(
+                        `INSERT INTO masters (id, name, chat_id, phone, services, address, data)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)
+                         ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, chat_id=EXCLUDED.chat_id, data=EXCLUDED.data`,
+                        [mId, m['Имя'], m['chatId (Telegram)'] || '', m['Телефон']||'', m['Услуга']||'', m['Адрес']||'', JSON.stringify(mData)]
+                    );
                     count++;
                 }
             }
 
-            if (archive && Array.isArray(archive)) {
-                for (const a of archive) {
-                    let archiveId = a.id;
-                    if (!archiveId) {
-                        const contractPart = a['Договор'] ? String(a['Договор']).replace(/[^a-zA-Z0-9]/g, '') : 'nocontract';
-                        archiveId = `mig_arch_${contractPart}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-                    }
-                    
-                    const archiveData = { ...a, id: archiveId };
-
-                    await importClient.query(upsertQuery, [
-                        archiveId, 
-                        a['Договор'] || '', 
-                        a['Имя клиента'] || '', 
-                        a['Телефон'] || '', 
-                        'В архиве', 
-                        true, 
-                        JSON.stringify(archiveData), 
-                        a['Дата добавления'] || new Date()
-                    ]);
+            // 3. Templates
+            if (templates && Array.isArray(templates)) {
+                for (const t of templates) {
+                    if (!t['Название шаблона']) continue;
+                    await importClient.query(
+                        `INSERT INTO templates (name, content, data) VALUES ($1, $2, $3)
+                         ON CONFLICT (name) DO UPDATE SET content=EXCLUDED.content, data=EXCLUDED.data`,
+                        [t['Название шаблона'], t['Содержимое (HTML)'] || '', JSON.stringify(t)]
+                    );
                     count++;
                 }
             }
 
             await importClient.query('COMMIT');
-            result = { status: 'success', message: `Импортировано ${count} записей.` };
+            result = { status: 'success', message: `Успешно перенесено ${count} объектов.` };
         } catch(e) {
             await importClient.query('ROLLBACK');
             throw e;
         } finally {
             importClient.release();
         }
-        break;
-
-      case 'delete':
-        await pool.query(`DELETE FROM clients WHERE id = $1`, [body.clientId]);
-        result = { status: 'success', message: 'Deleted' };
         break;
         
       case 'gethistory':
@@ -307,14 +306,18 @@ export default async function handler(req: any, res: any) {
 
   } catch (error: any) {
     console.error('[CRM API] Error:', error);
-    
     if (error.message && (error.message.includes('password authentication') || error.code === '28P01')) {
-         return res.status(500).json({ status: 'error', message: 'Ошибка авторизации БД. Проверьте пароль в POSTGRES_URL.' });
+         return res.status(500).json({ status: 'error', message: 'Ошибка авторизации БД. Проверьте пароль.' });
     }
-    if (error.message && error.message.includes('self-signed')) {
-         return res.status(500).json({ status: 'error', message: 'Ошибка SSL (Self-signed). Попробуем исправить...' });
-    }
-
     return res.status(500).json({ status: 'error', message: (error as Error).message });
   }
+}
+
+async function logHistory(clientOrPool: any, clientId: string, user: string, action: string, details: string) {
+    try {
+        await clientOrPool.query(
+            `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
+            [clientId, action, details, user]
+        );
+    } catch (e) { console.error("History log failed", e); }
 }

@@ -32,7 +32,7 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
     </button>
 );
 
-// --- Responsive Code Viewer Component ---
+// ... (CodeViewer component omitted for brevity, same as previous) ...
 const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) => void }> = ({ code, title, onCopy }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -85,7 +85,6 @@ const GeneralSettingsTab: React.FC<{
         if (settings.apiMode === 'VERCEL') {
              setIsTesting(true);
              const controller = new AbortController();
-             // INCREASED TIMEOUT: 30 seconds for cold starts
              const timeoutId = setTimeout(() => controller.abort(), 30000);
 
              try {
@@ -225,6 +224,7 @@ const GeneralSettingsTab: React.FC<{
     );
 };
 
+// ... (TemplatesTab omitted as it is unchanged) ...
 const TemplatesTab: React.FC<{ 
     templates: MessageTemplate[]; 
     setTemplates: React.Dispatch<React.SetStateAction<MessageTemplate[]>>;
@@ -398,6 +398,7 @@ const TemplatesTab: React.FC<{
     );
 };
 
+// ... (GasSetupTab, LogsTab omitted as they are unchanged) ...
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
@@ -525,7 +526,7 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
 }
 
 const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'error') => void }> = ({ showToast }) => {
-    const [fetchedData, setFetchedData] = useState<{ clients: any[], archive: any[] } | null>(null);
+    const [fetchedData, setFetchedData] = useState<{ clients: any[], archive: any[], masters: any[], templates: any[] } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [importStatus, setImportStatus] = useState('');
 
@@ -534,7 +535,7 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
         try {
             const data = await api.fetchDataForMigration();
             setFetchedData(data);
-            showToast(`Успешно загружено: ${data.clients.length} клиентов, ${data.archive.length} в архиве.`, 'success');
+            showToast(`Успешно загружено: ${data.clients.length} клиентов, ${data.archive.length} в архиве, ${data.masters.length} мастеров, ${data.templates.length} шаблонов.`, 'success');
         } catch(e: any) {
             showToast(`Ошибка загрузки из Google: ${e.message}`, 'error');
         } finally {
@@ -547,25 +548,27 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
         setIsLoading(true);
         setImportStatus('Начинаем импорт в Vercel Postgres...');
         try {
-            // Импорт клиентами чанками по 100 штук, чтобы не превысить лимит запроса
+            // Импорт клиентами чанками по 100 штук
             const CHUNK_SIZE = 100;
             const clientChunks = [];
             for (let i = 0; i < fetchedData.clients.length; i += CHUNK_SIZE) {
                 clientChunks.push(fetchedData.clients.slice(i, i + CHUNK_SIZE));
             }
-            const archiveChunks = [];
-            for (let i = 0; i < fetchedData.archive.length; i += CHUNK_SIZE) {
-                archiveChunks.push(fetchedData.archive.slice(i, i + CHUNK_SIZE));
-            }
-
+            
+            // 1. Клиенты
             let totalImported = 0;
-
             for (const chunk of clientChunks) {
                 await api.importDataToVercel(chunk, []);
                 totalImported += chunk.length;
                 setImportStatus(`Импортировано активных клиентов: ${totalImported} / ${fetchedData.clients.length}`);
             }
 
+            // 2. Архив
+            const archiveChunks = [];
+            for (let i = 0; i < fetchedData.archive.length; i += CHUNK_SIZE) {
+                archiveChunks.push(fetchedData.archive.slice(i, i + CHUNK_SIZE));
+            }
+            
             let totalArchiveImported = 0;
             for (const chunk of archiveChunks) {
                 await api.importDataToVercel([], chunk);
@@ -573,7 +576,11 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
                 setImportStatus(`Импортировано архива: ${totalArchiveImported} / ${fetchedData.archive.length}`);
             }
 
-            showToast('Миграция успешно завершена!', 'success');
+            // 3. Мастера и Шаблоны (обычно их мало, шлем сразу)
+            setImportStatus('Импорт Мастеров и Шаблонов...');
+            await api.importDataToVercel([], [], fetchedData.masters, fetchedData.templates);
+
+            showToast('Полная миграция базы успешно завершена!', 'success');
             setImportStatus('Готово! Теперь можно переключить источник данных на VERCEL.');
         } catch(e: any) {
             showToast(`Ошибка импорта: ${e.message}`, 'error');
@@ -588,8 +595,8 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
             <h3 className="text-xl font-semibold">Миграция данных (Google Sheets &rarr; Vercel Postgres)</h3>
             <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 text-indigo-800 dark:text-indigo-200 rounded-md">
                 <p className="text-sm">
-                    Этот инструмент позволяет перенести данные из Google Таблиц в базу данных Vercel Postgres. 
-                    Процесс безопасен: данные копируются, исходная таблица не изменяется.
+                    Этот инструмент переносит ВСЮ базу данных: Клиенты, Архив, Мастера и Шаблоны сообщений.
+                    Процесс безопасен и не удаляет данные из Google Sheets.
                 </p>
             </div>
 
@@ -598,14 +605,16 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4 font-bold text-xl">1</div>
                     <h4 className="font-bold text-lg mb-2">Скачать данные</h4>
-                    <p className="text-sm text-gray-500 mb-4">Получить всех клиентов и архив из Google Apps Script.</p>
+                    <p className="text-sm text-gray-500 mb-4">Получить всю базу из Google Apps Script.</p>
                     <Button onClick={handleFetchFromGAS} disabled={isLoading} variant="outline" className="w-full justify-center">
                         {isLoading && !fetchedData ? 'Загрузка...' : 'Получить из Google'}
                     </Button>
                     {fetchedData && (
-                        <div className="mt-4 text-left w-full bg-gray-50 dark:bg-gray-700/50 p-3 rounded text-sm">
+                        <div className="mt-4 text-left w-full bg-gray-50 dark:bg-gray-700/50 p-3 rounded text-sm space-y-1">
                             <p>✅ Клиентов: <b>{fetchedData.clients.length}</b></p>
                             <p>✅ Архив: <b>{fetchedData.archive.length}</b></p>
+                            <p>✅ Мастеров: <b>{fetchedData.masters.length}</b></p>
+                            <p>✅ Шаблонов: <b>{fetchedData.templates.length}</b></p>
                         </div>
                     )}
                 </div>
@@ -629,6 +638,7 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
     );
 };
 
+// ... (Rest of components: Expander, AboutTab, Settings) ...
 const Expander: React.FC<{
     title: string;
     isExpanded: boolean;

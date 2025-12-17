@@ -335,15 +335,25 @@ export const api = {
     return await requestAPI('testconnection', {}, url, 'GAS');
   },
 
-  // Migration tools
-  fetchDataForMigration: async (): Promise<{ clients: any[], archive: any[] }> => {
-      // Force GAS request
-      const result = await requestAPI('getclients', {}, undefined, 'GAS');
-      return { clients: result.clients || [], archive: result.archive || [] };
+  // Migration tools - UPGRADED to fetch everything
+  fetchDataForMigration: async (): Promise<{ clients: any[], archive: any[], masters: any[], templates: any[] }> => {
+      // Force GAS request for all entities
+      const [clientsData, mastersData, templatesData] = await Promise.all([
+          requestAPI('getclients', {}, undefined, 'GAS'),
+          requestAPI('getmasters', {}, undefined, 'GAS'),
+          requestAPI('gettemplates', {}, undefined, 'GAS')
+      ]);
+
+      return { 
+          clients: clientsData.clients || [], 
+          archive: clientsData.archive || [],
+          masters: mastersData.masters || [],
+          templates: templatesData.templates || []
+      };
   },
 
-  importDataToVercel: async (clients: any[], archive: any[]): Promise<any> => {
-      // Force Vercel request
-      return await requestAPI('import', { clients, archive }, undefined, 'VERCEL');
+  importDataToVercel: async (clients: any[], archive: any[], masters?: any[], templates?: any[]): Promise<any> => {
+      // Force Vercel request with comprehensive payload
+      return await requestAPI('import', { clients, archive, masters, templates }, undefined, 'VERCEL');
   }
 };
