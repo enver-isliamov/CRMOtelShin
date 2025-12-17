@@ -15,6 +15,7 @@ const ChevronUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h
 const CopyIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg>;
 const ServerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const CloudIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
+const ArrowPathIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.185m-3.18-3.183l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.185" /></svg>;
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode, icon: React.ReactNode }> = ({ active, onClick, children, icon }) => (
     <button
@@ -523,6 +524,111 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
     );
 }
 
+const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'error') => void }> = ({ showToast }) => {
+    const [fetchedData, setFetchedData] = useState<{ clients: any[], archive: any[] } | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [importStatus, setImportStatus] = useState('');
+
+    const handleFetchFromGAS = async () => {
+        setIsLoading(true);
+        try {
+            const data = await api.fetchDataForMigration();
+            setFetchedData(data);
+            showToast(`Успешно загружено: ${data.clients.length} клиентов, ${data.archive.length} в архиве.`, 'success');
+        } catch(e: any) {
+            showToast(`Ошибка загрузки из Google: ${e.message}`, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleImportToVercel = async () => {
+        if (!fetchedData) return;
+        setIsLoading(true);
+        setImportStatus('Начинаем импорт в Vercel Postgres...');
+        try {
+            // Импорт клиентами чанками по 100 штук, чтобы не превысить лимит запроса
+            const CHUNK_SIZE = 100;
+            const clientChunks = [];
+            for (let i = 0; i < fetchedData.clients.length; i += CHUNK_SIZE) {
+                clientChunks.push(fetchedData.clients.slice(i, i + CHUNK_SIZE));
+            }
+            const archiveChunks = [];
+            for (let i = 0; i < fetchedData.archive.length; i += CHUNK_SIZE) {
+                archiveChunks.push(fetchedData.archive.slice(i, i + CHUNK_SIZE));
+            }
+
+            let totalImported = 0;
+
+            for (const chunk of clientChunks) {
+                await api.importDataToVercel(chunk, []);
+                totalImported += chunk.length;
+                setImportStatus(`Импортировано активных клиентов: ${totalImported} / ${fetchedData.clients.length}`);
+            }
+
+            let totalArchiveImported = 0;
+            for (const chunk of archiveChunks) {
+                await api.importDataToVercel([], chunk);
+                totalArchiveImported += chunk.length;
+                setImportStatus(`Импортировано архива: ${totalArchiveImported} / ${fetchedData.archive.length}`);
+            }
+
+            showToast('Миграция успешно завершена!', 'success');
+            setImportStatus('Готово! Теперь можно переключить источник данных на VERCEL.');
+        } catch(e: any) {
+            showToast(`Ошибка импорта: ${e.message}`, 'error');
+            setImportStatus('Ошибка при импорте.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="text-xl font-semibold">Миграция данных (Google Sheets -> Vercel Postgres)</h3>
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 text-indigo-800 dark:text-indigo-200 rounded-md">
+                <p className="text-sm">
+                    Этот инструмент позволяет перенести данные из Google Таблиц в базу данных Vercel Postgres. 
+                    Процесс безопасен: данные копируются, исходная таблица не изменяется.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Шаг 1 */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4 font-bold text-xl">1</div>
+                    <h4 className="font-bold text-lg mb-2">Скачать данные</h4>
+                    <p className="text-sm text-gray-500 mb-4">Получить всех клиентов и архив из Google Apps Script.</p>
+                    <Button onClick={handleFetchFromGAS} disabled={isLoading} variant="outline" className="w-full justify-center">
+                        {isLoading && !fetchedData ? 'Загрузка...' : 'Получить из Google'}
+                    </Button>
+                    {fetchedData && (
+                        <div className="mt-4 text-left w-full bg-gray-50 dark:bg-gray-700/50 p-3 rounded text-sm">
+                            <p>✅ Клиентов: <b>{fetchedData.clients.length}</b></p>
+                            <p>✅ Архив: <b>{fetchedData.archive.length}</b></p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Шаг 2 */}
+                <div className={`border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center transition-opacity ${!fetchedData ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4 font-bold text-xl">2</div>
+                    <h4 className="font-bold text-lg mb-2">Загрузить в Postgres</h4>
+                    <p className="text-sm text-gray-500 mb-4">Отправить данные в новую базу Vercel.</p>
+                    <Button onClick={handleImportToVercel} disabled={isLoading} className="w-full justify-center">
+                        {isLoading && fetchedData ? 'Импорт...' : 'Начать миграцию'}
+                    </Button>
+                    {importStatus && (
+                        <div className="mt-4 text-xs font-mono text-gray-600 dark:text-gray-300 w-full text-center animate-pulse">
+                            {importStatus}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Expander: React.FC<{
     title: string;
     isExpanded: boolean;
@@ -717,6 +823,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
         { id: 'general', label: 'Основные', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.75a.75.75 0 01.75.75v1.5h-1.5v-1.5a.75.75 0 01.75-.75zM10 6a2.5 2.5 0 00-2.5 2.5v7.5a2.5 2.5 0 105 0v-7.5A2.5 2.5 0 0010 6zM8.75 8.5a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5z" /></svg> },
         { id: 'templates', label: 'Шаблоны', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-1.128c0-.416.16-.813.44-1.111h11.12c.28.298.44.7.44 1.11v1.129a.75.75 0 001.5 0V2.75a.75.75 0 00-1.5 0v1.128c0 .416-.16.813-.44 1.111H3.94c-.28-.298-.44-.7-.44-1.11V2.75z" /><path d="M6.25 7.5a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5h-7.5z" /></svg> },
         { id: 'logs', label: 'Логи', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg> },
+        { id: 'migration', label: 'Миграция', icon: <ArrowPathIcon /> },
         { id: 'gas', label: 'Настройка GAS', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M15.312 5.312a.75.75 0 010 1.062l-6.25 6.25a.75.75 0 01-1.062 0l-2.5-2.5a.75.75 0 011.062-1.062l1.97 1.97 5.72-5.72a.75.75 0 011.062 0z" clipRule="evenodd" /></svg> },
         { id: 'about', label: 'О проекте', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>}
     ];
@@ -738,6 +845,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
       <Card>
         {activeTab === 'general' && <GeneralSettingsTab settings={settings} onChange={handleSettingsChange} showToast={addLocalToast} />}
         {activeTab === 'templates' && <TemplatesTab templates={templates} setTemplates={setTemplates} showToast={addLocalToast}/>}
+        {activeTab === 'migration' && <MigrationTab showToast={addLocalToast} />}
         {activeTab === 'gas' && <GasSetupTab onCopy={handleCopyToClipboard} />}
         {activeTab === 'logs' && <LogsTab showToast={addLocalToast} />}
         {activeTab === 'about' && <AboutTab onCopy={handleCopyToClipboard} />}

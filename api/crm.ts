@@ -206,6 +206,58 @@ export default async function handler(req: any, res: any) {
         result = { status: 'success', message: 'Reordered', newId: newOrderData.id };
         break;
 
+      case 'import':
+        // Массовый импорт для миграции
+        const { clients, archive } = body;
+        const importClient = await pool.connect();
+        
+        try {
+            await importClient.query('BEGIN');
+            
+            let count = 0;
+            const upsertQuery = `
+                INSERT INTO clients (id, contract, name, phone, status, is_archived, data, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (id) DO UPDATE SET
+                    contract = EXCLUDED.contract,
+                    name = EXCLUDED.name,
+                    phone = EXCLUDED.phone,
+                    status = EXCLUDED.status,
+                    is_archived = EXCLUDED.is_archived,
+                    data = EXCLUDED.data,
+                    updated_at = NOW();
+            `;
+
+            if (clients && Array.isArray(clients)) {
+                for (const c of clients) {
+                    await importClient.query(upsertQuery, [
+                        c.id, c['Договор'] || '', c['Имя клиента'] || '', c['Телефон'] || '', 
+                        c['Статус сделки'] || 'На складе', false, JSON.stringify(c), c['Дата добавления'] || new Date()
+                    ]);
+                    count++;
+                }
+            }
+
+            if (archive && Array.isArray(archive)) {
+                for (const a of archive) {
+                    await importClient.query(upsertQuery, [
+                        a.id, a['Договор'] || '', a['Имя клиента'] || '', a['Телефон'] || '', 
+                        'В архиве', true, JSON.stringify(a), a['Дата добавления'] || new Date()
+                    ]);
+                    count++;
+                }
+            }
+
+            await importClient.query('COMMIT');
+            result = { status: 'success', message: `Импортировано ${count} записей.` };
+        } catch(e) {
+            await importClient.query('ROLLBACK');
+            throw e;
+        } finally {
+            importClient.release();
+        }
+        break;
+
       case 'delete':
         await pool.query(`DELETE FROM clients WHERE id = $1`, [body.clientId]);
         result = { status: 'success', message: 'Deleted' };

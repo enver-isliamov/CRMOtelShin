@@ -26,9 +26,10 @@ export const getClientHeaders = (): string[] => {
 }
 
 // Unified Request Handler
-async function requestAPI(action: string, payload: any = {}, customUrl?: string) {
+// Added 'forceMode' to explicitly bypass settings (useful for migration)
+async function requestAPI(action: string, payload: any = {}, customUrl?: string, forceMode?: 'GAS' | 'VERCEL') {
     const settings = getSettingsFromStorage();
-    const mode = settings.apiMode || 'GAS';
+    const mode = forceMode || settings.apiMode || 'GAS';
     const userJson = sessionStorage.getItem('user');
     const user = userJson ? JSON.parse(userJson) : { username: 'Admin' };
 
@@ -331,6 +332,18 @@ export const api = {
   
   // Helper for Settings page
   testConnection: async (url: string): Promise<any> => {
-    return await requestAPI('testconnection', {}, url);
+    return await requestAPI('testconnection', {}, url, 'GAS');
   },
+
+  // Migration tools
+  fetchDataForMigration: async (): Promise<{ clients: any[], archive: any[] }> => {
+      // Force GAS request
+      const result = await requestAPI('getclients', {}, undefined, 'GAS');
+      return { clients: result.clients || [], archive: result.archive || [] };
+  },
+
+  importDataToVercel: async (clients: any[], archive: any[]): Promise<any> => {
+      // Force Vercel request
+      return await requestAPI('import', { clients, archive }, undefined, 'VERCEL');
+  }
 };
