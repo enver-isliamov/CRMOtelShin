@@ -1,5 +1,5 @@
 
-import { createPool } from '@vercel/postgres';
+import { Pool } from 'pg';
 
 export default async function handler(request: Request) {
   const connectionString = 
@@ -14,20 +14,25 @@ export default async function handler(request: Request) {
       }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // Используем connectionString напрямую при создании пула
-  const db = createPool({ connectionString });
+  // Настройка пула для pg
+  const pool = new Pool({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false // Необходимо для большинства облачных БД (Neon, Supabase, Heroku)
+    },
+    connectionTimeoutMillis: 5000, // Тайм-аут 5 секунд
+  });
 
   try {
-    // Простой запрос для проверки
-    // Используем sql template tag напрямую
     const startTime = Date.now();
-    await db.sql`SELECT 1`;
+    // 1. Проверка соединения
+    await pool.query('SELECT 1');
     const duration = Date.now() - startTime;
 
-    console.log(`DB Connected in ${duration}ms`);
+    console.log(`DB Connected in ${duration}ms using pg driver`);
 
-    // Создание таблиц
-    await db.sql`
+    // 2. Создаем таблицу клиентов
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS clients (
         id VARCHAR(255) PRIMARY KEY,
         contract VARCHAR(255),
@@ -39,9 +44,10 @@ export default async function handler(request: Request) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `;
+    `);
 
-    await db.sql`
+    // 3. Создаем таблицу истории
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS history (
         id SERIAL PRIMARY KEY,
         client_id VARCHAR(255),
@@ -50,19 +56,24 @@ export default async function handler(request: Request) {
         user_name VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `;
+    `);
 
-    await db.sql`
+    // 4. Создаем таблицу настроек
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS settings (
         key VARCHAR(255) PRIMARY KEY,
         value JSONB
       );
-    `;
+    `);
+    
+    // Закрываем пул после использования в setup (в API будем держать открытым)
+    await pool.end();
 
     return new Response(JSON.stringify({ 
       status: 'success', 
       message: '✅ База данных успешно инициализирована! Таблицы созданы.',
-      latency: duration
+      latency: duration,
+      driver: 'pg'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -71,10 +82,14 @@ export default async function handler(request: Request) {
   } catch (error: any) {
     console.error("Setup Error:", error);
     
+    // Попытка безопасно закрыть пул при ошибке
+    try { await pool.end(); } catch(e) {}
+
     return new Response(JSON.stringify({
         status: 'error',
         message: 'Ошибка настройки БД: ' + error.message,
-        details: error.toString()
+        details: error.toString(),
+        hint: error.code === 'ENOTFOUND' ? 'Проверьте хост в строке подключения (POSTGRES_URL).' : undefined
     }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
