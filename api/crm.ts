@@ -1,11 +1,7 @@
 import { Pool } from 'pg';
 
-// Cache the database pool for reuse across function invocations in Vercel environment
 let cachedPool: Pool | null = null;
 
-/**
- * Initializes and returns a PostgreSQL connection pool.
- */
 function getDbPool() {
     if (cachedPool) return cachedPool;
     const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
@@ -20,9 +16,6 @@ function getDbPool() {
     return cachedPool;
 }
 
-/**
- * Helper to send messages via Telegram Bot API.
- */
 async function crmSendMessage(chatId: string, message: string) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) return;
@@ -42,9 +35,6 @@ async function crmSendMessage(chatId: string, message: string) {
     }
 }
 
-/**
- * Helper to log history events into the Postgres database.
- */
 async function logHistory(pool: Pool, clientId: string, user: string, action: string, details: string) {
     try {
         await pool.query(
@@ -56,14 +46,9 @@ async function logHistory(pool: Pool, clientId: string, user: string, action: st
     }
 }
 
-/**
- * Main Vercel Serverless Function handler for CRM API requests.
- */
 export default async function handler(req: any, res: any) {
-    // Only allow POST requests for this endpoint
     if (req.method !== 'POST') return res.status(405).end();
     
-    // Fix: Define body, action, user, pool, and result variables in the handler scope to resolve 1-based line errors
     const body = req.body;
     const action = body.action;
     const user = body.user || 'System';
@@ -77,18 +62,16 @@ export default async function handler(req: any, res: any) {
                 break;
 
             case 'get_client_by_chatid':
-                // Fix: Find client data by Chat ID using pg pool as used in line 19
                 const gcRes2 = await pool.query(`
                     SELECT data FROM clients 
                     WHERE (data->>'Chat ID' = $1 OR data->>'Chat ID' = $2)
                     AND is_archived = FALSE 
                     LIMIT 1
-                `, [body.chatId, String(body.chatId)]);
+                `, [String(body.chatId), String(body.chatId)]);
                 result = { status: 'success', client: gcRes2.rows[0]?.data };
                 break;
 
             case 'lk_pickup':
-                // Fix: Handle pickup request using provided snippet logic and defined helper functions
                 const pickupMsg = `🚗 <b>ЗАЯВКА НА ВЫДАЧУ (ЛК)</b>\n\n👤 <b>Клиент:</b> ${body.name}\n📄 <b>Договор:</b> <code>${body.contract}</code>\n🆔 <b>ChatID:</b> <code>${body.chatId}</code>`;
                 await crmSendMessage(process.env.ADMIN_CHAT_ID || body.chatId, pickupMsg);
                 await logHistory(pool, body.contract || 'LK', user, 'Заявка на выдачу', 'Через Mini App');
@@ -96,17 +79,23 @@ export default async function handler(req: any, res: any) {
                 break;
 
             case 'lk_extend':
-                // Fix: Handle extension request using provided snippet logic and defined helper functions
                 const extendMsg = `📅 <b>ЗАЯВКА НА ПРОДЛЕНИЕ (ЛК)</b>\n\n👤 <b>Клиент:</b> ${body.name}\n📄 <b>Договор:</b> <code>${body.contract}</code>\n🆔 <b>ChatID:</b> <code>${body.chatId}</code>`;
                 await crmSendMessage(process.env.ADMIN_CHAT_ID || body.chatId, extendMsg);
                 await logHistory(pool, body.contract || 'LK', user, 'Заявка на продление', 'Через Mini App');
                 result = { status: 'success' };
                 break;
 
+            case 'submit_lead':
+                const { phone, name, chatId: leadChatId, username } = body;
+                const leadMsg = `🔥 <b>НОВЫЙ ЛИД (Mini App)</b>\n\n👤 <b>Имя:</b> ${name}\n📞 <b>Тел:</b> <code>${phone}</code>\n🔗 <b>TG:</b> @${username || '-'}\n🆔 <b>ID:</b> <code>${leadChatId}</code>`;
+                await crmSendMessage(process.env.ADMIN_CHAT_ID || leadChatId, leadMsg);
+                await logHistory(pool, 'LEAD', user, 'Заявка от нового пользователя', `Лид: ${name}, тел: ${phone}`);
+                result = { status: 'success' };
+                break;
+
             case 'getclients':
-                // Implementation for fetching clients and archive for the Vercel backend
-                const clientsRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE');
-                const archiveRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE');
+                const clientsRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC');
+                const archiveRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC');
                 result = { 
                     status: 'success', 
                     clients: clientsRes.rows.map(r => r.data),
@@ -122,6 +111,11 @@ export default async function handler(req: any, res: any) {
             case 'gettemplates':
                 const templatesRes = await pool.query('SELECT data FROM templates');
                 result = { status: 'success', templates: templatesRes.rows.map(r => r.data) };
+                break;
+
+            case 'sendMessage':
+                await crmSendMessage(body.chatId, body.message);
+                result = { status: 'success', message: 'Sent' };
                 break;
         }
 

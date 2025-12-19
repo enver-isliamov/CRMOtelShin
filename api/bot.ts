@@ -146,9 +146,55 @@ async function handleCallback(pool: Pool, cb: any) {
             keyboard = { inline_keyboard: [[{ text: "⬅️ Назад", callback_data: "flow_lk" }]] };
             break;
 
-        default:
-            // Обработка остальных колбэков...
+        case 'lk_pickup':
+            await setSession(pool, chatId, 'lk_pickup_date', {});
+            text = "🚗 <b>Забрать шины</b>\n\nНапишите желаемую дату и время выдачи (например: Завтра в 14:00):";
+            keyboard = { inline_keyboard: [[{ text: "❌ Отмена", callback_data: "flow_lk" }]] };
             break;
+
+        case 'lk_extend':
+            const extClient = await findClientByChatId(pool, chatId);
+            if (!extClient) return;
+            const extState = { months: 1, hasRims: false };
+            await setSession(pool, chatId, 'ext_process', extState);
+            text = `📅 <b>Продление хранения</b>\n\nТекущий тариф: ${extClient['Цена за месяц']} ₽/мес.\nВыберите срок:`;
+            keyboard = getExtensionMenu(1, false);
+            break;
+
+        case 'ext_toggle_rims':
+            const currentExt = session.data || { months: 1, hasRims: false };
+            currentExt.hasRims = !currentExt.hasRims;
+            await setSession(pool, chatId, 'ext_process', currentExt);
+            text = `📅 <b>Продление хранения</b>\n\nНастройка опций:`;
+            keyboard = getExtensionMenu(currentExt.months, currentExt.hasRims);
+            break;
+
+        case 'ext_calc':
+            const c = await findClientByChatId(pool, chatId);
+            if (!c) return;
+            const s = session.data || { months: 1, hasRims: false };
+            const base = parseInt(c['Цена за месяц']) || 500;
+            const rimExtra = s.hasRims ? 100 : 0;
+            const total = (base + rimExtra) * s.months;
+            text = `💵 <b>Расчет продления</b>\n\nСрок: ${s.months} мес.\nДиски: ${s.hasRims ? 'Да' : 'Нет'}\n\n<b>Итого: ${total} ₽</b>\n\nЗаявка отправлена менеджеру, он свяжется для оплаты.`;
+            if (ADMIN_CHAT_ID) {
+                await sendTelegram('sendMessage', {
+                    chat_id: ADMIN_CHAT_ID,
+                    text: `💰 <b>ЗАЯВКА НА ПРОДЛЕНИЕ</b>\n\n👤 ${c['Имя клиента']}\n📄 Договор: ${c['Договор']}\n🗓 Срок: ${s.months} мес.\n💳 Сумма: ${total} ₽`,
+                    parse_mode: 'HTML'
+                });
+            }
+            keyboard = { inline_keyboard: [[{ text: "🏠 В меню", callback_data: "main_menu" }]] };
+            break;
+    }
+    
+    if (data.startsWith('ext_set_m_')) {
+        const m = parseInt(data.split('_')[3]);
+        const cur = session.data || { months: 1, hasRims: false };
+        cur.months = m;
+        await setSession(pool, chatId, 'ext_process', cur);
+        text = `📅 <b>Продление хранения</b>\n\nВыбрано: ${m} мес.`;
+        keyboard = getExtensionMenu(m, cur.hasRims);
     }
 
     if (text) {
@@ -169,7 +215,7 @@ async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
         [phone]
     );
 
-    if (res.rowCount > 0) {
+    if (res.rows.length > 0) {
         const client = res.rows[0].data;
         const clientId = res.rows[0].id;
         client['Chat ID'] = chatId;
@@ -213,7 +259,6 @@ async function handlePickupRequest(pool: Pool, chatId: string, text: string) {
     return sendTelegram('sendMessage', { chat_id: chatId, text: "✅ Заявка на выдачу принята!", reply_markup: getMainMenu() });
 }
 
-// Вспомогательные функции...
 async function getSession(pool: Pool, chatId: string) {
     const res = await pool.query('SELECT state, data FROM bot_sessions WHERE chat_id = $1', [chatId]);
     return res.rows[0] || { state: null, data: {} };
@@ -224,7 +269,7 @@ async function setSession(pool: Pool, chatId: string, state: string | null, data
 }
 
 async function findClientByChatId(pool: Pool, chatId: string) {
-    const res = await pool.query(`SELECT data FROM clients WHERE (data->>'Chat ID' = $1 OR data->>'Chat ID' = $2) AND is_archived = FALSE LIMIT 1`, [chatId, parseInt(chatId) || 0]);
+    const res = await pool.query(`SELECT data FROM clients WHERE (data->>'Chat ID' = $1 OR data->>'Chat ID' = $2) AND is_archived = FALSE LIMIT 1`, [chatId, chatId]);
     return res.rows[0]?.data;
 }
 
@@ -270,7 +315,7 @@ function getExtensionMenu(months: number, hasRims: boolean) {
         inline_keyboard: [
             [{ text: (months === 1 ? "✅ " : "") + "1 мес", callback_data: "ext_set_m_1" }, { text: (months === 6 ? "✅ " : "") + "6 мес", callback_data: "ext_set_m_6" }, { text: (months === 12 ? "✅ " : "") + "12 мес", callback_data: "ext_set_m_12" }],
             [{ text: (hasRims ? "✅" : "⬜") + " С дисками (+100₽/мес)", callback_data: "ext_toggle_rims" }],
-            [{ text: "🧮 Расчитать", callback_data: "ext_calc" }],
+            [{ text: "🧮 Рассчитать", callback_data: "ext_calc" }],
             [{ text: "⬅️ Назад", callback_data: "flow_lk" }]
         ]
     };
