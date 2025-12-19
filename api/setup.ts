@@ -1,4 +1,3 @@
-
 import { Pool } from 'pg';
 
 export default async function handler(req: any, res: any) {
@@ -18,12 +17,10 @@ export default async function handler(req: any, res: any) {
   // Очистка строки подключения от sslmode если она уже есть (библиотека pg может конфликтовать)
   let cleanConnectionString = connectionString;
   try {
-      if (cleanConnectionString.includes('sslmode=')) {
-          const url = new URL(cleanConnectionString);
-          url.searchParams.delete('sslmode');
-          url.searchParams.delete('sslrootcert');
-          cleanConnectionString = url.toString();
-      }
+      const url = new URL(cleanConnectionString);
+      url.searchParams.delete('sslmode');
+      url.searchParams.delete('sslrootcert');
+      cleanConnectionString = url.toString();
   } catch (e) {
       console.warn("Setup: Failed to normalize connection string", e);
   }

@@ -1,13 +1,25 @@
-
 import { Pool } from 'pg';
 
 let cachedPool: Pool | null = null;
 
+function getCleanConnectionString(url: string) {
+  try {
+    const connectionUrl = new URL(url);
+    connectionUrl.searchParams.delete('sslmode');
+    connectionUrl.searchParams.delete('sslrootcert');
+    return connectionUrl.toString();
+  } catch (e) {
+    return url;
+  }
+}
+
 function getDbPool() {
     if (cachedPool) return cachedPool;
-    const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
-    if (!connectionString) throw new Error("POSTGRES_URL is not defined");
+    const rawConnectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+    if (!rawConnectionString) throw new Error("POSTGRES_URL is not defined");
     
+    const connectionString = getCleanConnectionString(rawConnectionString);
+
     cachedPool = new Pool({
         connectionString,
         ssl: { rejectUnauthorized: false },

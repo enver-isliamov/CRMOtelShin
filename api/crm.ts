@@ -1,23 +1,35 @@
-
 import { Pool } from 'pg';
 
 let cachedPool: Pool | null = null;
+
+// Clean connection string to prevent conflicts with JS config
+function getCleanConnectionString(url: string) {
+  try {
+    const connectionUrl = new URL(url);
+    connectionUrl.searchParams.delete('sslmode');
+    connectionUrl.searchParams.delete('sslrootcert');
+    return connectionUrl.toString();
+  } catch (e) {
+    return url;
+  }
+}
 
 // Initialize or retrieve the Postgres database pool.
 function getDbPool() {
   if (cachedPool) return cachedPool;
   
-  // Vercel может предоставлять разные имена переменных в зависимости от настроек Storage
-  const connectionString = 
+  const rawConnectionString = 
     process.env.POSTGRES_URL || 
     process.env.STOREGE_POSTGRES_URL || 
     process.env.POSTGRES_URL_NON_POOLING || 
     process.env.DATABASE_URL;
 
-  if (!connectionString) {
+  if (!rawConnectionString) {
     console.error("DATABASE_ERROR: No connection string found in environment variables.");
     throw new Error("POSTGRES_URL is not defined. Check Vercel Environment Variables.");
   }
+
+  const connectionString = getCleanConnectionString(rawConnectionString);
   
   cachedPool = new Pool({
     connectionString,
@@ -252,8 +264,8 @@ export default async function handler(req: any, res: any) {
         }
         if (payload.masters && Array.isArray(payload.masters)) {
             for (const m of payload.masters) {
-                await pool.push(pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
-                [m.id || `m_${Date.now()}_${Math.random()}`, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]));
+                await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+                [m.id || `m_${Date.now()}_${Math.random()}`, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
             }
         }
         if (payload.templates && Array.isArray(payload.templates)) {
