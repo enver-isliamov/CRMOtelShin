@@ -5,39 +5,42 @@ export default async function handler(req: any, res: any) {
   let connectionString = 
     process.env.POSTGRES_URL || 
     process.env.STOREGE_POSTGRES_URL || 
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.DATABASE_URL;
+    process.env.STOREGE_POSTGRES_URL_NON_POOLING;
   
   if (!connectionString) {
       return res.status(500).json({ 
           status: 'error', 
-          message: 'Connection string not found. Please set POSTGRES_URL in Vercel project settings.' 
+          message: 'Connection string not found. Please set POSTGRES_URL env var.' 
       });
   }
 
-  // Очистка строки подключения от sslmode если она уже есть (библиотека pg может конфликтовать)
-  let cleanConnectionString = connectionString;
+  // Очистка строки подключения от sslmode для предотвращения конфликтов
   try {
-      if (cleanConnectionString.includes('sslmode=')) {
-          const url = new URL(cleanConnectionString);
+      if (connectionString.includes('sslmode=')) {
+          const url = new URL(connectionString);
           url.searchParams.delete('sslmode');
           url.searchParams.delete('sslrootcert');
-          cleanConnectionString = url.toString();
+          connectionString = url.toString();
       }
   } catch (e) {
-      console.warn("Setup: Failed to normalize connection string", e);
+      console.warn("Setup: Failed to clean connection string", e);
   }
 
+  // Создаем пул
   const pool = new Pool({
-    connectionString: cleanConnectionString,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000,
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    },
+    connectionTimeoutMillis: 5000,
   });
 
   try {
     const startTime = Date.now();
     await pool.query('SELECT 1');
     const duration = Date.now() - startTime;
+
+    console.log(`DB Connected in ${duration}ms using pg driver`);
 
     // 1. Таблица Клиентов
     await pool.query(`
@@ -98,7 +101,7 @@ export default async function handler(req: any, res: any) {
       );
     `);
 
-    // 6. Таблица Сессий Бота
+    // 6. Таблица Сессий Бота (НОВОЕ)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bot_sessions (
         chat_id VARCHAR(50) PRIMARY KEY,
@@ -112,8 +115,9 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ 
       status: 'success', 
-      message: 'База данных успешно инициализирована и готова к работе!',
-      latency: duration
+      message: '✅ База данных (включая bot_sessions) успешно инициализирована!',
+      latency: duration,
+      driver: 'pg'
     });
 
   } catch (error: any) {
@@ -123,8 +127,7 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({
         status: 'error',
         message: 'Ошибка настройки БД: ' + error.message,
-        details: error.toString(),
-        hint: "Убедитесь, что вы создали Storage (Postgres) в Vercel и подключили его к проекту."
+        details: error.toString()
     });
   }
 }
