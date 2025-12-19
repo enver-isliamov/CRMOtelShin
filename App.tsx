@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { User, UserRole, Client, Master, Settings as SettingsType, MessageTemplate, SavedView } from './types';
@@ -13,7 +12,6 @@ import { TelegramLK } from './components/TelegramLK';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 import { ThemeSwitcher } from './components/ui/ThemeSwitcher';
 
-// Fix: Implement a basic Layout component to wrap the app navigation and main content
 const Layout: React.FC<{ user: User | null, onLogout: () => void, children: React.ReactNode, navDisabled?: boolean }> = ({ user, onLogout, children, navDisabled }) => {
   const location = useLocation();
   const isTg = location.pathname === '/tg-lk';
@@ -53,7 +51,6 @@ const Layout: React.FC<{ user: User | null, onLogout: () => void, children: Reac
   );
 };
 
-// Fix: Restore states and use proper React.FC definition to avoid type errors
 export const App: React.FC = () => {
     const [clients, setClients] = useState<Client[]>([]);
     const [archive, setArchive] = useState<Client[]>([]);
@@ -76,7 +73,6 @@ export const App: React.FC = () => {
         setToasts(prev => prev.filter(t => t.id !== id));
     }, []);
 
-    // Fix: Restore refreshData function to handle data loading
     const refreshData = useCallback(async () => {
         try {
             const [clientData, templateData, masterData, settingsData] = await Promise.all([
@@ -121,7 +117,6 @@ export const App: React.FC = () => {
         <HashRouter>
             <ToastContainer toasts={toasts} removeToast={removeToast} />
             <Routes>
-                {/* Отдельный роут для ТГ без основного Layout CRM */}
                 <Route path="/tg-lk" element={<TelegramLK />} />
                 
                 <Route path="/*" element={
