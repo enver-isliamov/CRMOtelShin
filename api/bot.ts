@@ -39,7 +39,6 @@ export default async function handler(req: any, res: any) {
         return res.status(200).send('OK');
     } catch (error: any) {
         console.error('[BOT ERROR]', error);
-        // Возвращаем 200, чтобы Телеграм не заспамил повторами при ошибке кода
         return res.status(200).send('OK');
     }
 }
@@ -50,7 +49,6 @@ async function handleMessage(pool: Pool, msg: any) {
     const chatId = String(msg.chat.id);
     const text = msg.text?.trim();
     
-    // Обработка кнопки "Поделиться контактом" для авторизации
     if (msg.contact) {
         return handleContactAuth(pool, chatId, msg.contact);
     }
@@ -64,27 +62,25 @@ async function handleMessage(pool: Pool, msg: any) {
         await setSession(pool, chatId, null, {});
         return sendTelegram('sendMessage', {
             chat_id: chatId,
-            text: "👋 <b>Добро пожаловать!</b>\n\nЯ помогу вам управлять хранением ваших шин. Выберите нужное действие в меню ниже:",
+            text: "👋 <b>Добро пожаловать в Отель Шин!</b>\n\nЯ ваш персональный помощник по хранению и обслуживанию колес. Выберите нужное действие:",
             parse_mode: 'HTML',
             reply_markup: getMainMenu()
         });
     }
 
-    // Состояния flow (регистрация)
     if (session.state?.startsWith('signup_')) {
         return handleSignupFlow(pool, chatId, text, session);
     }
     
-    // Состояния flow (забрать шины)
     if (session.state === 'lk_pickup_date') {
         return handlePickupRequest(pool, chatId, text);
     }
 
-    // Если ничего не подошло
     if (msg.chat.type === 'private') {
         await sendTelegram('sendMessage', {
             chat_id: chatId,
-            text: "Извините, я не узнал эту команду. Нажмите /start для вызова главного меню."
+            text: "Извините, я не узнал эту команду. Нажмите /start для вызова главного меню.",
+            reply_markup: { inline_keyboard: [[{ text: "🏠 Главное меню", callback_data: "main_menu" }]] }
         });
     }
 }
@@ -108,12 +104,12 @@ async function handleCallback(pool: Pool, cb: any) {
             break;
 
         case 'info_prices':
-            text = "💰 <b>Наши цены (за комплект/мес):</b>\n\n• R13-R15: 500 ₽\n• R16-R19: 600 ₽\n• R20-R22: 700 ₽\n• R23+: 800 ₽\n\n<i>Хранение с дисками: +100 ₽ к тарифу.</i>";
+            text = "💰 <b>Наши цены (за комплект/мес):</b>\n\n• R13-R15: 500 ₽\n• R16-R19: 600 ₽\n• R20-R22: 700 ₽\n• R23+: 800 ₽\n\n<i>Хранение с дисками: +100 ₽ к тарифу за комплект.</i>";
             keyboard = { inline_keyboard: [[{ text: "⬅️ Назад", callback_data: "main_menu" }]] };
             break;
 
         case 'info_why':
-            text = "🏆 <b>Почему выбирают нас?</b>\n\n✅ <b>Безопасность:</b> Теплый охраняемый склад.\n✅ <b>Сервис:</b> Мойка, упаковка и проверка давления.\n✅ <b>Удобство:</b> Доставка шин от вашего дома.";
+            text = "🏆 <b>Почему выбирают нас?</b>\n\n✅ <b>Безопасность:</b> Теплый охраняемый склад.\n✅ <b>Сервис:</b> Мойка, упаковка и проверка давления.\n✅ <b>Удобство:</b> Доставка шин от вашего дома.\n✅ <b>Страхование:</b> Ваши колеса застрахованы на весь период.";
             keyboard = { inline_keyboard: [[{ text: "⬅️ Назад", callback_data: "main_menu" }]] };
             break;
 
@@ -129,19 +125,16 @@ async function handleCallback(pool: Pool, cb: any) {
                 text = `👤 <b>Личный кабинет</b>\n\n<b>Клиент:</b> ${client['Имя клиента']}\n<b>Авто:</b> ${client['Номер Авто'] || '-'}\n<b>Договор:</b> <code>${client['Договор']}</code>\n<b>Срок до:</b> ${formatDate(client['Окончание'])}`;
                 keyboard = getLkMenu(client);
             } else {
-                text = `❌ <b>Вы не авторизованы</b>\n\nЯ не нашел клиента с вашим ID (<code>${chatId}</code>).\n\nНажмите кнопку ниже, чтобы я нашел вас по номеру телефона.`;
-                keyboard = { 
-                    inline_keyboard: [],
-                    keyboard: [[{ text: "📱 Привязать номер телефона", request_contact: true }]],
-                    resize_keyboard: true,
-                    one_time_keyboard: true
-                };
-                // В Телеграме нельзя смешивать inline и обычные кнопки в одном сообщении эффективно
+                text = `❌ <b>Вы не авторизованы</b>\n\nНажмите кнопку ниже, чтобы я нашел вас по номеру телефона в базе CRM.`;
                 return sendTelegram('sendMessage', {
                     chat_id: chatId,
                     text: text,
                     parse_mode: 'HTML',
-                    reply_markup: keyboard
+                    reply_markup: { 
+                        keyboard: [[{ text: "📱 Привязать номер телефона", request_contact: true }]],
+                        resize_keyboard: true,
+                        one_time_keyboard: true
+                    }
                 });
             }
             break;
@@ -156,6 +149,37 @@ async function handleCallback(pool: Pool, cb: any) {
             await setSession(pool, chatId, 'lk_pickup_date', {});
             text = "🚗 <b>Забрать шины</b>\n\nНапишите желаемую дату и время (например: завтра в 10:00). Менеджер подтвердит заявку.";
             keyboard = { inline_keyboard: [[{ text: "⬅️ Отмена", callback_data: "flow_lk" }]] };
+            break;
+
+        case 'lk_referral':
+            text = "🎁 <b>Реферальная программа</b>\n\nПриведи друга и получи <b>1 месяц хранения в подарок</b>!\n\nВаш друг должен назвать ваше имя или номер договора при оформлении. Количество бонусов не ограничено!";
+            keyboard = { inline_keyboard: [[{ text: "⬅️ Назад", callback_data: "flow_lk" }]] };
+            break;
+
+        case 'menu_fitting':
+            text = "🔧 <b>Услуги шиномонтажа</b>\n\nМы предлагаем:\n\n1. <b>Стационарный шиномонтаж</b> в наших партнерских центрах со скидкой для клиентов Отеля Шин.\n2. <b>Выездной шиномонтаж</b> — приедем к вашему дому или офису.";
+            keyboard = { 
+                inline_keyboard: [
+                    [{ text: "📍 Партнерские центры", callback_data: "fitting_partners" }],
+                    [{ text: "🚚 Выездной сервис", callback_data: "fitting_mobile" }],
+                    [{ text: "⬅️ Назад", callback_data: "main_menu" }]
+                ] 
+            };
+            break;
+
+        case 'fitting_partners':
+            text = "📍 <b>Наши партнеры</b>\n\nСеть сервисов 'Авто-Стоп' и 'Шинный Двор'. Для записи со скидкой обратитесь к нашему менеджеру.";
+            keyboard = { inline_keyboard: [[{ text: "📞 Записаться", url: "https://t.me/OtelShinAdmin" }], [{ text: "⬅️ Назад", callback_data: "menu_fitting" }]] };
+            break;
+
+        case 'fitting_mobile':
+            text = "🚚 <b>Выездной шиномонтаж</b>\n\nПриедем в любую точку города. Стоимость выезда — от 1000 ₽ + работа по прайсу.\n\nИдеально для тех, кто ценит время!";
+            keyboard = { inline_keyboard: [[{ text: "📞 Вызвать мастера", url: "https://t.me/OtelShinAdmin" }], [{ text: "⬅️ Назад", callback_data: "menu_fitting" }]] };
+            break;
+
+        case 'menu_partners':
+            text = "🤝 <b>Партнёрские сервисы</b>\n\nНашим клиентам доступны привилегии у партнеров:\n\n• 🧽 Детейлинг и мойка (-15%)\n• 🛠 Техническое обслуживание (-10%)\n• 🧊 Заправка кондиционеров\n\nПодробности у менеджера.";
+            keyboard = { inline_keyboard: [[{ text: "📞 Узнать подробнее", url: "https://t.me/OtelShinAdmin" }], [{ text: "⬅️ Назад", callback_data: "main_menu" }]] };
             break;
 
         default:
@@ -190,16 +214,12 @@ async function handleCallback(pool: Pool, cb: any) {
 
 // --- FLOWS ---
 
-/**
- * Авторизация по кнопке "Поделиться контактом"
- */
 async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
     let phone = contact.phone_number;
     if (!phone.startsWith('+')) phone = '+' + phone;
 
     console.log(`[AUTH] User ${chatId} shared phone ${phone}`);
 
-    // Ищем клиента по телефону в Postgres
     const res = await pool.query(
         `SELECT id, data FROM clients WHERE phone = $1 OR data->>'Телефон' = $1 LIMIT 1`,
         [phone]
@@ -208,8 +228,6 @@ async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
     if (res.rowCount > 0) {
         const client = res.rows[0].data;
         const clientId = res.rows[0].id;
-        
-        // Привязываем Chat ID в объекте data
         client['Chat ID'] = chatId;
         
         await pool.query(
@@ -219,12 +237,11 @@ async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
 
         await sendTelegram('sendMessage', {
             chat_id: chatId,
-            text: `✅ <b>Успешно!</b>\n\nВы привязаны к договору №${client['Договор']}.\nТеперь вам доступен Личный кабинет.`,
+            text: `✅ <b>Успешно!</b>\n\nВаш аккаунт привязан. Теперь вы можете пользоваться Личным кабинетом.`,
             parse_mode: 'HTML',
-            reply_markup: { remove_keyboard: true } // Убираем кнопку контакта
+            reply_markup: { remove_keyboard: true }
         });
         
-        // Показываем меню ЛК
         const text = `👤 <b>Личный кабинет</b>\n\n<b>Клиент:</b> ${client['Имя клиента']}\n<b>Авто:</b> ${client['Номер Авто'] || '-'}\n<b>Договор:</b> <code>${client['Договор']}</code>\n<b>Срок до:</b> ${formatDate(client['Окончание'])}`;
         return sendTelegram('sendMessage', {
             chat_id: chatId,
@@ -236,7 +253,7 @@ async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
     } else {
         return sendTelegram('sendMessage', {
             chat_id: chatId,
-            text: `❌ Клиент с номером <b>${phone}</b> не найден в нашей базе.\n\nПожалуйста, свяжитесь с менеджером.`,
+            text: `❌ Номер <b>${phone}</b> не найден в базе.\n\nПожалуйста, свяжитесь с менеджером: @OtelShinAdmin`,
             parse_mode: 'HTML',
             reply_markup: { remove_keyboard: true }
         });
@@ -246,14 +263,14 @@ async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
 async function handleSignupFlow(pool: Pool, chatId: string, text: string, session: any) {
     if (session.state === 'signup_phone') {
         await setSession(pool, chatId, 'signup_car', { phone: text });
-        return sendTelegram('sendMessage', { chat_id: chatId, text: "✅ Записал.\n\nШаг 2/3. Введите номер авто (или '-' если не помните):" });
+        return sendTelegram('sendMessage', { chat_id: chatId, text: "✅ Принято.\n\nШаг 2/3. Введите номер авто (или '-' если нет):" });
     }
     if (session.state === 'signup_car') {
         await setSession(pool, chatId, 'signup_district', { ...session.data, car: text });
-        return sendTelegram('sendMessage', { chat_id: chatId, text: "✅ Принято.\n\nШаг 3/3. Укажите ваш адрес или район (для логистики):" });
+        return sendTelegram('sendMessage', { chat_id: chatId, text: "✅ Принято.\n\nШаг 3/3. Укажите ваш район или адрес для бесплатного вывоза:" });
     }
     if (session.state === 'signup_district') {
-        const report = `🔥 <b>НОВАЯ ЗАЯВКА ИЗ БОТА</b>\n\n<b>Тел:</b> ${session.data.phone}\n<b>Авто:</b> ${session.data.car}\n<b>Адрес:</b> ${text}\n<b>ChatID:</b> <code>${chatId}</code>`;
+        const report = `🔥 <b>НОВАЯ ЗАЯВКА</b>\n\n<b>Тел:</b> ${session.data.phone}\n<b>Авто:</b> ${session.data.car}\n<b>Адрес:</b> ${text}\n<b>ChatID:</b> <code>${chatId}</code>`;
         
         if (ADMIN_CHAT_ID) {
             await sendTelegram('sendMessage', { chat_id: ADMIN_CHAT_ID, text: report, parse_mode: 'HTML' });
@@ -262,7 +279,7 @@ async function handleSignupFlow(pool: Pool, chatId: string, text: string, sessio
         await setSession(pool, chatId, null, {});
         return sendTelegram('sendMessage', { 
             chat_id: chatId, 
-            text: "✅ <b>Заявка успешно отправлена!</b>\n\nМенеджер свяжется с вами в течение 15 минут для уточнения деталей.",
+            text: "✅ <b>Заявка принята!</b>\n\nМенеджер свяжется с вами в ближайшее время.",
             parse_mode: 'HTML',
             reply_markup: getMainMenu()
         });
@@ -280,7 +297,7 @@ async function handlePickupRequest(pool: Pool, chatId: string, text: string) {
     await setSession(pool, chatId, null, {});
     return sendTelegram('sendMessage', { 
         chat_id: chatId, 
-        text: "✅ <b>Заявка принята!</b>\n\nМы подготовим ваши шины. Менеджер напишет вам для подтверждения времени.", 
+        text: "✅ <b>Заявка принята!</b>\n\nОжидайте подтверждения времени от менеджера.", 
         parse_mode: 'HTML',
         reply_markup: getMainMenu() 
     });
@@ -294,14 +311,14 @@ async function handleExtensionCalc(pool: Pool, chatId: string, session: any) {
     if (session.data.hasRims) basePrice += 100;
     const total = basePrice * session.data.months;
 
-    const text = `💵 <b>Расчет продления</b>\n\n<b>Срок:</b> ${session.data.months} мес.\n<b>Диски:</b> ${session.data.hasRims ? 'Да' : 'Нет'}\n\n<b>Итого к оплате: ${total} ₽</b>\n\nОплатите по номеру телефона <code>+79780000000</code> и пришлите скриншот чека в этот чат.`;
+    const text = `💵 <b>Расчет продления</b>\n\n<b>Срок:</b> ${session.data.months} мес.\n<b>Диски:</b> ${session.data.hasRims ? 'Да' : 'Нет'}\n\n<b>Итого к оплате: ${total} ₽</b>\n\nДля оплаты свяжитесь с менеджером или используйте реквизиты из договора.`;
     
     await setSession(pool, chatId, null, {});
     return sendTelegram('sendMessage', { 
         chat_id: chatId, 
         text, 
         parse_mode: 'HTML', 
-        reply_markup: { inline_keyboard: [[{ text: "🏠 В главное меню", callback_data: "main_menu" }]] } 
+        reply_markup: { inline_keyboard: [[{ text: "🏠 Главное меню", callback_data: "main_menu" }]] } 
     });
 }
 
@@ -326,8 +343,6 @@ async function setSession(pool: Pool, chatId: string, state: string | null, data
 }
 
 async function findClientByChatId(pool: Pool, chatId: string) {
-    // Поиск по Chat ID внутри JSON-поля data
-    // Используем несколько вариантов приведения типов для надежности
     const res = await pool.query(`
         SELECT data FROM clients 
         WHERE (data->>'Chat ID' = $1 OR data->>'Chat ID' = $2)
@@ -344,7 +359,9 @@ function getMainMenu() {
         inline_keyboard: [
             [{ text: "📝 Записаться на хранение", callback_data: "flow_signup" }],
             [{ text: "👤 Личный кабинет", callback_data: "flow_lk" }],
-            [{ text: "💰 Цены", callback_data: "info_prices" }, { text: "ℹ️ Почему мы", callback_data: "info_why" }],
+            [{ text: "🔧 Шиномонтаж", callback_data: "menu_fitting" }],
+            [{ text: "💰 Цены", callback_data: "info_prices" }, { text: "🏆 Почему мы", callback_data: "info_why" }],
+            [{ text: "🤝 Партнёры", callback_data: "menu_partners" }],
             [{ text: "📞 Связаться с менеджером", url: "https://t.me/OtelShinAdmin" }]
         ]
     };
@@ -355,6 +372,7 @@ function getLkMenu(client: any) {
         inline_keyboard: [
             [{ text: "📅 Продлить хранение", callback_data: "lk_extend" }],
             [{ text: "🚗 Забрать шины", callback_data: "lk_pickup" }],
+            [{ text: "🎁 Реферальная программа", callback_data: "lk_referral" }],
             [{ text: "🏠 Главное меню", callback_data: "main_menu" }]
         ]
     };
