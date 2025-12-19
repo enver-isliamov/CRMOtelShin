@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Settings as SettingsType, MessageTemplate, Client, AppLog, Master } from '../types';
 import { api, getClientHeaders } from '../services/api';
@@ -89,6 +88,7 @@ const GeneralSettingsTab: React.FC<{
              try {
                  const res = await fetch('/api/crm', { 
                      method: 'POST', 
+                     headers: { 'Content-Type': 'application/json' },
                      body: JSON.stringify({ action: 'testconnection' }),
                      signal: controller.signal
                  });
@@ -142,6 +142,7 @@ const GeneralSettingsTab: React.FC<{
         try {
             const res = await fetch('/api/crm', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'set_bot_webhook' })
             });
             const result = await res.json();

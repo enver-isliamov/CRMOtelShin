@@ -38,7 +38,20 @@ export default async function handler(req: any, res: any) {
 
     try {
         const pool = getDbPool();
-        const update = req.body;
+        
+        // ROBUST BODY PARSING
+        let update = req.body;
+        if (typeof update === 'string') {
+            try {
+                update = JSON.parse(update);
+            } catch (e) {
+                console.error("Bot: Failed to parse string body", update);
+            }
+        }
+
+        if (!update || typeof update !== 'object') {
+            return res.status(200).send('OK'); // Always return OK to TG
+        }
 
         console.log(`[BOT] Incoming update ID: ${update.update_id}`);
 
@@ -55,8 +68,7 @@ export default async function handler(req: any, res: any) {
     }
 }
 
-// --- LOGIC ---
-
+// ... rest of the file stays same ...
 async function handleMessage(pool: Pool, msg: any) {
     const chatId = String(msg.chat.id);
     const text = msg.text?.trim();
@@ -224,8 +236,6 @@ async function handleCallback(pool: Pool, cb: any) {
     await sendTelegram('answerCallbackQuery', { callback_query_id: cb.id });
 }
 
-// --- FLOWS ---
-
 async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
     let phone = contact.phone_number;
     if (!phone.startsWith('+')) phone = '+' + phone;
@@ -334,8 +344,6 @@ async function handleExtensionCalc(pool: Pool, chatId: string, session: any) {
     });
 }
 
-// --- DB HELPERS ---
-
 async function getSession(pool: Pool, chatId: string) {
     try {
         const res = await pool.query('SELECT state, data FROM bot_sessions WHERE chat_id = $1', [chatId]);
@@ -363,8 +371,6 @@ async function findClientByChatId(pool: Pool, chatId: string) {
     `, [chatId, parseInt(chatId) || 0]);
     return res.rows[0]?.data;
 }
-
-// --- UI HELPERS ---
 
 function getMainMenu() {
     return {

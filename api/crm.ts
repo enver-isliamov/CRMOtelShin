@@ -90,7 +90,20 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ status: 'error', message: "Configuration Error: " + e.message });
   }
 
-  const payload = req.body;
+  // ROBUST BODY PARSING
+  let payload = req.body;
+  if (typeof payload === 'string') {
+      try {
+          payload = JSON.parse(payload);
+      } catch (e) {
+          console.error("Failed to parse string body:", payload);
+      }
+  }
+
+  if (!payload || typeof payload !== 'object') {
+      return res.status(400).json({ status: 'error', message: 'Invalid request body (JSON expected)' });
+  }
+
   const action = payload.action;
   const user = payload.user || 'System';
   
