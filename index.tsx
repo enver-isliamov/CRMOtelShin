@@ -1,7 +1,7 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from './App';
+// Fix: App is a default export in App.tsx, importing it without braces.
+import App from './App';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 const rootElement = document.getElementById('root');
