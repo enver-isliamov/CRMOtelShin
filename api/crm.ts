@@ -1,373 +1,274 @@
-
 import { Pool } from 'pg';
 
-// Используем глобальную переменную для кэширования пула между вызовами функции (Cold Start optimization)
 let cachedPool: Pool | null = null;
 
+// Initialize or retrieve the Postgres database pool.
 function getDbPool() {
-    if (cachedPool) {
-        return cachedPool;
-    }
+  if (cachedPool) return cachedPool;
+  const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
+  if (!connectionString) throw new Error("POSTGRES_URL is not defined");
+  
+  cachedPool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    connectionTimeoutMillis: 10000,
+  });
+  return cachedPool;
+}
 
-    let connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
-    
-    if (!connectionString) {
-        throw new Error("POSTGRES_URL environment variable is not defined");
-    }
+// Log an action to the history table.
+async function logHistory(pool: Pool, clientId: string, user: string, action: string, details: string) {
+  await pool.query(
+    'INSERT INTO history (client_id, user_name, action, details) VALUES ($1, $2, $3, $4)',
+    [clientId, user, action, details]
+  );
+}
 
-    try {
-        if (connectionString.includes('sslmode=')) {
-            const url = new URL(connectionString);
-            url.searchParams.delete('sslmode');
-            url.searchParams.delete('sslrootcert');
-            url.searchParams.delete('sslcert');
-            url.searchParams.delete('sslkey');
-            connectionString = url.toString();
-        }
-    } catch (e) {
-        console.warn("Failed to parse/clean connection string URL", e);
-    }
+// Send a Telegram message using the bot token from environment variables.
+async function crmSendMessage(chatId: string | number, message: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  
+  const sanitized = message
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<p.*?>/gi, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
 
-    cachedPool = new Pool({
-        connectionString,
-        ssl: {
-            rejectUnauthorized: false
-        },
-        max: 5,
-        connectionTimeoutMillis: 10000,
-        idleTimeoutMillis: 30000,
-    });
-
-    cachedPool.on('error', (err) => {
-        console.error('Unexpected error on idle PostgreSQL client', err);
-    });
-
-    return cachedPool;
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: String(chatId),
+      text: sanitized,
+      parse_mode: 'HTML'
+    })
+  });
 }
 
 export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ status: 'error', message: 'Method not allowed' });
-  }
-
+  if (req.method !== 'POST') return res.status(405).end();
+  
+  const pool = getDbPool();
+  const payload = req.body;
+  const action = payload.action;
+  const user = payload.user || 'System';
+  
+  let result: any = { status: 'success' };
+  
   try {
-    const pool = getDbPool();
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    
-    if (!body || !body.action) {
-        return res.status(400).json({ status: 'error', message: 'Missing action in body' });
-    }
-
-    const action = body.action;
-    const user = body.user || 'System';
-    
-    console.log(`[CRM API] Action: ${action}, User: ${user}`);
-
-    let result;
-
     switch (action) {
-      case 'testconnection':
-        await pool.query('SELECT 1');
-        result = { status: 'success', message: 'Postgres (pg) Connected!', version: 'Vercel-PG-Full-1.0' };
-        break;
-
-      // --- CLIENTS ---
       case 'getclients':
-        const clientsRes = await pool.query(`SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC`);
-        const archiveRes = await pool.query(`SELECT data FROM clients WHERE is_archived = TRUE ORDER BY created_at DESC LIMIT 500`);
-        result = {
-          status: 'success',
-          clients: clientsRes.rows.map(row => row.data),
-          archive: archiveRes.rows.map(row => row.data),
-          headers: [] 
-        };
+        // Fetch active and archived clients.
+        const clientsRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE');
+        const archiveRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE');
+        result.clients = clientsRes.rows.map(r => r.data);
+        result.archive = archiveRes.rows.map(r => r.data);
         break;
 
       case 'add':
-        const newClient = body.client;
-        if (!newClient.id) newClient.id = `vc_${Date.now()}`; 
+        // Insert a new client record.
+        const newClient = payload.client;
         await pool.query(
-          `INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
-           VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-          [
-            newClient.id, newClient['Договор'] || '', newClient['Имя клиента'] || '', 
-            newClient['Телефон'] || '', newClient['Статус сделки'] || 'На складе', JSON.stringify(newClient)
-          ]
+          'INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [newClient.id, newClient['Договор'], newClient['Имя клиента'], newClient['Телефон'], newClient['Статус сделки'], false, JSON.stringify(newClient)]
         );
-        await logHistory(pool, newClient.id, user, 'Клиент создан', 'New record');
-        result = { status: 'success', newId: newClient.id };
+        await logHistory(pool, newClient.id, user, 'Клиент создан', 'Добавлен через CRM');
         break;
 
       case 'update':
-        const clientToUpdate = body.client;
-        const id = clientToUpdate.id;
+        // Update an existing client record.
+        const updatedClient = payload.client;
         await pool.query(
-          `UPDATE clients SET contract=$1, name=$2, phone=$3, status=$4, data=data || $5::jsonb, updated_at=NOW() WHERE id=$6`,
-           [
-             clientToUpdate['Договор'], clientToUpdate['Имя клиента'], clientToUpdate['Телефон'], 
-             clientToUpdate['Статус сделки'], JSON.stringify(clientToUpdate), id
-           ]
+          'UPDATE clients SET contract = $1, name = $2, phone = $3, status = $4, data = $5, updated_at = NOW() WHERE id = $6',
+          [updatedClient['Договор'], updatedClient['Имя клиента'], updatedClient['Телефон'], updatedClient['Статус сделки'], JSON.stringify(updatedClient), updatedClient.id]
         );
-        await logHistory(pool, id, user, 'Данные обновлены', 'Update record');
-        result = { status: 'success', message: 'Updated' };
-        break;
-
-      case 'reorder':
-        const oldClientId = body.oldClientId;
-        const newOrderData = body.client;
-        const dbClient = await pool.connect();
-        try {
-            await dbClient.query('BEGIN');
-            await dbClient.query(`UPDATE clients SET is_archived = TRUE, status = 'В архиве', updated_at = NOW() WHERE id = $1`, [oldClientId]);
-            if (!newOrderData.id || newOrderData.id === oldClientId) { newOrderData.id = `vc_ro_${Date.now()}`; }
-            await dbClient.query(
-              `INSERT INTO clients (id, contract, name, phone, status, data, is_archived)
-               VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-              [
-                newOrderData.id, newOrderData['Договор'] || '', newOrderData['Имя клиента'] || '',
-                newOrderData['Телефон'] || '', newOrderData['Статус сделки'] || 'На складе', JSON.stringify(newOrderData)
-              ]
-            );
-            await logHistory(dbClient, oldClientId, user, 'Архивация (Reorder)', 'Moved to archive');
-            await logHistory(dbClient, newOrderData.id, user, 'Новый заказ (Reorder)', 'Created from previous');
-            await dbClient.query('COMMIT');
-        } catch (e) {
-            await dbClient.query('ROLLBACK');
-            throw e;
-        } finally {
-            dbClient.release();
-        }
-        result = { status: 'success', message: 'Reordered', newId: newOrderData.id };
+        await logHistory(pool, updatedClient.id, user, 'Данные обновлены', 'Изменено в CRM');
         break;
 
       case 'delete':
-        await pool.query(`DELETE FROM clients WHERE id = $1`, [body.clientId]);
-        result = { status: 'success', message: 'Deleted' };
+        // Permanently delete a client.
+        await pool.query('DELETE FROM clients WHERE id = $1', [payload.clientId]);
         break;
 
-      // --- MASTERS ---
-      case 'getmasters':
-        const mastersRes = await pool.query(`SELECT data FROM masters ORDER BY created_at DESC`);
-        result = { status: 'success', masters: mastersRes.rows.map(row => row.data) };
+      case 'bulkdelete':
+        // Delete multiple clients at once.
+        await pool.query('DELETE FROM clients WHERE id = ANY($1)', [payload.clientIds]);
         break;
 
-      case 'addmaster':
-        const newMaster = body.master;
-        if (!newMaster.id) newMaster.id = `m_${Date.now()}`;
+      case 'reorder':
+        // Transition an existing client to archive and create a new active record.
+        const oldId = payload.oldClientId;
+        const freshData = payload.client;
+        await pool.query('UPDATE clients SET is_archived = TRUE WHERE id = $1', [oldId]);
         await pool.query(
-            `INSERT INTO masters (id, name, chat_id, phone, services, address, data)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-                newMaster.id, newMaster['Имя'], newMaster['chatId (Telegram)'], 
-                newMaster['Телефон'], newMaster['Услуга'], newMaster['Адрес'], JSON.stringify(newMaster)
-            ]
+            'INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [freshData.id, freshData['Договор'], freshData['Имя клиента'], freshData['Телефон'], freshData['Статус сделки'], false, JSON.stringify(freshData)]
         );
-        result = { status: 'success', message: 'Master added' };
+        await logHistory(pool, oldId, user, 'Заказ архивирован', 'Перенос в архив');
+        await logHistory(pool, freshData.id, user, 'Новый заказ создан', 'Повторный заказ');
         break;
 
-      case 'updatemaster':
-        const mUpd = body.master;
-        await pool.query(
-            `UPDATE masters SET name=$1, chat_id=$2, phone=$3, services=$4, address=$5, data=$6 WHERE id=$7`,
-            [
-                mUpd['Имя'], mUpd['chatId (Telegram)'], mUpd['Телефон'], 
-                mUpd['Услуга'], mUpd['Адрес'], JSON.stringify(mUpd), mUpd.id
-            ]
-        );
-        result = { status: 'success', message: 'Master updated' };
+      case 'getarchived':
+        // Fetch all archived orders for a specific client based on their phone number.
+        const clientLookupRes = await pool.query('SELECT data->>\'Телефон\' as phone FROM clients WHERE id = $1', [payload.clientId]);
+        if (clientLookupRes.rowCount > 0) {
+            const phone = clientLookupRes.rows[0].phone;
+            const archRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE AND (phone = $1 OR data->>\'Телефон\' = $1)', [phone]);
+            result.orders = archRes.rows.map(r => r.data);
+        } else {
+            result.orders = [];
+        }
         break;
 
-      case 'deletemaster':
-        await pool.query(`DELETE FROM masters WHERE id=$1`, [body.masterId]);
-        result = { status: 'success', message: 'Master deleted' };
-        break;
-
-      // --- TEMPLATES ---
       case 'gettemplates':
-        const tplRes = await pool.query(`SELECT data FROM templates`);
-        result = { status: 'success', templates: tplRes.rows.map(row => row.data) };
+        // Retrieve message templates.
+        const tRes = await pool.query('SELECT name as "Название шаблона", content as "Содержимое (HTML)" FROM templates');
+        result.templates = tRes.rows;
         break;
 
       case 'addtemplate':
+        // Add a new message template.
+        await pool.query('INSERT INTO templates (name, content) VALUES ($1, $2)', [payload.template['Название шаблона'], payload.template['Содержимое (HTML)']]);
+        break;
+
       case 'updatetemplate':
-        const tpl = body.template;
-        const tplName = tpl['Название шаблона'];
-        await pool.query(
-            `INSERT INTO templates (name, content, data) VALUES ($1, $2, $3)
-             ON CONFLICT (name) DO UPDATE SET content=EXCLUDED.content, data=EXCLUDED.data, updated_at=NOW()`,
-            [tplName, tpl['Содержимое (HTML)'], JSON.stringify(tpl)]
-        );
-        result = { status: 'success', message: 'Template saved' };
+        // Update an existing message template.
+        await pool.query('UPDATE templates SET content = $1, updated_at = NOW() WHERE name = $2', [payload.template['Содержимое (HTML)'], payload.template['Название шаблона']]);
         break;
 
       case 'deletetemplate':
-        await pool.query(`DELETE FROM templates WHERE name=$1`, [body.templateName]);
-        result = { status: 'success', message: 'Template deleted' };
+        // Delete a message template.
+        await pool.query('DELETE FROM templates WHERE name = $1', [payload.templateName]);
         break;
 
-      // --- MESSAGING ---
-      case 'sendMessage':
-        result = await crmSendMessage(body.chatId, body.message);
+      case 'get_client_by_chatid':
+        // Find an active client by their Telegram Chat ID.
+        const gcRes2 = await pool.query(`
+            SELECT data FROM clients 
+            WHERE (data->>'Chat ID' = $1 OR data->>'Chat ID' = $2)
+            AND is_archived = FALSE 
+            LIMIT 1
+        `, [payload.chatId, String(payload.chatId)]);
+        result.client = gcRes2.rows[0]?.data;
         break;
 
-      case 'bulksend':
-        result = await crmBulkSendMessage(pool, body.clientIds, body.templateName);
+      case 'submit_lead':
+        // Handle a new lead from the Mini App.
+        const { phone: leadPhone, name: leadName, chatId: leadChatId, username: leadUsername } = payload;
+        const adminMsg = `🔥 <b>НОВЫЙ ЛИД ИЗ MINI APP</b>\n\n👤 <b>Имя:</b> ${leadName}\n📞 <b>Тел:</b> <code>${leadPhone}</code>\n🔗 <b>TG:</b> @${leadUsername || '—'}\n🆔 <b>ID:</b> <code>${leadChatId}</code>`;
+        await crmSendMessage(process.env.ADMIN_CHAT_ID || leadChatId, adminMsg);
+        await logHistory(pool, 'LEAD', user, 'Новая заявка (Mini App)', `Лид: ${leadName}, ${leadPhone}`);
+        result.message = 'Lead submitted';
         break;
 
-      // --- BOT SETUP (6.5) ---
-      case 'set_bot_webhook':
-        result = await crmSetupBotWebhook(req);
+      case 'getmasters':
+        // Fetch masters directory.
+        const mRes = await pool.query('SELECT id, name as "Имя", chat_id as "chatId (Telegram)", services as "Услуга", phone as "Телефон", address as "Адрес" FROM masters');
+        result.masters = mRes.rows;
         break;
 
-      // --- IMPORT / MIGRATION ---
-      case 'import':
-        // (Логика импорта сохранена)
-        result = { status: 'success', message: 'Import logic is present' };
+      case 'addmaster':
+        // Add a new master.
+        const masterToAdd = payload.master;
+        await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6)', [masterToAdd.id, masterToAdd['Имя'], masterToAdd['chatId (Telegram)'], masterToAdd['Услуга'], masterToAdd['Телефон'], masterToAdd['Адрес']]);
         break;
-        
-      case 'reset_db':
-         await pool.query('TRUNCATE TABLE clients, masters, templates, history, bot_sessions');
-         result = { status: 'success', message: 'База данных полностью очищена.' };
-         break;
-        
+
+      case 'updatemaster':
+        // Update an existing master record.
+        const masterToUpdate = payload.master;
+        await pool.query('UPDATE masters SET name = $1, chat_id = $2, services = $3, phone = $4, address = $5 WHERE id = $6', [masterToUpdate['Имя'], masterToUpdate['chatId (Telegram)'], masterToUpdate['Услуга'], masterToUpdate['Телефон'], masterToUpdate['Адрес'], masterToUpdate.id]);
+        break;
+
+      case 'deletemaster':
+        // Delete a master record.
+        await pool.query('DELETE FROM masters WHERE id = $1', [payload.masterId]);
+        break;
+
       case 'gethistory':
-         const historyRes = await pool.query(`SELECT * FROM history WHERE client_id = $1 ORDER BY created_at DESC`, [body.clientId]);
-         result = { status: 'success', history: historyRes.rows.map(row => ({ id: row.id, clientId: row.client_id, timestamp: row.created_at, user: row.user_name, action: row.action, details: row.details })) };
-         break;
+        // Fetch history events for a specific client.
+        const hRes = await pool.query('SELECT * FROM history WHERE client_id = $1 ORDER BY created_at DESC', [payload.clientId]);
+        result.history = hRes.rows.map(r => ({
+            id: String(r.id),
+            clientId: r.client_id,
+            timestamp: r.created_at.toISOString(),
+            user: r.user_name,
+            action: r.action,
+            details: r.details
+        }));
+        break;
 
+      case 'getlogs':
+        // Fetch system logs (last 50 events from history).
+        const lRes = await pool.query('SELECT created_at as timestamp, \'INFO\' as level, user_name as user, action, details as message, details FROM history ORDER BY created_at DESC LIMIT 50');
+        result.logs = lRes.rows;
+        break;
+
+      case 'sendMessage':
+        // Send an individual Telegram message.
+        await crmSendMessage(payload.chatId, payload.message);
+        result.message = "Сообщение отправлено";
+        break;
+
+      case 'reset_db':
+        // Destructive action: wipe the database (Vercel-only).
+        await pool.query('TRUNCATE clients, history, masters, templates, bot_sessions');
+        result.message = "Database reset successful";
+        break;
+
+      case 'testconnection':
+        // Simple test to verify DB connectivity.
+        await pool.query('SELECT 1');
+        result.message = "Connection successful";
+        break;
+
+      case 'set_bot_webhook':
+        // Set Telegram bot webhook to this Vercel deployment.
+        const botToken = process.env.TELEGRAM_BOT_TOKEN;
+        const webhookUrl = `https://${process.env.VERCEL_URL}/api/bot`;
+        const hookResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook?url=${webhookUrl}`);
+        const hookData = await hookResponse.json();
+        result.message = hookData.description || "Webhook updated";
+        break;
+
+      case 'import':
+        // Migration tool: Import data from Google Sheets to Postgres.
+        if (payload.clients && Array.isArray(payload.clients)) {
+            for (const c of payload.clients) {
+                await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
+                [c.id, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], false, JSON.stringify(c)]);
+            }
+        }
+        if (payload.archive && Array.isArray(payload.archive)) {
+            for (const c of payload.archive) {
+                await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
+                [c.id, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], true, JSON.stringify(c)]);
+            }
+        }
+        if (payload.masters && Array.isArray(payload.masters)) {
+            for (const m of payload.masters) {
+                await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+                [m.id || `m_${Date.now()}_${Math.random()}`, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
+            }
+        }
+        if (payload.templates && Array.isArray(payload.templates)) {
+            for (const t of payload.templates) {
+                await pool.query('INSERT INTO templates (name, content) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET content = EXCLUDED.content',
+                [t['Название шаблона'], t['Содержимое (HTML)']]);
+            }
+        }
+        break;
+        
       default:
-        result = { status: 'error', message: `Action ${action} not implemented in Vercel backend` };
+        result.status = 'error';
+        result.message = 'Unknown action: ' + action;
     }
 
     return res.status(200).json(result);
-
-  } catch (error: any) {
-    console.error('[CRM API] Error:', error);
-    return res.status(500).json({ status: 'error', message: (error as Error).message });
+  } catch (e: any) {
+    console.error("CRM Handler Error:", e);
+    return res.status(500).json({ status: 'error', message: e.message });
   }
-}
-
-async function logHistory(clientOrPool: any, clientId: string, user: string, action: string, details: string) {
-    try {
-        await clientOrPool.query(
-            `INSERT INTO history (client_id, action, details, user_name) VALUES ($1, $2, $3, $4)`,
-            [clientId, action, details, user]
-        );
-    } catch (e) { console.error("History log failed", e); }
-}
-
-/**
- * Отправка сообщения через Telegram API
- */
-async function crmSendMessage(chatId: string | number, message: string) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not defined in Vercel Environment Variables");
-
-    const sanitizedMessage = message
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<p.*?>/gi, '')
-        .replace(/&nbsp;/g, ' ')
-        .trim();
-
-    const payload: any = {
-        chat_id: String(chatId),
-        text: sanitizedMessage,
-        parse_mode: "HTML"
-    };
-
-    if (message.includes('ДЕТАЛИ ЗАКАЗА')) {
-        payload.reply_markup = {
-            inline_keyboard: [
-                [{ text: "📱 Личный кабинет", url: "https://t.me/OtelShinBot" }]
-            ]
-        };
-    }
-
-    const tgResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-
-    const resJson = await tgResponse.json();
-    if (!resJson.ok) {
-        throw new Error(`Telegram API error: ${resJson.description}`);
-    }
-
-    return { status: "success", message: "Sent" };
-}
-
-/**
- * Установка Webhook для бота на текущий домен Vercel
- */
-async function crmSetupBotWebhook(req: any) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) throw new Error("TELEGRAM_BOT_TOKEN не задан.");
-
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['host'];
-    const webhookUrl = `${protocol}://${host}/api/bot`;
-
-    console.log(`[Webhook Setup] Target URL: ${webhookUrl}`);
-
-    const tgResponse = await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${webhookUrl}`, {
-        method: 'GET'
-    });
-
-    const resJson = await tgResponse.json();
-    if (!resJson.ok) {
-        throw new Error(`Telegram API error: ${resJson.description}`);
-    }
-
-    return { status: "success", message: `Вебхук успешно установлен на ${webhookUrl}` };
-}
-
-/**
- * Массовая рассылка по списку ID клиентов
- */
-async function crmBulkSendMessage(pool: Pool, clientIds: string[], templateName: string) {
-    const tplRes = await pool.query('SELECT data FROM templates WHERE name = $1', [templateName]);
-    if (tplRes.rowCount === 0) throw new Error(`Шаблон "${templateName}" не найден.`);
-    const template = tplRes.rows[0].data;
-
-    const clientsRes = await pool.query('SELECT data FROM clients WHERE id = ANY($1)', [clientIds]);
-    const clients = clientsRes.rows.map(r => r.data);
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const client of clients) {
-        const chatId = client['Chat ID'];
-        if (chatId) {
-            let message = template['Содержимое (HTML)'];
-            Object.keys(client).forEach(key => {
-                const placeholder = new RegExp(`{{${key}}}`, 'g');
-                message = message.replace(placeholder, client[key] || '');
-            });
-
-            try {
-                await crmSendMessage(chatId, message);
-                successCount++;
-            } catch (e) {
-                console.error(`Failed to send to ${client.id}:`, e);
-                errorCount++;
-            }
-        } else {
-            errorCount++;
-        }
-    }
-
-    return { 
-        status: 'success', 
-        message: `Рассылка завершена. Успешно: ${successCount}, Ошибок: ${errorCount}` 
-    };
 }
