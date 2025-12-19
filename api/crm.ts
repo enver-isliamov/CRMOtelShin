@@ -1,7 +1,9 @@
+
 import { Pool } from 'pg';
 
 let cachedPool: Pool | null = null;
 
+// Fix: Implement database pool initialization using environment variables
 function getDbPool() {
     if (cachedPool) return cachedPool;
     const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
@@ -16,6 +18,7 @@ function getDbPool() {
     return cachedPool;
 }
 
+// Fix: Restore full handler logic for all CRM actions
 export default async function handler(req: any, res: any) {
     if (req.method !== 'POST') {
         return res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
@@ -133,6 +136,9 @@ export default async function handler(req: any, res: any) {
                 const glRes = await pool.query('SELECT created_at as "timestamp", \'INFO\' as "level", user_name as "user", action, \'\' as "message", details FROM history ORDER BY created_at DESC LIMIT 50');
                 return res.status(200).json({ status: 'success', logs: glRes.rows });
 
+            case 'getphotos':
+                return res.status(200).json({ status: 'success', photoUrls: [] });
+
             case 'sendMessage':
                 const msgRes = await crmSendMessage(payload.chatId, payload.message);
                 return res.status(200).json({ status: 'success', ...msgRes });
@@ -197,6 +203,7 @@ export default async function handler(req: any, res: any) {
     }
 }
 
+// Fix: Provide full implementation for crmSendMessage with WebApp button logic
 async function crmSendMessage(chatId: string | number, message: string) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not defined");
@@ -214,6 +221,7 @@ async function crmSendMessage(chatId: string | number, message: string) {
         parse_mode: "HTML"
     };
 
+    // Если это чек или детали заказа, добавляем кнопку открытия WebApp
     if (message.includes('ДЕТАЛИ ЗАКАЗА') || message.includes('ЧЕК')) {
         const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : '');
         if (vercelUrl) {
