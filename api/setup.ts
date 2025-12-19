@@ -77,7 +77,7 @@ export default async function handler(req: any, res: any) {
       );
     `);
 
-    // 4. Таблица Мастеров (НОВОЕ)
+    // 4. Таблица Мастеров
     await pool.query(`
       CREATE TABLE IF NOT EXISTS masters (
         id VARCHAR(255) PRIMARY KEY,
@@ -91,11 +91,21 @@ export default async function handler(req: any, res: any) {
       );
     `);
 
-    // 5. Таблица Шаблонов (НОВОЕ)
+    // 5. Таблица Шаблонов
     await pool.query(`
       CREATE TABLE IF NOT EXISTS templates (
         name VARCHAR(255) PRIMARY KEY,
         content TEXT,
+        data JSONB,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 6. Таблица Сессий Бота (НОВОЕ)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bot_sessions (
+        chat_id VARCHAR(50) PRIMARY KEY,
+        state VARCHAR(100),
         data JSONB,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -105,7 +115,7 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ 
       status: 'success', 
-      message: '✅ База данных (Clients, Masters, Templates) успешно инициализирована!',
+      message: '✅ База данных (включая bot_sessions) успешно инициализирована!',
       latency: duration,
       driver: 'pg'
     });

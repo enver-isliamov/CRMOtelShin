@@ -16,7 +16,7 @@ const CopyIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-
 const ServerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const CloudIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
 const ArrowPathIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.185m-3.18-3.183l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.185" /></svg>;
-const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const BotIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h.01M15 9h.01M9 15h6" /></svg>;
 
 const TabButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode, icon: React.ReactNode }> = ({ active, onClick, children, icon }) => (
     <button
@@ -33,13 +33,11 @@ const TabButton: React.FC<{ active: boolean, onClick: () => void, children: Reac
     </button>
 );
 
-// ... (CodeViewer component omitted for brevity, same as previous) ...
 const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) => void }> = ({ code, title, onCopy }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
         <div className="w-full max-w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-[#1e1e1e] shadow-sm overflow-hidden flex flex-col">
-            {/* Header Bar: Stack on mobile to prevent squashing */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 gap-2 sm:gap-0">
                 <span className="font-mono text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">
                     {title}
@@ -63,7 +61,6 @@ const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) =>
                 </div>
             </div>
 
-            {/* Content Area - WRAPPING ENABLED */}
             {isExpanded && (
                 <div className="w-full bg-[#1e1e1e] border-t border-gray-700">
                     <pre className="p-3 text-[10px] sm:text-xs leading-relaxed text-gray-300 font-mono w-full selection:bg-gray-600 whitespace-pre-wrap break-all">
@@ -75,13 +72,13 @@ const CodeViewer: React.FC<{ code: string; title: string; onCopy: (c: string) =>
     );
 };
 
-// ... (GeneralSettingsTab omitted as unchanged) ...
 const GeneralSettingsTab: React.FC<{ 
     settings: SettingsType, 
     onChange: (field: keyof SettingsType, value: any) => void,
     showToast: (message: string, type: 'success' | 'error') => void;
 }> = ({ settings, onChange, showToast }) => {
     const [isTesting, setIsTesting] = useState(false);
+    const [isUpdatingWebhook, setIsUpdatingWebhook] = useState(false);
 
     const handleTestConnection = async () => {
         if (settings.apiMode === 'VERCEL') {
@@ -140,6 +137,26 @@ const GeneralSettingsTab: React.FC<{
         }
     };
 
+    const handleUpdateWebhook = async () => {
+        setIsUpdatingWebhook(true);
+        try {
+            const res = await fetch('/api/crm', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'set_bot_webhook' })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                showToast(result.message, 'success');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (e: any) {
+            showToast(`Ошибка Webhook: ${e.message}`, 'error');
+        } finally {
+            setIsUpdatingWebhook(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             
@@ -188,18 +205,38 @@ const GeneralSettingsTab: React.FC<{
                     </div>
                 </div>
             ) : (
-                <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-black/5 dark:bg-white/5 rounded-lg">
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                        Используется база данных <b>Vercel Postgres</b>. Конфигурация через переменные окружения.
-                    </p>
-                    <Button 
-                        variant="outline" 
-                        onClick={handleTestConnection} 
-                        disabled={isTesting}
-                        className="w-full sm:w-auto"
-                    >
-                        {isTesting ? 'Проверка...' : 'Проверить соединение с БД'}
-                    </Button>
+                <div className="animate-in fade-in slide-in-from-top-2 space-y-4">
+                    <div className="p-4 bg-black/5 dark:bg-white/5 rounded-lg">
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                            Используется база данных <b>Vercel Postgres</b>. Конфигурация через переменные окружения.
+                        </p>
+                        <Button 
+                            variant="outline" 
+                            onClick={handleTestConnection} 
+                            disabled={isTesting}
+                            className="w-full sm:w-auto"
+                        >
+                            {isTesting ? 'Проверка...' : 'Проверить соединение с БД'}
+                        </Button>
+                    </div>
+
+                    {/* WEBHOOK SETUP SECTION (6.5) */}
+                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                        <h4 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">
+                            <BotIcon /> Настройка Telegram Webhook
+                        </h4>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-4">
+                            Нажмите кнопку ниже, чтобы переключить бота на новый эндпоинт Vercel (<code>/api/bot</code>). 
+                            Бот перестанет работать через Google Script и начнет использовать Postgres.
+                        </p>
+                        <Button 
+                            onClick={handleUpdateWebhook} 
+                            disabled={isUpdatingWebhook}
+                            className="!bg-indigo-600 hover:!bg-indigo-700 !text-white text-sm"
+                        >
+                            {isUpdatingWebhook ? 'Привязка...' : 'Привязать бота к Vercel'}
+                        </Button>
+                    </div>
                 </div>
             )}
 
@@ -226,7 +263,6 @@ const GeneralSettingsTab: React.FC<{
     );
 };
 
-// ... (TemplatesTab omitted as unchanged) ...
 const TemplatesTab: React.FC<{ 
     templates: MessageTemplate[]; 
     setTemplates: React.Dispatch<React.SetStateAction<MessageTemplate[]>>;
@@ -264,7 +300,6 @@ const TemplatesTab: React.FC<{
         }
         setIsSaving(true);
         try {
-            // Case 1: Editing existing and Renamed -> Delete old, Add new
             if (originalName && originalName !== formData['Название шаблона']) {
                 await api.deleteTemplate(originalName);
                 await api.addTemplate(formData);
@@ -274,15 +309,12 @@ const TemplatesTab: React.FC<{
                 });
                 showToast('Шаблон переименован и сохранен', 'success');
             } 
-            // Case 2: Editing existing, same name -> Update
             else if (originalName) {
                 await api.updateTemplate(formData);
                 setTemplates(prev => prev.map(t => t['Название шаблона'] === originalName ? formData : t));
                 showToast('Шаблон обновлен', 'success');
             }
-            // Case 3: Creating New -> Add
             else {
-                // Check for duplicate name
                 if (templates.some(t => t['Название шаблона'] === formData['Название шаблона'])) {
                     throw new Error('Шаблон с таким именем уже существует');
                 }
@@ -316,7 +348,6 @@ const TemplatesTab: React.FC<{
 
     return (
         <div className="space-y-4">
-            {/* List of Templates */}
             {!isFormOpen && (
                 <>
                     {templates.length > 0 ? (
@@ -358,7 +389,6 @@ const TemplatesTab: React.FC<{
                 </>
             )}
 
-            {/* Editor Form */}
             {isFormOpen && (
                 <div className="transition-all duration-300 animate-in fade-in slide-in-from-top-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl shadow-lg ring-1 ring-black/5">
                     <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">
@@ -400,7 +430,6 @@ const TemplatesTab: React.FC<{
     );
 };
 
-// ... (GasSetupTab, LogsTab omitted as unchanged) ...
 const GasSetupTab: React.FC<{onCopy: (text:string) => void}> = ({ onCopy }) => {
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
@@ -474,8 +503,6 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
     };
     
     useEffect(() => {
-        // Initial fetch suppressed to not spam errors if connection is broken
-        // fetchLogs(); 
     }, []);
 
     return (
@@ -550,14 +577,12 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
         setIsLoading(true);
         setImportStatus('Начинаем импорт в Vercel Postgres...');
         try {
-            // Импорт клиентами чанками по 100 штук
             const CHUNK_SIZE = 100;
             const clientChunks = [];
             for (let i = 0; i < fetchedData.clients.length; i += CHUNK_SIZE) {
                 clientChunks.push(fetchedData.clients.slice(i, i + CHUNK_SIZE));
             }
             
-            // 1. Клиенты
             let totalImported = 0;
             for (const chunk of clientChunks) {
                 await api.importDataToVercel(chunk, []);
@@ -565,7 +590,6 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
                 setImportStatus(`Импортировано активных клиентов: ${totalImported} / ${fetchedData.clients.length}`);
             }
 
-            // 2. Архив
             const archiveChunks = [];
             for (let i = 0; i < fetchedData.archive.length; i += CHUNK_SIZE) {
                 archiveChunks.push(fetchedData.archive.slice(i, i + CHUNK_SIZE));
@@ -578,7 +602,6 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
                 setImportStatus(`Импортировано архива: ${totalArchiveImported} / ${fetchedData.archive.length}`);
             }
 
-            // 3. Мастера и Шаблоны (обычно их мало, шлем сразу)
             setImportStatus('Импорт Мастеров и Шаблонов...');
             await api.importDataToVercel([], [], fetchedData.masters, fetchedData.templates);
 
@@ -619,7 +642,6 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Шаг 1 */}
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4 font-bold text-xl">1</div>
                     <h4 className="font-bold text-lg mb-2">Скачать данные</h4>
@@ -637,7 +659,6 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
                     )}
                 </div>
 
-                {/* Шаг 2 */}
                 <div className={`border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center transition-opacity ${!fetchedData ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4 font-bold text-xl">2</div>
                     <h4 className="font-bold text-lg mb-2">Загрузить в Postgres</h4>
@@ -668,7 +689,6 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
     );
 };
 
-// ... (Rest of components: Expander, AboutTab, Settings) ...
 const Expander: React.FC<{
     title: string;
     isExpanded: boolean;
@@ -689,7 +709,6 @@ const Expander: React.FC<{
 );
 
 const AboutTab: React.FC<{ onCopy: (text: string) => void }> = ({ onCopy }) => {
-    // Hardcoded descriptions from the prompt/DESCRIPTION.md context to ensure they appear
     const descriptionText = `
 ### 2.1. Дашборд (Панель мониторинга)
 Централизованное представление ключевых бизнес-метрик:
@@ -785,7 +804,7 @@ You are a world-class senior frontend engineer. Build a CRM for a tire storage b
         <div className="space-y-4 text-gray-700 dark:text-gray-300">
             <h3 className="text-xl font-semibold">О проекте Tire Storage CRM</h3>
             <p>Это приложение разработано для упрощения управления клиентской базой шинного хранения.</p>
-            <p><b>Версия приложения:</b> 3.6.2 (Vercel Native)</p>
+            <p><b>Версия приложения:</b> 3.6.5 (Vercel Native)</p>
             
             <Expander title="Подробное описание функций" isExpanded={isDescriptionExpanded} setExpanded={setIsDescriptionExpanded}>
                 <div dangerouslySetInnerHTML={{ __html: formattedDescription }} />
@@ -812,7 +831,6 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
   const [activeTab, setActiveTab] = useState(needsSetup ? 'general' : 'general');
   const [settings, setSettings] = useState(initialSettings);
   const [templates, setTemplates] = useState(initialTemplates);
-  // Remove local toast state
   const [isSaving, setIsSaving] = useState(false);
   
   const [localToasts, setLocalToasts] = useState<any[]>([]);
