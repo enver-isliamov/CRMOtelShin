@@ -1,3 +1,4 @@
+
 import { Pool } from 'pg';
 
 let cachedPool: Pool | null = null;
@@ -5,24 +6,39 @@ let cachedPool: Pool | null = null;
 // Initialize or retrieve the Postgres database pool.
 function getDbPool() {
   if (cachedPool) return cachedPool;
-  const connectionString = process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL;
-  if (!connectionString) throw new Error("POSTGRES_URL is not defined");
+  
+  // Vercel может предоставлять разные имена переменных в зависимости от настроек Storage
+  const connectionString = 
+    process.env.POSTGRES_URL || 
+    process.env.STOREGE_POSTGRES_URL || 
+    process.env.POSTGRES_URL_NON_POOLING || 
+    process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    console.error("DATABASE_ERROR: No connection string found in environment variables.");
+    throw new Error("POSTGRES_URL is not defined. Check Vercel Environment Variables.");
+  }
   
   cachedPool = new Pool({
     connectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: false }, // Обязательно для Vercel/Neon
     max: 10,
     connectionTimeoutMillis: 10000,
   });
+  
   return cachedPool;
 }
 
 // Log an action to the history table.
 async function logHistory(pool: Pool, clientId: string, user: string, action: string, details: string) {
-  await pool.query(
-    'INSERT INTO history (client_id, user_name, action, details) VALUES ($1, $2, $3, $4)',
-    [clientId, user, action, details]
-  );
+  try {
+    await pool.query(
+      'INSERT INTO history (client_id, user_name, action, details) VALUES ($1, $2, $3, $4)',
+      [clientId, user, action, details]
+    );
+  } catch (e) {
+    console.warn("History log failed:", e);
+  }
 }
 
 // Send a Telegram message using the bot token from environment variables.
@@ -37,21 +53,31 @@ async function crmSendMessage(chatId: string | number, message: string) {
     .replace(/&nbsp;/g, ' ')
     .trim();
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: String(chatId),
-      text: sanitized,
-      parse_mode: 'HTML'
-    })
-  });
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: String(chatId),
+        text: sanitized,
+        parse_mode: 'HTML'
+      })
+    });
+  } catch (e) {
+    console.error("TG Send failed:", e);
+  }
 }
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   
-  const pool = getDbPool();
+  let pool;
+  try {
+    pool = getDbPool();
+  } catch (e: any) {
+    return res.status(500).json({ status: 'error', message: "Configuration Error: " + e.message });
+  }
+
   const payload = req.body;
   const action = payload.action;
   const user = payload.user || 'System';
@@ -60,16 +86,20 @@ export default async function handler(req: any, res: any) {
   
   try {
     switch (action) {
+      case 'testconnection':
+        const dbRes = await pool.query('SELECT NOW() as now, current_database() as db');
+        result.message = "Соединение с Vercel Postgres успешно!";
+        result.details = `Database: ${dbRes.rows[0].db}, Server Time: ${dbRes.rows[0].now}`;
+        break;
+
       case 'getclients':
-        // Fetch active and archived clients.
-        const clientsRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE');
-        const archiveRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE');
+        const clientsRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC');
+        const archiveRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE ORDER BY updated_at DESC');
         result.clients = clientsRes.rows.map(r => r.data);
         result.archive = archiveRes.rows.map(r => r.data);
         break;
 
       case 'add':
-        // Insert a new client record.
         const newClient = payload.client;
         await pool.query(
           'INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7)',
@@ -79,7 +109,6 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'update':
-        // Update an existing client record.
         const updatedClient = payload.client;
         await pool.query(
           'UPDATE clients SET contract = $1, name = $2, phone = $3, status = $4, data = $5, updated_at = NOW() WHERE id = $6',
@@ -89,17 +118,14 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'delete':
-        // Permanently delete a client.
         await pool.query('DELETE FROM clients WHERE id = $1', [payload.clientId]);
         break;
 
       case 'bulkdelete':
-        // Delete multiple clients at once.
         await pool.query('DELETE FROM clients WHERE id = ANY($1)', [payload.clientIds]);
         break;
 
       case 'reorder':
-        // Transition an existing client to archive and create a new active record.
         const oldId = payload.oldClientId;
         const freshData = payload.client;
         await pool.query('UPDATE clients SET is_archived = TRUE WHERE id = $1', [oldId]);
@@ -112,7 +138,6 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'getarchived':
-        // Fetch all archived orders for a specific client based on their phone number.
         const clientLookupRes = await pool.query('SELECT data->>\'Телефон\' as phone FROM clients WHERE id = $1', [payload.clientId]);
         if (clientLookupRes.rowCount > 0) {
             const phone = clientLookupRes.rows[0].phone;
@@ -124,28 +149,23 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'gettemplates':
-        // Retrieve message templates.
         const tRes = await pool.query('SELECT name as "Название шаблона", content as "Содержимое (HTML)" FROM templates');
         result.templates = tRes.rows;
         break;
 
       case 'addtemplate':
-        // Add a new message template.
         await pool.query('INSERT INTO templates (name, content) VALUES ($1, $2)', [payload.template['Название шаблона'], payload.template['Содержимое (HTML)']]);
         break;
 
       case 'updatetemplate':
-        // Update an existing message template.
         await pool.query('UPDATE templates SET content = $1, updated_at = NOW() WHERE name = $2', [payload.template['Содержимое (HTML)'], payload.template['Название шаблона']]);
         break;
 
       case 'deletetemplate':
-        // Delete a message template.
         await pool.query('DELETE FROM templates WHERE name = $1', [payload.templateName]);
         break;
 
       case 'get_client_by_chatid':
-        // Find an active client by their Telegram Chat ID.
         const gcRes2 = await pool.query(`
             SELECT data FROM clients 
             WHERE (data->>'Chat ID' = $1 OR data->>'Chat ID' = $2)
@@ -156,7 +176,6 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'submit_lead':
-        // Handle a new lead from the Mini App.
         const { phone: leadPhone, name: leadName, chatId: leadChatId, username: leadUsername } = payload;
         const adminMsg = `🔥 <b>НОВЫЙ ЛИД ИЗ MINI APP</b>\n\n👤 <b>Имя:</b> ${leadName}\n📞 <b>Тел:</b> <code>${leadPhone}</code>\n🔗 <b>TG:</b> @${leadUsername || '—'}\n🆔 <b>ID:</b> <code>${leadChatId}</code>`;
         await crmSendMessage(process.env.ADMIN_CHAT_ID || leadChatId, adminMsg);
@@ -165,30 +184,25 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'getmasters':
-        // Fetch masters directory.
         const mRes = await pool.query('SELECT id, name as "Имя", chat_id as "chatId (Telegram)", services as "Услуга", phone as "Телефон", address as "Адрес" FROM masters');
         result.masters = mRes.rows;
         break;
 
       case 'addmaster':
-        // Add a new master.
         const masterToAdd = payload.master;
         await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6)', [masterToAdd.id, masterToAdd['Имя'], masterToAdd['chatId (Telegram)'], masterToAdd['Услуга'], masterToAdd['Телефон'], masterToAdd['Адрес']]);
         break;
 
       case 'updatemaster':
-        // Update an existing master record.
         const masterToUpdate = payload.master;
         await pool.query('UPDATE masters SET name = $1, chat_id = $2, services = $3, phone = $4, address = $5 WHERE id = $6', [masterToUpdate['Имя'], masterToUpdate['chatId (Telegram)'], masterToUpdate['Услуга'], masterToUpdate['Телефон'], masterToUpdate['Адрес'], masterToUpdate.id]);
         break;
 
       case 'deletemaster':
-        // Delete a master record.
         await pool.query('DELETE FROM masters WHERE id = $1', [payload.masterId]);
         break;
 
       case 'gethistory':
-        // Fetch history events for a specific client.
         const hRes = await pool.query('SELECT * FROM history WHERE client_id = $1 ORDER BY created_at DESC', [payload.clientId]);
         result.history = hRes.rows.map(r => ({
             id: String(r.id),
@@ -201,31 +215,21 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'getlogs':
-        // Fetch system logs (last 50 events from history).
         const lRes = await pool.query('SELECT created_at as timestamp, \'INFO\' as level, user_name as user, action, details as message, details FROM history ORDER BY created_at DESC LIMIT 50');
         result.logs = lRes.rows;
         break;
 
       case 'sendMessage':
-        // Send an individual Telegram message.
         await crmSendMessage(payload.chatId, payload.message);
         result.message = "Сообщение отправлено";
         break;
 
       case 'reset_db':
-        // Destructive action: wipe the database (Vercel-only).
         await pool.query('TRUNCATE clients, history, masters, templates, bot_sessions');
         result.message = "Database reset successful";
         break;
 
-      case 'testconnection':
-        // Simple test to verify DB connectivity.
-        await pool.query('SELECT 1');
-        result.message = "Connection successful";
-        break;
-
       case 'set_bot_webhook':
-        // Set Telegram bot webhook to this Vercel deployment.
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         const webhookUrl = `https://${process.env.VERCEL_URL}/api/bot`;
         const hookResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook?url=${webhookUrl}`);
@@ -234,7 +238,6 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'import':
-        // Migration tool: Import data from Google Sheets to Postgres.
         if (payload.clients && Array.isArray(payload.clients)) {
             for (const c of payload.clients) {
                 await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
@@ -249,8 +252,8 @@ export default async function handler(req: any, res: any) {
         }
         if (payload.masters && Array.isArray(payload.masters)) {
             for (const m of payload.masters) {
-                await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
-                [m.id || `m_${Date.now()}_${Math.random()}`, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
+                await pool.push(pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+                [m.id || `m_${Date.now()}_${Math.random()}`, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]));
             }
         }
         if (payload.templates && Array.isArray(payload.templates)) {
