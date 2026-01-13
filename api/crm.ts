@@ -263,22 +263,31 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'import':
+        // FIX: Handle missing IDs by generating defaults to satisfy NOT NULL constraint
         if (payload.clients && Array.isArray(payload.clients)) {
             for (const c of payload.clients) {
+                const clientId = c.id || `c_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                // Ensure the stored JSON also has the ID
+                const clientData = { ...c, id: clientId };
+                
                 await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
-                [c.id, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], false, JSON.stringify(c)]);
+                [clientId, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], false, JSON.stringify(clientData)]);
             }
         }
         if (payload.archive && Array.isArray(payload.archive)) {
             for (const c of payload.archive) {
+                const clientId = c.id || `a_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                const clientData = { ...c, id: clientId };
+
                 await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
-                [c.id, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], true, JSON.stringify(c)]);
+                [clientId, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], true, JSON.stringify(clientData)]);
             }
         }
         if (payload.masters && Array.isArray(payload.masters)) {
             for (const m of payload.masters) {
+                const masterId = m.id || `m_${Date.now()}_${Math.random()}`;
                 await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
-                [m.id || `m_${Date.now()}_${Math.random()}`, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
+                [masterId, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
             }
         }
         if (payload.templates && Array.isArray(payload.templates)) {
