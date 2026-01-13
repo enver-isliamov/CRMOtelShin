@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { Client, Settings as SettingsType, MessageTemplate, Master, SavedView, UserRole } from './types';
@@ -72,8 +73,16 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const addToast = (message: string, type: 'success' | 'error') => {
+    setToasts(prev => [...prev, { id: Date.now().toString(), message, type }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  const fetchData = useCallback(async (isBackground: boolean = false) => {
+    if (!isBackground) setIsLoading(true);
     try {
       const [clientData, settingsData, templatesData, mastersData] = await Promise.all([
         api.fetchClients(),
@@ -91,21 +100,13 @@ export default function App() {
     } catch (error: any) {
       addToast(error.message, 'error');
     } finally {
-      setIsLoading(false);
+      if (!isBackground) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const addToast = (message: string, type: 'success' | 'error') => {
-    setToasts(prev => [...prev, { id: Date.now().toString(), message, type }]);
-  };
-
-  const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
 
   const handleSaveViews = (views: SavedView[]) => {
     setSavedViews(views);
@@ -128,7 +129,7 @@ export default function App() {
           <Route path="/" element={<Dashboard clients={clients} archive={archive} templates={templates} />} />
           <Route path="/clients" element={<ClientsView clients={clients} headers={headers} templates={templates} savedViews={savedViews} onSaveViews={handleSaveViews} refreshData={fetchData} />} />
           <Route path="/clients/:id" element={<ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={fetchData} settings={settings} />} />
-          <Route path="/add-client" element={<AddClient settings={settings} onClientAdd={fetchData} />} />
+          <Route path="/add-client" element={<AddClient settings={settings} onClientAdd={() => fetchData(true)} showToast={addToast} />} />
           <Route path="/masters" element={<MastersView masters={masters} setMasters={setMasters} clients={clients} />} />
           <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={fetchData} needsSetup={!settings.googleSheetId && settings.apiMode === 'GAS'} />} />
           <Route path="/tg-lk" element={<TelegramLK />} />

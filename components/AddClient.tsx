@@ -337,7 +337,11 @@ const SmartDurationSelector: React.FC<{
 }
 
 
-export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }> = ({ settings, onClientAdd }) => {
+export const AddClient: React.FC<{ 
+    settings: Settings, 
+    onClientAdd: () => void,
+    showToast: (msg: string, type: 'success' | 'error') => void 
+}> = ({ settings, onClientAdd, showToast }) => {
     const location = useLocation();
     const navigate = useNavigate();
     
@@ -416,9 +420,9 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
 
     const [description, setDescription] = useState('');
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('Оформление...');
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    
+    // Keep local toast for VALIDATION errors that prevent the process from starting
+    const [validationToast, setValidationToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     
     // Handlers
     const handleChange = useCallback((updates: Partial<Client>) => {
@@ -447,10 +451,8 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
 
     const handleCancel = () => {
         if (mode === 'edit' && sourceClient) {
-            // If editing, go back to that client's details
             navigate(`/clients/${sourceClient.id}`);
         } else {
-            // If creating new or reordering (new order), go back to list
             navigate('/clients');
         }
     };
@@ -511,17 +513,15 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         
+        // 1. Validation (Blocking UI)
         if (tireGroups.length === 0) {
-             setToast({ message: `Добавьте хотя бы одну группу шин в заказ!`, type: 'error' });
+             setValidationToast({ message: `Добавьте хотя бы одну группу шин в заказ!`, type: 'error' });
              return;
         }
 
-        setIsLoading(true);
-        setToast(null);
-
+        // 2. Prepare Payload (Blocking UI)
         let dataForSubmission = { ...formData };
         if (!dataForSubmission.id) {
-             // Fallback ID generation if not set
              dataForSubmission.id = `c${Date.now()}_${Math.floor(Math.random() * 1000)}`;
         }
         
@@ -566,67 +566,67 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
              dataForSubmission['DOT-код'] = tireGroups.map(g => g.dot).filter(Boolean).join(' / ');
         }
         
-        try {
-            const uploadedUrls: string[] = [];
-            if (filesToUpload.length > 0) {
-                for (const [index, file] of filesToUpload.entries()) {
-                    setLoadingMessage(`Загрузка фото ${index + 1}/${filesToUpload.length}...`);
-                    const { fileUrl } = await api.uploadFile(file, dataForSubmission);
-                    uploadedUrls.push(fileUrl);
-                }
-            }
-
-            const existingUrls = sourceClient?.photoUrls || [];
-            const finalClientData = { 
-                ...dataForSubmission,
-                photoUrls: [...new Set([...existingUrls, ...uploadedUrls])]
-            };
-
-            let processedClient: Client;
-            
-            if (mode === 'edit') {
-                setLoadingMessage('Обновление данных...');
-                processedClient = await api.updateClient(finalClientData as Client);
-                setToast({ message: 'Данные клиента обновлены!', type: 'success' });
-            } else if (mode === 'reorder' && sourceClient) {
-                setLoadingMessage('Архивация и создание заказа...');
-                processedClient = await api.reorderClient(sourceClient.id, finalClientData);
-                setToast({ message: 'Новый заказ успешно создан!', type: 'success' });
-            } else {
-                setLoadingMessage('Создание клиента...');
-                processedClient = await api.addClient(finalClientData);
-                setToast({ message: 'Клиент успешно добавлен!', type: 'success' });
-            }
-
-            setLoadingMessage('Готово!');
-            
-            onClientAdd(); 
-
-            if (mode !== 'edit' || (mode === 'edit' && window.confirm("Отправить уведомление менеджерам об изменениях?"))) {
-                const allRecipientIds = [
-                    ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
-                    ...(settings.managerIds?.split(',').map(id => id.trim()).filter(Boolean) || [])
-                ];
-                const uniqueIds = [...new Set(allRecipientIds)];
-
-                if (uniqueIds.length > 0) {
-                    const message = formatManagerMessage(finalClientData);
-                    Promise.all(uniqueIds.map(id => api.sendMessage(id, message))).catch(console.error);
-                }
-            }
-            
-            setTimeout(() => {
-                if (mode === 'edit') {
-                    navigate(`/clients/${dataForSubmission.id}`, { replace: true });
-                } else {
-                    navigate('/clients', { replace: true });
-                }
-            }, 800);
-
-        } catch (error: any) {
-            setToast({ message: `Ошибка: ${error.message}`, type: 'error' });
-            setIsLoading(false);
+        // 3. Initiate Background Process
+        showToast('Сохранение запущено в фоне...', 'success');
+        
+        // Navigate immediately
+        if (mode === 'edit' && sourceClient) {
+            navigate(`/clients/${sourceClient.id}`);
+        } else {
+            navigate('/clients');
         }
+
+        // 4. Run Async Operations (Fire & Forget)
+        (async () => {
+            try {
+                // Step A: Upload Files
+                const uploadedUrls: string[] = [];
+                if (filesToUpload.length > 0) {
+                    for (const file of filesToUpload) {
+                        const { fileUrl } = await api.uploadFile(file, dataForSubmission);
+                        uploadedUrls.push(fileUrl);
+                    }
+                }
+
+                const existingUrls = sourceClient?.photoUrls || [];
+                const finalClientData = { 
+                    ...dataForSubmission,
+                    photoUrls: [...new Set([...existingUrls, ...uploadedUrls])]
+                };
+
+                // Step B: Save to DB
+                if (mode === 'edit') {
+                    await api.updateClient(finalClientData as Client);
+                } else if (mode === 'reorder' && sourceClient) {
+                    await api.reorderClient(sourceClient.id, finalClientData);
+                } else {
+                    await api.addClient(finalClientData);
+                }
+
+                // Step C: Refresh & Notify Success
+                onClientAdd(); // Trigger global refresh in App.tsx
+                showToast('Успешно сохранено!', 'success');
+
+                // Step D: Send Telegram Notifications (Optional, Skip for Edit to be non-intrusive)
+                if (mode !== 'edit') {
+                    const allRecipientIds = [
+                        ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
+                        ...(settings.managerIds?.split(',').map(id => id.trim()).filter(Boolean) || [])
+                    ];
+                    const uniqueIds = [...new Set(allRecipientIds)];
+
+                    if (uniqueIds.length > 0) {
+                        const message = formatManagerMessage(finalClientData);
+                        Promise.all(uniqueIds.map(id => api.sendMessage(id, message))).catch(console.error);
+                    }
+                }
+
+            } catch (error: any) {
+                console.error("Background Save Error:", error);
+                // User is already on another page, but the global toast will show this error.
+                showToast(`Ошибка сохранения: ${error.message}`, 'error');
+            }
+        })();
     };
     
     const pageTitle = formData['Имя клиента'] || 'Новый Клиент';
@@ -639,7 +639,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
 
     return (
         <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            {validationToast && <Toast message={validationToast.message} type={validationToast.type} onClose={() => setValidationToast(null)} />}
             
             {/* Sticky Header with Back Button (Similar to ClientDetailsPage) */}
             <div className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
@@ -659,15 +659,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 
                 <button
                     onClick={() => handleSubmit()}
-                    disabled={isLoading}
-                    className={`p-2 rounded-full transition-colors ${
-                        isLoading 
-                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400' 
-                        : 'bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50'
-                    }`}
+                    className={`p-2 rounded-full transition-colors bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50`}
                     title="Сохранить"
                 >
-                    {isLoading ? <SpinnerIcon className="w-6 h-6" /> : <CheckIcon className="w-6 h-6" />}
+                    <CheckIcon className="w-6 h-6" />
                 </button>
             </div>
 
