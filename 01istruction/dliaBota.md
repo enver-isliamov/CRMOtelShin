@@ -93,7 +93,12 @@ graph TD
   "metadata": {
     "groups": [
       {"brand": "Michelin", "size": "225/45 R17", "count": 4}
-    ]
+    ],
+    "services": {
+        "delivery": true,
+        "wash": false,
+        "package": true
+    }
   }
 }
 ```

@@ -62,7 +62,7 @@ export default function App() {
   const [clients, setClients] = useState<Client[]>([]);
   const [archive, setArchive] = useState<Client[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [settings, setSettings] = useState<SettingsType>({ adminIds: '', managerIds: '', googleSheetId: '', sheetName: '', apiMode: 'GAS' });
+  const [settings, setSettings] = useState<SettingsType>({ adminIds: '', managerIds: '', googleSheetId: '', sheetName: '', apiMode: 'VERCEL' });
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [masters, setMasters] = useState<Master[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);

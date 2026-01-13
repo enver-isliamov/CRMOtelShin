@@ -390,6 +390,13 @@ export const AddClient: React.FC<{ settings: Settings, onClientAdd: () => void }
                 try {
                     const parsed = JSON.parse(sourceClient.metadata);
                     if (parsed.note) setDescription(parsed.note);
+                    if (parsed.services) {
+                        handleChange({
+                            'Услуга: Вывоз': parsed.services.delivery,
+                            'Услуга: Мойка': parsed.services.wash,
+                            'Услуга: Упаковка': parsed.services.package,
+                        });
+                    }
                 } catch(e) {}
             }
             setIsInitialized(true);
@@ -542,7 +549,17 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
 
         dataForSubmission['Заказ - QR'] = fullReadable;
 
-        const jsonPayload = JSON.stringify({ groups: tireGroups, note: description });
+        const services = {
+            delivery: !!dataForSubmission['Услуга: Вывоз'],
+            wash: !!dataForSubmission['Услуга: Мойка'],
+            package: !!dataForSubmission['Услуга: Упаковка']
+        };
+
+        const jsonPayload = JSON.stringify({ 
+            groups: tireGroups, 
+            note: description,
+            services: services 
+        });
         dataForSubmission.metadata = jsonPayload;
 
         if (!dataForSubmission['DOT-код']) {

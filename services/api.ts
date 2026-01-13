@@ -3,9 +3,16 @@ import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCu
 
 const getSettingsFromStorage = (): Settings => {
     const data = localStorage.getItem('crm_settings');
-    const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'GAS' };
+    // Default to VERCEL for native postgres integration
+    const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'VERCEL' };
+    
     if (data) {
-        return { ...defaults, ...JSON.parse(data) };
+        const parsed = JSON.parse(data);
+        // Smart fallback: If GAS is selected but no URL is present (migration case), force VERCEL to avoid "URL not set" error.
+        if (parsed.apiMode === 'GAS' && !parsed.googleSheetId) {
+            parsed.apiMode = 'VERCEL';
+        }
+        return { ...defaults, ...parsed };
     }
     return defaults;
 };
@@ -29,7 +36,7 @@ export const getClientHeaders = (): string[] => {
 // Added 'forceMode' to explicitly bypass settings (useful for migration)
 async function requestAPI(action: string, payload: any = {}, customUrl?: string, forceMode?: 'GAS' | 'VERCEL') {
     const settings = getSettingsFromStorage();
-    const mode = forceMode || settings.apiMode || 'GAS';
+    const mode = forceMode || settings.apiMode || 'VERCEL';
     const userJson = sessionStorage.getItem('user');
     const user = userJson ? JSON.parse(userJson) : { username: 'Admin' };
 
