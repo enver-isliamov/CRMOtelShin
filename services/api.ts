@@ -2,19 +2,24 @@
 import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCurrency, parseDuration } from '../types';
 
 const getSettingsFromStorage = (): Settings => {
-    const data = localStorage.getItem('crm_settings');
-    // Default to VERCEL for native postgres integration
-    const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'VERCEL' };
-    
-    if (data) {
-        const parsed = JSON.parse(data);
-        // Smart fallback: If GAS is selected but no URL is present (migration case), force VERCEL to avoid "URL not set" error.
-        if (parsed.apiMode === 'GAS' && !parsed.googleSheetId) {
-            parsed.apiMode = 'VERCEL';
+    try {
+        const data = localStorage.getItem('crm_settings');
+        // Default to VERCEL for native postgres integration
+        const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'VERCEL' };
+        
+        if (data) {
+            const parsed = JSON.parse(data);
+            // Smart fallback: If GAS is selected but no URL is present (migration case), force VERCEL to avoid "URL not set" error.
+            if (parsed.apiMode === 'GAS' && !parsed.googleSheetId) {
+                parsed.apiMode = 'VERCEL';
+            }
+            return { ...defaults, ...parsed };
         }
-        return { ...defaults, ...parsed };
+        return defaults;
+    } catch (e) {
+        console.error("Settings parse error, resetting defaults", e);
+        return { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'VERCEL' };
     }
-    return defaults;
 };
 
 // Simulate API latency
@@ -50,6 +55,9 @@ async function requestAPI(action: string, payload: any = {}, customUrl?: string,
     if (mode === 'VERCEL') {
         // --- VERCEL MODE ---
         // Vercel handles requests via internal API routes (/api/crm)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
         try {
             const response = await fetch('/api/crm', {
                 method: 'POST',
@@ -57,7 +65,19 @@ async function requestAPI(action: string, payload: any = {}, customUrl?: string,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(finalPayload),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
+            // Check Content-Type to avoid parsing HTML (Vite fallback) as JSON
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") === -1) {
+                 const text = await response.text();
+                 if (text.includes("<!DOCTYPE html>")) {
+                     throw new Error("API endpoint not found (HTML returned). Check Vercel deployment.");
+                 }
+                 throw new Error(`API Error: Received ${contentType} instead of JSON. Body: ${text.substring(0, 50)}...`);
+            }
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -75,6 +95,9 @@ async function requestAPI(action: string, payload: any = {}, customUrl?: string,
             return result;
         } catch (e: any) {
             console.error("Vercel API Error:", e);
+            if (e.name === 'AbortError') {
+                throw new Error("Тайм-аут соединения с сервером (15с).");
+            }
             throw e;
         }
     } else {
@@ -200,7 +223,8 @@ export const api = {
   },
 
   fetchSettings: async (): Promise<Settings> => {
-    await delay(200);
+    // Reduced delay for faster loading
+    await delay(50);
     return getSettingsFromStorage();
   },
 
