@@ -1,6 +1,6 @@
-# Взаимодействие UI и Google Sheets (Архитектура и Логика)
+# Взаимодействие UI и Backend (Архитектура и Логика)
 
-Этот документ описывает технические детали взаимодействия между Frontend (React приложение) и Backend (Google Apps Script + Google Sheets).
+Этот документ описывает технические детали взаимодействия между Frontend (React приложение) и Backend (Vercel Functions + Postgres / Google Apps Script).
 
 ---
 
@@ -8,9 +8,9 @@
 
 Приложение построено по принципу **Client-Server**, где:
 *   **Frontend:** React Single Page Application (SPA). Отправляет HTTP запросы.
-*   **Transport Layer:** `fetch` API. Данные передаются методом `POST`.
-*   **Backend:** Скрипт Google Apps Script (GAS), развернутый как веб-приложение (`doPost`).
-*   **Database:** Google Таблица (Sheets) выступает в роли реляционной базы данных.
+*   **Transport Layer:** `fetch` API к `/api/crm` (Vercel) или GAS URL.
+*   **Backend:** Node.js (Vercel Functions) или Google Apps Script (Legacy).
+*   **Database:** Vercel Postgres (SQL) или Google Таблица (Sheets).
 *   **File Storage:** Google Drive (для фото).
 
 ### Протокол обмена данными

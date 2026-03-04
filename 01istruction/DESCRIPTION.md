@@ -50,11 +50,12 @@
   - **React Router:** Для навигации в одностраничном приложении (SPA).
 
 - **Бэкенд:**
-  - **Google Sheets:** Используется в качестве гибкой и доступной базы данных.
-  - **Google Apps Script (GAS):** Серверная логика, развернутая как веб-приложение, которое обрабатывает запросы от фронтенда, взаимодействует с таблицами и внешними API (Telegram, Google Drive).
+  - **Vercel Postgres (SQL):** Основная реляционная база данных (в процессе миграции с Google Sheets).
+  - **Vercel Functions (Node.js):** Серверная логика (API), обрабатывающая запросы от фронтенда, взаимодействующая с БД и внешними API (Telegram, Google Drive).
+  - **Google Sheets (Legacy):** Поддерживается как резервное хранилище и для обратной совместимости.
 
 - **API:**
-  - **REST-подобный интерфейс:** Фронтенд общается с GAS через `POST` запросы, отправляя JSON-объекты с указанием необходимого действия (`action`).
+  - **REST API:** Фронтенд общается с Vercel Functions через `POST`/`GET` запросы к `/api/crm` и `/api/bot`.
 ---PROMPT_SEPARATOR---
 # Промт для воссоздания CRM
 
@@ -87,15 +88,12 @@ You are a world-class senior frontend engineer specializing in React, TypeScript
 *   Определены интерфейсы для `Client`, `Settings`, `MessageTemplate`, `Master`, `AppLog`, `SavedView` и др., чтобы моделировать данные, хранящиеся в Google Sheets.
 *   Интерфейс `Client` включает поля для контактной информации, данных автомобиля, деталей заказа (даты, цена, услуги), места хранения, финансового статуса и `photoUrls: string[]`.
 
-**4. Бэкенд (Google Apps Script):**
-*   **Версия скрипта: 1.9.9**
-*   Функция `doPost(e)` действует как единая конечная точка API.
-*   `routeAction` обрабатывает `action` из тела запроса: `getclients`, `add`, `update`, `reorder`, `sendMessage`, `uploadfile`, `getlogs`, `getmasters`, `gettemplates` и т.д.
-*   Реализованы CRUD-операции с листами Google Sheets: `WebBase`, `Archive`, `Шаблоны сообщений`, `мастера`, `History`, `Logs`.
-*   **`reorderClient`:** Критическая функция, которая атомарно архивирует старый заказ клиента и обновляет его строку в `WebBase` данными нового заказа. Использует `LockService` для предотвращения гонки данных.
-*   **`uploadFile`:** Принимает данные файла в Base64, декодирует их и сохраняет в структуру папок на Google Диске: `TireCRMPhotos/[НомерДоговора_ИмяКлиента]/`. Возвращает публичный URL файла.
-*   **`sendMessage`:** Использует `UrlFetchApp` для отправки HTML-сообщений через Telegram Bot API.
-*   **Логирование:** Функции `logError` и `logHistory` записывают данные в листы `Logs` и `History`.
+**4. Бэкенд (Vercel Functions & Postgres):**
+*   **API Endpoints:** `/api/crm.ts` для CRM и `/api/bot.ts` для Telegram-бота.
+*   Реализованы CRUD-операции с таблицами Vercel Postgres: `clients`, `archive`, `templates`, `masters`, `history`, `logs`.
+*   **`reorderClient`:** Критическая функция, которая атомарно архивирует старый заказ клиента и обновляет его строку в БД данными нового заказа.
+*   **`uploadFile`:** Сохраняет фото на Google Диске через API и возвращает публичный URL файла.
+*   **Логирование:** Записывает данные в таблицу `logs` и `history`.
 
 **5. Сервис API (`services/api.ts`):**
 *   Создан типизированный API-клиент на фронтенде для связи с GAS.

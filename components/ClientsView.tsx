@@ -9,7 +9,6 @@ import { Toast } from './ui/Toast';
 
 // --- ICONS ---
 const SearchIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>;
-const SyncIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.185m-3.18-3.183l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.185" /></svg>;
 const BookmarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>;
 const XMarkIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 const FilterIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>;
@@ -56,7 +55,6 @@ export const ClientsView: React.FC<{
     debt: searchParams.get('filter') === 'debt',
   });
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'ascending' | 'descending' } | null>({ key: 'Начало', direction: 'descending' });
-  const [isSyncing, setIsSyncing] = useState(false);
   const [newViewName, setNewViewName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   
@@ -159,18 +157,6 @@ export const ClientsView: React.FC<{
     setToast({ message, type });
   };
 
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      await refreshData();
-      showToast('Данные синхронизированы', 'success');
-    } catch(e: any) {
-      showToast(`Ошибка синхронизации: ${e.message}`, 'error');
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
   const handleSaveView = () => {
     if (!newViewName) {
         showToast("Введите имя для нового представления", 'error');
@@ -230,15 +216,6 @@ export const ClientsView: React.FC<{
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2 pl-10 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-150 h-[42px]"
                />
             </div>
-            
-            <button 
-                onClick={handleSync} 
-                disabled={isSyncing}
-                className="flex items-center justify-center w-[42px] h-[42px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-2 focus:ring-primary-500 transition-colors"
-                title="Синхронизировать"
-            >
-                <SyncIcon className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-            </button>
             
             <button 
                 onClick={() => setShowFilters(!showFilters)}
