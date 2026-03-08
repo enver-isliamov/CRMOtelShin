@@ -175,6 +175,29 @@ const GeneralSettingsTab: React.FC<{
         }
     };
 
+    const handleCheckWebhook = async () => {
+        setIsUpdatingWebhook(true);
+        try {
+            const res = await fetch('/api/crm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_webhook_info' })
+            });
+            const result = await res.json();
+            if (result.status === 'success' && result.info) {
+                const info = result.info;
+                const msg = `URL: ${info.url}\nPending: ${info.pending_update_count}\nLast Error: ${info.last_error_message || 'None'}`;
+                alert(msg);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (e: any) {
+            showToast(`Ошибка проверки: ${e.message}`, 'error');
+        } finally {
+            setIsUpdatingWebhook(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             
@@ -272,13 +295,23 @@ const GeneralSettingsTab: React.FC<{
                             Нажмите кнопку ниже, чтобы переключить бота на новый эндпоинт Vercel (<code>/api/bot</code>). 
                             Бот перестанет работать через Google Script и начнет использовать Postgres.
                         </p>
-                        <Button 
-                            onClick={handleUpdateWebhook} 
-                            disabled={isUpdatingWebhook}
-                            className="!bg-indigo-600 hover:!bg-indigo-700 !text-white text-sm"
-                        >
-                            {isUpdatingWebhook ? 'Привязка...' : 'Привязать бота к Vercel'}
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button 
+                                onClick={handleUpdateWebhook} 
+                                disabled={isUpdatingWebhook}
+                                className="!bg-indigo-600 hover:!bg-indigo-700 !text-white text-sm"
+                            >
+                                {isUpdatingWebhook ? 'Привязка...' : 'Привязать бота к Vercel'}
+                            </Button>
+                            <Button 
+                                onClick={handleCheckWebhook} 
+                                disabled={isUpdatingWebhook}
+                                variant="outline"
+                                className="text-sm"
+                            >
+                                Проверить статус
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
