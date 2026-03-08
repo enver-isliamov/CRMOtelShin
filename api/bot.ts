@@ -64,6 +64,15 @@ export default async function handler(req: any, res: any) {
         return res.status(200).send('OK');
     } catch (error: any) {
         console.error('[BOT ERROR]', error);
+        try {
+            const pool = getDbPool();
+            await pool.query(
+                'INSERT INTO history (client_id, user_name, action, details) VALUES ($1, $2, $3, $4)',
+                ['SYSTEM', 'TelegramBot', 'ERROR', String(error?.message || error)]
+            );
+        } catch (e) {
+            console.error("Failed to log error to DB", e);
+        }
         return res.status(200).send('OK');
     }
 }
