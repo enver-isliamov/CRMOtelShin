@@ -221,6 +221,21 @@ const GeneralSettingsTab: React.FC<{
                         </Button>
                     </div>
 
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Время отправки уведомлений</h4>
+                        <p className="text-xs text-gray-500 mb-3">
+                            Настройка времени автоматической проверки сроков хранения.
+                            <br/>
+                            <span className="opacity-70">Формат Cron: <code>Минуты Часы * * *</code> (UTC). Например: <code>5 11 * * *</code> = 11:05 UTC.</span>
+                        </p>
+                        <Input 
+                            label="Cron Expression" 
+                            value={settings.cronTime || '5 11 * * *'} 
+                            onChange={e => onChange('cronTime', e.target.value)}
+                            placeholder="5 11 * * *"
+                        />
+                    </div>
+
                     {/* WEBHOOK SETUP SECTION (6.5) */}
                     <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
                         <h4 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2 mb-2">

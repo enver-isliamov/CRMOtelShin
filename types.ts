@@ -74,6 +74,7 @@ export interface Settings {
   googleSheetId: string;
   sheetName: string;
   apiMode: 'GAS' | 'VERCEL'; // New field: Backend switcher
+  cronTime?: string; // New field: Notification time
 }
 
 export interface MessageTemplate {

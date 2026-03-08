@@ -390,5 +390,14 @@ export const api = {
   
   clearDatabase: async (): Promise<void> => {
       return await requestAPI('reset_db', {}, undefined, 'VERCEL');
+  },
+
+  getDbSettings: async (): Promise<any> => {
+      const result = await requestAPI('get_settings');
+      return result.settings || {};
+  },
+
+  updateDbSetting: async (key: string, value: any): Promise<void> => {
+      await requestAPI('update_setting', { key, value });
   }
 };
