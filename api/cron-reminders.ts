@@ -72,23 +72,6 @@ export default async function handler(req: any, res: any) {
   try {
     const pool = getDbPool();
     
-    // Получаем настройки времени отправки (по умолчанию 11:00 MSK = 08:00 UTC)
-    // Если в базе нет настройки, используем 8 (08:00 UTC)
-    const settingsRes = await pool.query(`SELECT value FROM settings WHERE key = 'reminder_hour_utc'`);
-    const targetHourUTC = settingsRes.rows[0]?.value?.hour !== undefined ? Number(settingsRes.rows[0].value.hour) : 8;
-    
-    const currentHourUTC = new Date().getUTCHours();
-    
-    // Если текущий час не совпадает с настроенным, просто пингуем базу и выходим
-    if (currentHourUTC !== targetHourUTC) {
-        return res.status(200).json({ 
-            status: 'skipped', 
-            message: `Current hour (${currentHourUTC} UTC) does not match target hour (${targetHourUTC} UTC). Database pinged.`,
-            targetHourUTC,
-            currentHourUTC
-        });
-    }
-
     // Получаем всех активных клиентов
     const clientsRes = await pool.query(`SELECT id, data FROM clients WHERE is_archived = FALSE`);
     const clients = clientsRes.rows;

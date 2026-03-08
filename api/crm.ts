@@ -117,21 +117,6 @@ export default async function handler(req: any, res: any) {
         result.details = `Database: ${dbRes.rows[0].db}, Server Time: ${dbRes.rows[0].now}`;
         break;
 
-      case 'get_settings':
-        const setRes = await pool.query('SELECT key, value FROM settings');
-        result.settings = setRes.rows.reduce((acc: any, row: any) => {
-            acc[row.key] = row.value;
-            return acc;
-        }, {});
-        break;
-
-      case 'update_setting':
-        await pool.query(
-            'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
-            [payload.key, payload.value]
-        );
-        break;
-
       case 'getclients':
         const clientsRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE ORDER BY created_at DESC');
         const archiveRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE ORDER BY updated_at DESC');
