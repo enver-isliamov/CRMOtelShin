@@ -137,6 +137,23 @@ const GeneralSettingsTab: React.FC<{
         }
     };
 
+    const handleUpdateSchema = async () => {
+        setIsTesting(true);
+        try {
+            const res = await fetch('/api/setup');
+            const result = await res.json();
+            if (result.status === 'success') {
+                showToast(result.message, 'success');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (e: any) {
+            showToast(`Ошибка обновления схемы: ${e.message}`, 'error');
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
     const handleUpdateWebhook = async () => {
         setIsUpdatingWebhook(true);
         try {
@@ -211,14 +228,24 @@ const GeneralSettingsTab: React.FC<{
                         <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
                             Используется база данных <b>Vercel Postgres</b>. Конфигурация через переменные окружения.
                         </p>
-                        <Button 
-                            variant="outline" 
-                            onClick={handleTestConnection} 
-                            disabled={isTesting}
-                            className="w-full sm:w-auto"
-                        >
-                            {isTesting ? 'Проверка...' : 'Проверить соединение с БД'}
-                        </Button>
+                        <div className="flex flex-wrap gap-3">
+                            <Button 
+                                variant="outline" 
+                                onClick={handleTestConnection} 
+                                disabled={isTesting}
+                                className="w-full sm:w-auto"
+                            >
+                                {isTesting ? 'Проверка...' : 'Проверить соединение с БД'}
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={handleUpdateSchema} 
+                                disabled={isTesting}
+                                className="w-full sm:w-auto"
+                            >
+                                {isTesting ? 'Обновление...' : 'Обновить схему БД'}
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">

@@ -110,6 +110,18 @@ export interface ClientEvent {
     details: string | null;
 }
 
+export interface ChatMessage {
+  id: number;
+  client_id: string;
+  chat_id: string;
+  direction: 'inbound' | 'outbound';
+  type: 'text' | 'image' | 'file';
+  content: string;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  external_id?: string;
+  created_at: string;
+}
+
 export interface AppLog {
     timestamp: string;
     level: 'ERROR' | 'INFO';

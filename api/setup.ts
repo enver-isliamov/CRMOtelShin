@@ -104,6 +104,21 @@ export default async function handler(req: any, res: any) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // 7. Таблица Сообщений (Чат)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        client_id VARCHAR(255),
+        chat_id VARCHAR(50),
+        direction VARCHAR(10), -- 'inbound' | 'outbound'
+        type VARCHAR(20), -- 'text' | 'image' | 'file'
+        content TEXT,
+        status VARCHAR(20), -- 'sent' | 'delivered' | 'read' | 'failed'
+        external_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     
     await pool.end();
 

@@ -78,6 +78,19 @@ async function handleMessage(pool: Pool, msg: any) {
     }
 
     if (!text) return;
+
+    // SAVE INBOUND MESSAGE
+    const client = await findClientByChatId(pool, chatId);
+    await saveMessage(pool, {
+        client_id: client?.id || null,
+        chat_id: chatId,
+        direction: 'inbound',
+        type: 'text',
+        content: text,
+        status: 'delivered',
+        external_id: String(msg.message_id)
+    });
+
     const session = await getSession(pool, chatId);
 
     console.log(`[BOT] Msg from ${chatId}: ${text}. Current state: ${session.state}`);
@@ -101,11 +114,34 @@ async function handleMessage(pool: Pool, msg: any) {
     }
 
     if (msg.chat.type === 'private') {
+        // Instead of "Unknown command", we treat it as a support message
         await sendTelegram('sendMessage', {
             chat_id: chatId,
-            text: "Извините, я не узнал эту команду. Нажмите /start для вызова главного меню.",
+            text: "✅ <b>Сообщение принято!</b>\n\nМенеджер получил ваше сообщение и ответит в ближайшее время.",
+            parse_mode: 'HTML',
             reply_markup: { inline_keyboard: [[{ text: "🏠 Главное меню", callback_data: "main_menu" }]] }
         });
+
+        // Notify Admin about new message
+        if (ADMIN_CHAT_ID) {
+             await sendTelegram('sendMessage', {
+                chat_id: ADMIN_CHAT_ID,
+                text: `📩 <b>Новое сообщение от клиента</b>\n\n<b>От:</b> ${client ? client['Имя клиента'] : 'Неизвестный'} (ID: ${chatId})\n<b>Текст:</b> ${text}`,
+                parse_mode: 'HTML'
+            });
+        }
+    }
+}
+
+async function saveMessage(pool: Pool, msgData: any) {
+    try {
+        await pool.query(
+            `INSERT INTO messages (client_id, chat_id, direction, type, content, status, external_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [msgData.client_id, msgData.chat_id, msgData.direction, msgData.type, msgData.content, msgData.status, msgData.external_id]
+        );
+    } catch (e) {
+        console.error("Failed to save message:", e);
     }
 }
 

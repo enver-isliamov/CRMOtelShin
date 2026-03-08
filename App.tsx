@@ -11,6 +11,7 @@ import { ClientDetailsPage } from './components/ClientDetailsPage';
 import { AddClient } from './components/AddClient';
 import { Settings } from './components/Settings';
 import { MastersView } from './components/MastersView';
+import { Chat } from './components/Chat';
 import TelegramLK from './components/TelegramLK';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 import { ThemeSwitcher } from './components/ui/ThemeSwitcher';
@@ -21,6 +22,7 @@ const UsersIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w
 const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
 const CogIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const MasterIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+const ChatIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>;
 
 function Layout({ children, isLoading, onRefresh }: { children?: React.ReactNode, isLoading: boolean, onRefresh: () => void }) {
     const location = useLocation();
@@ -34,6 +36,7 @@ function Layout({ children, isLoading, onRefresh }: { children?: React.ReactNode
             <nav className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-2 flex justify-around md:flex-col md:w-20 md:justify-start md:border-t-0 md:border-r md:pt-8 md:gap-8 z-50 order-last md:order-first shrink-0">
                 <NavLink to="/" icon={<HomeIcon />} label="Главная" active={location.pathname === '/'} />
                 <NavLink to="/clients" icon={<UsersIcon />} label="Клиенты" active={location.pathname === '/clients'} />
+                <NavLink to="/chat" icon={<ChatIcon />} label="Чат" active={location.pathname === '/chat'} />
                 <NavLink to="/add-client" icon={<PlusIcon />} label="Заказ" active={location.pathname === '/add-client'} />
                 <NavLink to="/masters" icon={<MasterIcon />} label="Мастера" active={location.pathname === '/masters'} />
                 <NavLink to="/settings" icon={<CogIcon />} label="Опции" active={location.pathname === '/settings'} />
@@ -135,6 +138,7 @@ export default function App() {
           <Route path="/" element={<Dashboard clients={clients} archive={archive} templates={templates} />} />
           <Route path="/clients" element={<ClientsView clients={clients} headers={headers} templates={templates} savedViews={savedViews} onSaveViews={handleSaveViews} refreshData={fetchData} />} />
           <Route path="/clients/:id" element={<ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={fetchData} settings={settings} />} />
+          <Route path="/chat" element={<Chat clients={clients} />} />
           <Route path="/add-client" element={<AddClient settings={settings} onClientAdd={() => fetchData(true)} showToast={addToast} />} />
           <Route path="/masters" element={<MastersView masters={masters} setMasters={setMasters} clients={clients} />} />
           <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={fetchData} needsSetup={!settings.googleSheetId && settings.apiMode === 'GAS'} />} />
