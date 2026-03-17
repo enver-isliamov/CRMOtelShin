@@ -185,12 +185,9 @@ export default async function handler(req: any, res: any) {
         await logHistory(pool, oldId, user, 'Заказ архивирован', 'Перенос в архив');
         await logHistory(pool, freshData.id, user, 'Новый заказ создан', 'Повторный заказ');
         
-        // Fetch old client data to sync it as archived (or just sync the new one)
-        const oldClientRes = await pool.query('SELECT data FROM clients WHERE id = $1', [oldId]);
-        if (oldClientRes.rowCount > 0) {
-            await syncToGas(payload.googleSheetId, 'sync_client', { client: oldClientRes.rows[0].data, user });
-        }
-        await syncToGas(payload.googleSheetId, 'sync_client', { client: freshData, user });
+        // Send 'reorder' action to GAS so it correctly moves the old row to Archive 
+        // and updates the WebBase row with the new client data.
+        await syncToGas(payload.googleSheetId, 'reorder', { oldClientId: oldId, client: freshData, user });
         break;
 
       case 'getarchived':
