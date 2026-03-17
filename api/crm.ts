@@ -308,39 +308,85 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'import':
+        // 1. Fetch existing records to build a lookup map for deduplication
+        const existingClientsRes = await pool.query('SELECT id, contract, name, phone FROM clients');
+        const clientByContract = new Map<string, string>();
+        const clientByNamePhone = new Map<string, string>();
+        
+        for (const row of existingClientsRes.rows) {
+            if (row.contract) clientByContract.set(String(row.contract).trim().toLowerCase(), row.id);
+            if (row.name && row.phone) clientByNamePhone.set(`${String(row.name).trim().toLowerCase()}_${String(row.phone).trim().toLowerCase()}`, row.id);
+        }
+
+        const existingMastersRes = await pool.query('SELECT id, name FROM masters');
+        const masterByName = new Map<string, string>();
+        for (const row of existingMastersRes.rows) {
+            if (row.name) masterByName.set(String(row.name).trim().toLowerCase(), row.id);
+        }
+
         // Helper to generate deterministic ID if missing
         const generateDeterministicId = (prefix: string, data: any, keys: string[]) => {
-            const uniqueString = keys.map(k => data[k] || '').join('_');
+            const uniqueString = keys.map(k => data[k] || '').join('_').toLowerCase().trim();
             const hash = crypto.createHash('md5').update(uniqueString).digest('hex').substring(0, 12);
             return `${prefix}_${hash}`;
         };
 
+        const processClient = async (c: any, isArchived: boolean) => {
+            const contract = c['Договор'] ? String(c['Договор']).trim().toLowerCase() : '';
+            const name = c['Имя клиента'] ? String(c['Имя клиента']).trim().toLowerCase() : '';
+            const phone = c['Телефон'] ? String(c['Телефон']).trim().toLowerCase() : '';
+            
+            // PRIORITY: Match by Contract, then by Name+Phone, then fallback to provided ID or generate new
+            let clientId = '';
+            if (contract && clientByContract.has(contract)) {
+                clientId = clientByContract.get(contract)!;
+            } else if (name && phone && clientByNamePhone.has(`${name}_${phone}`)) {
+                clientId = clientByNamePhone.get(`${name}_${phone}`)!;
+            } else if (c.id) {
+                clientId = c.id;
+            } else {
+                clientId = generateDeterministicId(isArchived ? 'a' : 'c', c, ['Договор', 'Имя клиента', 'Телефон']);
+            }
+
+            const clientData = { ...c, id: clientId };
+            
+            await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, contract = EXCLUDED.contract, name = EXCLUDED.name, phone = EXCLUDED.phone, status = EXCLUDED.status, is_archived = EXCLUDED.is_archived', 
+            [clientId, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], isArchived, JSON.stringify(clientData)]);
+            
+            // Update maps so duplicates within the same import payload are handled
+            if (contract) clientByContract.set(contract, clientId);
+            if (name && phone) clientByNamePhone.set(`${name}_${phone}`, clientId);
+        };
+
         // FIX: Handle missing IDs by generating deterministic defaults to satisfy NOT NULL constraint
-        // and prevent duplication on subsequent syncs.
+        // and prevent duplication on subsequent syncs by matching existing records.
         if (payload.clients && Array.isArray(payload.clients)) {
             for (const c of payload.clients) {
-                const clientId = c.id || generateDeterministicId('c', c, ['Договор', 'Имя клиента', 'Телефон']);
-                // Ensure the stored JSON also has the ID
-                const clientData = { ...c, id: clientId };
-                
-                await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
-                [clientId, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], false, JSON.stringify(clientData)]);
+                await processClient(c, false);
             }
         }
         if (payload.archive && Array.isArray(payload.archive)) {
             for (const c of payload.archive) {
-                const clientId = c.id || generateDeterministicId('a', c, ['Договор', 'Имя клиента', 'Телефон']);
-                const clientData = { ...c, id: clientId };
-
-                await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
-                [clientId, c['Договор'], c['Имя клиента'], c['Телефон'], c['Статус сделки'], true, JSON.stringify(clientData)]);
+                await processClient(c, true);
             }
         }
         if (payload.masters && Array.isArray(payload.masters)) {
             for (const m of payload.masters) {
-                const masterId = m.id || generateDeterministicId('m', m, ['Имя', 'Телефон']);
+                const name = m['Имя'] ? String(m['Имя']).trim().toLowerCase() : '';
+                let masterId = '';
+                
+                if (name && masterByName.has(name)) {
+                    masterId = masterByName.get(name)!;
+                } else if (m.id) {
+                    masterId = m.id;
+                } else {
+                    masterId = generateDeterministicId('m', m, ['Имя', 'Телефон']);
+                }
+                
                 await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, chat_id = EXCLUDED.chat_id, services = EXCLUDED.services, phone = EXCLUDED.phone, address = EXCLUDED.address',
                 [masterId, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
+                
+                if (name) masterByName.set(name, masterId);
             }
         }
         if (payload.templates && Array.isArray(payload.templates)) {
