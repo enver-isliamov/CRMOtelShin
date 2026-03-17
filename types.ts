@@ -148,8 +148,33 @@ export interface SavedView {
 export const parseCurrency = (value: any): number => {
   if (typeof value === 'number') return value;
   if (typeof value !== 'string') return 0;
-  // Remove currency symbol, spaces, and use dot as a decimal separator
-  const cleanedString = value.replace(/[^0-9,.]/g, '').replace(',', '.');
+  
+  // If the value is an ISO date string (e.g., from Google Sheets date formatting),
+  // or a Russian date string (DD.MM.YYYY), it means a date was accidentally entered.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value) || /^\d{2}\.\d{2}\.\d{4}/.test(value)) {
+      return 0;
+  }
+
+  // Remove everything except digits, comma, dot, and minus sign
+  let cleanedString = value.replace(/[^0-9,.-]/g, '');
+  
+  const lastComma = cleanedString.lastIndexOf(',');
+  const lastDot = cleanedString.lastIndexOf('.');
+  const lastSeparatorIndex = Math.max(lastComma, lastDot);
+  
+  if (lastSeparatorIndex !== -1) {
+      const before = cleanedString.substring(0, lastSeparatorIndex).replace(/[,.]/g, '');
+      const after = cleanedString.substring(lastSeparatorIndex + 1);
+      
+      // If the part after the last separator has exactly 3 digits, it's likely a thousands separator.
+      // e.g. "1.500" -> 1500. "1,500" -> 1500.
+      if (after.length === 3) {
+          cleanedString = before + after;
+      } else {
+          cleanedString = before + '.' + after;
+      }
+  }
+  
   const number = parseFloat(cleanedString);
   return isNaN(number) ? 0 : number;
 };
@@ -157,8 +182,29 @@ export const parseCurrency = (value: any): number => {
 export const parseDuration = (value: any): number => {
     if (typeof value === 'number') return value;
     if (typeof value !== 'string') return 0;
-    const cleanedString = value.replace(/[^0-9,.]/g, '').replace(',', '.');
-    const number = parseInt(cleanedString, 10);
+    
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value) || /^\d{2}\.\d{2}\.\d{4}/.test(value)) {
+        return 0;
+    }
+
+    let cleanedString = value.replace(/[^0-9,.-]/g, '');
+    
+    const lastComma = cleanedString.lastIndexOf(',');
+    const lastDot = cleanedString.lastIndexOf('.');
+    const lastSeparatorIndex = Math.max(lastComma, lastDot);
+    
+    if (lastSeparatorIndex !== -1) {
+        const before = cleanedString.substring(0, lastSeparatorIndex).replace(/[,.]/g, '');
+        const after = cleanedString.substring(lastSeparatorIndex + 1);
+        
+        if (after.length === 3) {
+            cleanedString = before + after;
+        } else {
+            cleanedString = before + '.' + after;
+        }
+    }
+    
+    const number = parseFloat(cleanedString);
     return isNaN(number) ? 0 : number;
 }
 

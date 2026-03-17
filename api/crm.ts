@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import crypto from 'crypto';
 
 let cachedPool: Pool | null = null;
 
@@ -307,10 +308,18 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'import':
-        // FIX: Handle missing IDs by generating defaults to satisfy NOT NULL constraint
+        // Helper to generate deterministic ID if missing
+        const generateDeterministicId = (prefix: string, data: any, keys: string[]) => {
+            const uniqueString = keys.map(k => data[k] || '').join('_');
+            const hash = crypto.createHash('md5').update(uniqueString).digest('hex').substring(0, 12);
+            return `${prefix}_${hash}`;
+        };
+
+        // FIX: Handle missing IDs by generating deterministic defaults to satisfy NOT NULL constraint
+        // and prevent duplication on subsequent syncs.
         if (payload.clients && Array.isArray(payload.clients)) {
             for (const c of payload.clients) {
-                const clientId = c.id || `c_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                const clientId = c.id || generateDeterministicId('c', c, ['Договор', 'Имя клиента', 'Телефон']);
                 // Ensure the stored JSON also has the ID
                 const clientData = { ...c, id: clientId };
                 
@@ -320,7 +329,7 @@ export default async function handler(req: any, res: any) {
         }
         if (payload.archive && Array.isArray(payload.archive)) {
             for (const c of payload.archive) {
-                const clientId = c.id || `a_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+                const clientId = c.id || generateDeterministicId('a', c, ['Договор', 'Имя клиента', 'Телефон']);
                 const clientData = { ...c, id: clientId };
 
                 await pool.query('INSERT INTO clients (id, contract, name, phone, status, is_archived, data) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data', 
@@ -329,7 +338,7 @@ export default async function handler(req: any, res: any) {
         }
         if (payload.masters && Array.isArray(payload.masters)) {
             for (const m of payload.masters) {
-                const masterId = m.id || `m_${Date.now()}_${Math.random()}`;
+                const masterId = m.id || generateDeterministicId('m', m, ['Имя', 'Телефон']);
                 await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, chat_id = EXCLUDED.chat_id, services = EXCLUDED.services, phone = EXCLUDED.phone, address = EXCLUDED.address',
                 [masterId, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
             }
