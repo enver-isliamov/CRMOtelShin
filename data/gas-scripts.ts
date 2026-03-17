@@ -103,6 +103,14 @@ function routeActionCRM(payload) {
     case 'updatemaster': return { status: 'success', message: crmUpdateRow(ss, SHEET_NAME_MASTERS, payload.master, 'id', user) };
     case 'deletemaster': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_MASTERS, payload.masterId, 'id') };
     
+    // --- SYNC ACTIONS (Vercel -> GAS) ---
+    case 'sync_client': return { status: 'success', message: crmUpsertRow(ss, SHEET_NAME_CLIENTS, payload.client, 'id', user) };
+    case 'sync_delete_client': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_CLIENTS, payload.clientId, 'id') };
+    case 'sync_master': return { status: 'success', message: crmUpsertRow(ss, SHEET_NAME_MASTERS, payload.master, 'id', user) };
+    case 'sync_delete_master': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_MASTERS, payload.masterId, 'id') };
+    case 'sync_template': return { status: 'success', message: crmUpsertRow(ss, SHEET_NAME_TEMPLATES, payload.template, 'Название шаблона', user) };
+    case 'sync_delete_template': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_TEMPLATES, payload.templateName, 'Название шаблона') };
+
     case 'sendMessage': return crmSendMessage(payload.chatId, payload.message);
     case 'bulksend': return crmBulkSendMessage(ss, payload.clientIds, payload.templateName);
     case 'uploadfile': return { status: 'success', fileUrl: crmUploadFile(payload), message: 'Файл загружен' };
@@ -200,9 +208,30 @@ function crmGetFullSheetData(ss, sheetName, dataKey) {
     if (sheet.getLastRow() < 2) return { status: 'success', headers: [], [dataKey]: [] };
     const data = sheet.getDataRange().getValues();
     const headers = data.shift();
-    const result = data.map(row => {
-        let obj = {}; headers.forEach((header, i) => { let value = row[i]; if (value instanceof Date) value = Utilities.formatDate(new Date(value), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); obj[header] = value; }); return obj;
+    
+    // Ensure 'id' exists for all rows (except logs/history which might not need it in the same way, but let's check)
+    const idIndex = headers.indexOf('id');
+    let hasUpdates = false;
+    
+    const result = data.map((row, rowIndex) => {
+        let obj = {}; 
+        headers.forEach((header, i) => { 
+            let value = row[i]; 
+            if (value instanceof Date) value = Utilities.formatDate(new Date(value), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); 
+            obj[header] = value; 
+        }); 
+        
+        // Auto-generate ID if missing
+        if (idIndex > -1 && !obj['id']) {
+            const newId = (sheetName === SHEET_NAME_MASTERS ? 'm_' : 'c_') + new Date().getTime() + '_' + Math.floor(Math.random() * 10000);
+            obj['id'] = newId;
+            sheet.getRange(rowIndex + 2, idIndex + 1).setValue(newId);
+            hasUpdates = true;
+        }
+        
+        return obj;
     });
+    
     if (sheetName === SHEET_NAME_LOGS) result.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return { status: 'success', headers: headers, [dataKey]: result };
   } catch (e) { throw new Error('Could not get data from sheet: ' + sheetName); }
@@ -258,6 +287,18 @@ function crmUpdateRow(ss, sheetName, dataObject, idKey, user) {
   const changes = headers.map(header => ({ header, old: oldData[header], new: dataObject[header] })).filter(({ old, new: newValue }) => newValue !== undefined && String(old) !== String(newValue)).map(({header, old, new: newValue}) => header + ": '" + old + "' -> '" + newValue + "'");
   if (changes.length > 0 && sheetName === SHEET_NAME_CLIENTS) { crmLogHistory(ss, dataObject.id, user, 'Данные обновлены', changes.join('\\n')); }
   return 'Updated';
+}
+
+function crmUpsertRow(ss, sheetName, dataObject, idKey, user) {
+  const sheet = crmGetOrCreateSheet(ss, sheetName);
+  const rowNum = crmFindRowById(sheet, dataObject[idKey], idKey);
+  if (rowNum === -1) {
+    crmAddRow(ss, sheetName, dataObject, user);
+    return 'Inserted';
+  } else {
+    crmUpdateRow(ss, sheetName, dataObject, idKey, user);
+    return 'Updated';
+  }
 }
 
 function crmDeleteRow(ss, sheetName, id, idKey) {

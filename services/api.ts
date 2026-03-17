@@ -49,7 +49,8 @@ async function requestAPI(action: string, payload: any = {}, customUrl?: string,
     const finalPayload = { 
         action,
         ...payload, 
-        user: user.username 
+        user: user.username,
+        googleSheetId: settings.googleSheetId
     };
 
     if (mode === 'VERCEL') {

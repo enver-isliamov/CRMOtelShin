@@ -630,7 +630,7 @@ const LogsTab: React.FC<{showToast: (message: string, type: 'success' | 'error')
     );
 }
 
-const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'error') => void }> = ({ showToast }) => {
+const SyncTab: React.FC<{ showToast: (message: string, type: 'success' | 'error') => void }> = ({ showToast }) => {
     const [fetchedData, setFetchedData] = useState<{ clients: any[], archive: any[], masters: any[], templates: any[] } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [importStatus, setImportStatus] = useState('');
@@ -651,7 +651,7 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
     const handleImportToVercel = async () => {
         if (!fetchedData) return;
         setIsLoading(true);
-        setImportStatus('Начинаем импорт в Vercel Postgres...');
+        setImportStatus('Начинаем синхронизацию с Vercel Postgres...');
         try {
             const CHUNK_SIZE = 100;
             const clientChunks = [];
@@ -663,7 +663,7 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
             for (const chunk of clientChunks) {
                 await api.importDataToVercel(chunk, []);
                 totalImported += chunk.length;
-                setImportStatus(`Импортировано активных клиентов: ${totalImported} / ${fetchedData.clients.length}`);
+                setImportStatus(`Синхронизировано активных клиентов: ${totalImported} / ${fetchedData.clients.length}`);
             }
 
             const archiveChunks = [];
@@ -675,55 +675,42 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
             for (const chunk of archiveChunks) {
                 await api.importDataToVercel([], chunk);
                 totalArchiveImported += chunk.length;
-                setImportStatus(`Импортировано архива: ${totalArchiveImported} / ${fetchedData.archive.length}`);
+                setImportStatus(`Синхронизировано архива: ${totalArchiveImported} / ${fetchedData.archive.length}`);
             }
 
-            setImportStatus('Импорт Мастеров и Шаблонов...');
+            setImportStatus('Синхронизация Мастеров и Шаблонов...');
             await api.importDataToVercel([], [], fetchedData.masters, fetchedData.templates);
 
-            showToast('Полная миграция базы успешно завершена!', 'success');
-            setImportStatus('Готово! Теперь можно переключить источник данных на VERCEL.');
+            showToast('Синхронизация успешно завершена!', 'success');
+            setImportStatus('Готово! Данные синхронизированы.');
         } catch(e: any) {
-            showToast(`Ошибка импорта: ${e.message}`, 'error');
-            setImportStatus('Ошибка при импорте.');
+            showToast(`Ошибка синхронизации: ${e.message}`, 'error');
+            setImportStatus('Ошибка при синхронизации.');
         } finally {
             setIsLoading(false);
         }
     };
-    
-    const handleClearDatabase = async () => {
-        if (!window.confirm("ВНИМАНИЕ! Это полностью удалит все данные из базы Vercel Postgres. Вы уверены?")) return;
-        
-        setIsLoading(true);
-        try {
-            await api.clearDatabase();
-            showToast('База данных успешно очищена.', 'success');
-            setImportStatus('База очищена. Можно начинать чистый импорт.');
-        } catch(e: any) {
-            showToast(`Ошибка очистки: ${e.message}`, 'error');
-        } finally {
-            setIsLoading(false);
-        }
-    }
 
     return (
         <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Миграция данных (Google Sheets &rarr; Vercel Postgres)</h3>
+            <h3 className="text-xl font-semibold">Двусторонняя синхронизация (Google Sheets &harr; Vercel Postgres)</h3>
             <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 text-indigo-800 dark:text-indigo-200 rounded-md">
                 <p className="text-sm">
-                    Этот инструмент переносит ВСЮ базу данных: Клиенты, Архив, Мастера и Шаблоны сообщений.
+                    Синхронизация работает автоматически: при изменении данных в CRM они сразу отправляются в Google Sheets.
                     <br/>
-                    <b>Совет:</b> Если у вас появляются дубликаты, сначала нажмите "Очистить базу данных", а затем "Начать миграцию".
+                    Если вы внесли изменения напрямую в Google Sheets, используйте этот инструмент для загрузки свежих данных в Vercel Postgres.
+                    <br/>
+                    <b>Внимание:</b> Данные объединяются (UPSERT). Существующие записи будут обновлены, новые — добавлены. Удаления из Google Sheets не приведут к удалению из Vercel.
                 </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4 font-bold text-xl">1</div>
-                    <h4 className="font-bold text-lg mb-2">Скачать данные</h4>
-                    <p className="text-sm text-gray-500 mb-4">Получить всю базу из Google Apps Script.</p>
+                    <h4 className="font-bold text-lg mb-2">Скачать из Google Sheets</h4>
+                    <p className="text-sm text-gray-500 mb-4">Получить свежие данные из таблицы.</p>
                     <Button onClick={handleFetchFromGAS} disabled={isLoading} variant="outline" className="w-full justify-center">
-                        {isLoading && !fetchedData ? 'Загрузка...' : 'Получить из Google'}
+                        {isLoading && !fetchedData ? 'Загрузка...' : 'Получить данные'}
                     </Button>
                     {fetchedData && (
                         <div className="mt-4 text-left w-full bg-gray-50 dark:bg-gray-700/50 p-3 rounded text-sm space-y-1">
@@ -737,21 +724,13 @@ const MigrationTab: React.FC<{ showToast: (message: string, type: 'success' | 'e
 
                 <div className={`border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center transition-opacity ${!fetchedData ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4 font-bold text-xl">2</div>
-                    <h4 className="font-bold text-lg mb-2">Загрузить в Postgres</h4>
-                    <p className="text-sm text-gray-500 mb-4">Отправить данные в новую базу Vercel.</p>
+                    <h4 className="font-bold text-lg mb-2">Обновить Vercel Postgres</h4>
+                    <p className="text-sm text-gray-500 mb-4">Синхронизировать загруженные данные с базой.</p>
                     
                     <div className="w-full space-y-3">
                         <Button onClick={handleImportToVercel} disabled={isLoading} className="w-full justify-center">
-                            {isLoading && fetchedData ? 'Импорт...' : 'Начать миграцию'}
+                            {isLoading && fetchedData ? 'Синхронизация...' : 'Начать синхронизацию'}
                         </Button>
-                        
-                        <button 
-                            onClick={handleClearDatabase}
-                            disabled={isLoading}
-                            className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                        >
-                            ⚠️ Очистить базу данных перед импортом (удалить дубли)
-                        </button>
                     </div>
 
                     {importStatus && (
@@ -957,7 +936,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
         { id: 'general', label: 'Основные', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.75a.75.75 0 01.75.75v1.5h-1.5v-1.5a.75.75 0 01.75-.75zM10 6a2.5 2.5 0 00-2.5 2.5v7.5a2.5 2.5 0 105 0v-7.5A2.5 2.5 0 0010 6zM8.75 8.5a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5z" /></svg> },
         { id: 'templates', label: 'Шаблоны', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.5 2.75a.75.75 0 00-1.5 0v14.5a.75.75 0 001.5 0v-1.128c0-.416.16-.813.44-1.111h11.12c.28.298.44.7.44 1.11v1.129a.75.75 0 001.5 0V2.75a.75.75 0 00-1.5 0v1.128c0 .416-.16.813-.44 1.111H3.94c-.28-.298-.44-.7-.44-1.11V2.75z" /><path d="M6.25 7.5a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5h-7.5z" /></svg> },
         { id: 'logs', label: 'Логи', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg> },
-        { id: 'migration', label: 'Миграция', icon: <ArrowPathIcon /> },
+        { id: 'migration', label: 'Синхронизация', icon: <ArrowPathIcon /> },
         { id: 'gas', label: 'Настройка GAS', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M15.312 5.312a.75.75 0 010 1.062l-6.25 6.25a.75.75 0 01-1.062 0l-2.5-2.5a.75.75 0 011.062-1.062l1.97 1.97 5.72-5.72a.75.75 0 011.062 0z" clipRule="evenodd" /></svg> },
         { id: 'about', label: 'О проекте', icon: <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>}
     ];
@@ -979,7 +958,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
       <Card>
         {activeTab === 'general' && <GeneralSettingsTab settings={settings} onChange={handleSettingsChange} showToast={addLocalToast} />}
         {activeTab === 'templates' && <TemplatesTab templates={templates} setTemplates={setTemplates} showToast={addLocalToast}/>}
-        {activeTab === 'migration' && <MigrationTab showToast={addLocalToast} />}
+        {activeTab === 'migration' && <SyncTab showToast={addLocalToast} />}
         {activeTab === 'gas' && <GasSetupTab onCopy={handleCopyToClipboard} />}
         {activeTab === 'logs' && <LogsTab showToast={addLocalToast} />}
         {activeTab === 'about' && <AboutTab onCopy={handleCopyToClipboard} />}

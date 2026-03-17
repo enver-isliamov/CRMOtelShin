@@ -80,6 +80,23 @@ async function crmSendMessage(chatId: string | number, message: string) {
   }
 }
 
+// Sync data to Google Apps Script
+async function syncToGas(googleSheetId: string | undefined, action: string, payload: any) {
+  if (!googleSheetId) return;
+  try {
+    const response = await fetch(googleSheetId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload })
+    });
+    if (!response.ok) {
+      console.error(`Failed to sync ${action} to GAS:`, response.statusText);
+    }
+  } catch (e) {
+    console.error(`Error syncing ${action} to GAS:`, e);
+  }
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   
@@ -131,6 +148,7 @@ export default async function handler(req: any, res: any) {
           [newClient.id, newClient['Договор'], newClient['Имя клиента'], newClient['Телефон'], newClient['Статус сделки'], false, JSON.stringify(newClient)]
         );
         await logHistory(pool, newClient.id, user, 'Клиент создан', 'Добавлен через CRM');
+        await syncToGas(payload.googleSheetId, 'sync_client', { client: newClient, user });
         break;
 
       case 'update':
@@ -140,14 +158,19 @@ export default async function handler(req: any, res: any) {
           [updatedClient['Договор'], updatedClient['Имя клиента'], updatedClient['Телефон'], updatedClient['Статус сделки'], JSON.stringify(updatedClient), updatedClient.id]
         );
         await logHistory(pool, updatedClient.id, user, 'Данные обновлены', 'Изменено в CRM');
+        await syncToGas(payload.googleSheetId, 'sync_client', { client: updatedClient, user });
         break;
 
       case 'delete':
         await pool.query('DELETE FROM clients WHERE id = $1', [payload.clientId]);
+        await syncToGas(payload.googleSheetId, 'sync_delete_client', { clientId: payload.clientId, user });
         break;
 
       case 'bulkdelete':
         await pool.query('DELETE FROM clients WHERE id = ANY($1)', [payload.clientIds]);
+        for (const id of payload.clientIds) {
+          await syncToGas(payload.googleSheetId, 'sync_delete_client', { clientId: id, user });
+        }
         break;
 
       case 'reorder':
@@ -160,6 +183,13 @@ export default async function handler(req: any, res: any) {
         );
         await logHistory(pool, oldId, user, 'Заказ архивирован', 'Перенос в архив');
         await logHistory(pool, freshData.id, user, 'Новый заказ создан', 'Повторный заказ');
+        
+        // Fetch old client data to sync it as archived (or just sync the new one)
+        const oldClientRes = await pool.query('SELECT data FROM clients WHERE id = $1', [oldId]);
+        if (oldClientRes.rowCount > 0) {
+            await syncToGas(payload.googleSheetId, 'sync_client', { client: oldClientRes.rows[0].data, user });
+        }
+        await syncToGas(payload.googleSheetId, 'sync_client', { client: freshData, user });
         break;
 
       case 'getarchived':
@@ -180,14 +210,17 @@ export default async function handler(req: any, res: any) {
 
       case 'addtemplate':
         await pool.query('INSERT INTO templates (name, content) VALUES ($1, $2)', [payload.template['Название шаблона'], payload.template['Содержимое (HTML)']]);
+        await syncToGas(payload.googleSheetId, 'sync_template', { template: payload.template, user });
         break;
 
       case 'updatetemplate':
         await pool.query('UPDATE templates SET content = $1, updated_at = NOW() WHERE name = $2', [payload.template['Содержимое (HTML)'], payload.template['Название шаблона']]);
+        await syncToGas(payload.googleSheetId, 'sync_template', { template: payload.template, user });
         break;
 
       case 'deletetemplate':
         await pool.query('DELETE FROM templates WHERE name = $1', [payload.templateName]);
+        await syncToGas(payload.googleSheetId, 'sync_delete_template', { templateName: payload.templateName, user });
         break;
 
       case 'get_client_by_chatid':
@@ -216,15 +249,18 @@ export default async function handler(req: any, res: any) {
       case 'addmaster':
         const masterToAdd = payload.master;
         await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6)', [masterToAdd.id, masterToAdd['Имя'], masterToAdd['chatId (Telegram)'], masterToAdd['Услуга'], masterToAdd['Телефон'], masterToAdd['Адрес']]);
+        await syncToGas(payload.googleSheetId, 'sync_master', { master: masterToAdd, user });
         break;
 
       case 'updatemaster':
         const masterToUpdate = payload.master;
         await pool.query('UPDATE masters SET name = $1, chat_id = $2, services = $3, phone = $4, address = $5 WHERE id = $6', [masterToUpdate['Имя'], masterToUpdate['chatId (Telegram)'], masterToUpdate['Услуга'], masterToUpdate['Телефон'], masterToUpdate['Адрес'], masterToUpdate.id]);
+        await syncToGas(payload.googleSheetId, 'sync_master', { master: masterToUpdate, user });
         break;
 
       case 'deletemaster':
         await pool.query('DELETE FROM masters WHERE id = $1', [payload.masterId]);
+        await syncToGas(payload.googleSheetId, 'sync_delete_master', { masterId: payload.masterId, user });
         break;
 
       case 'gethistory':
@@ -294,7 +330,7 @@ export default async function handler(req: any, res: any) {
         if (payload.masters && Array.isArray(payload.masters)) {
             for (const m of payload.masters) {
                 const masterId = m.id || `m_${Date.now()}_${Math.random()}`;
-                await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+                await pool.query('INSERT INTO masters (id, name, chat_id, services, phone, address) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, chat_id = EXCLUDED.chat_id, services = EXCLUDED.services, phone = EXCLUDED.phone, address = EXCLUDED.address',
                 [masterId, m['Имя'], m['chatId (Telegram)'], m['Услуга'], m['Телефон'], m['Адрес']]);
             }
         }
