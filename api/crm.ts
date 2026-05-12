@@ -87,8 +87,9 @@ async function syncToGas(googleSheetId: string | undefined, action: string, payl
   try {
     const response = await fetch(googleSheetId, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...payload })
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...payload }),
+      redirect: 'follow'
     });
     if (!response.ok) {
       console.error(`Failed to sync ${action} to GAS:`, response.statusText);
@@ -390,6 +391,22 @@ export default async function handler(req: any, res: any) {
             for (const t of payload.templates) {
                 await pool.query('INSERT INTO templates (name, content) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET content = EXCLUDED.content',
                 [t['Название шаблона'], t['Содержимое (HTML)']]);
+            }
+        }
+
+        // 2. Двусторонняя синхронизация: выгружаем актуальные данные из БД Vercel и отправляем их обратно в GAS (Batch Sync)
+        if (payload.googleSheetId) {
+            try {
+                const activeRes = await pool.query('SELECT data FROM clients WHERE is_archived = FALSE');
+                const archivedRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE');
+                
+                await syncToGas(payload.googleSheetId, 'sync_batch', { 
+                    clients: activeRes.rows.map(r => r.data),
+                    archive: archivedRes.rows.map(r => r.data),
+                    user 
+                });
+            } catch(e) {
+                console.error("Failed to batch sync to GAS after import", e);
             }
         }
         break;

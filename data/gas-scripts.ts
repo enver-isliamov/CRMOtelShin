@@ -110,6 +110,10 @@ function routeActionCRM(payload) {
     case 'sync_delete_master': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_MASTERS, payload.masterId, 'id') };
     case 'sync_template': return { status: 'success', message: crmUpsertRow(ss, SHEET_NAME_TEMPLATES, payload.template, 'Название шаблона', user) };
     case 'sync_delete_template': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_TEMPLATES, payload.templateName, 'Название шаблона') };
+    case 'sync_batch': 
+        if (payload.clients) Object.assign(payload, { res1: crmSyncBatch(ss, SHEET_NAME_CLIENTS, payload.clients, user) });
+        if (payload.archive) Object.assign(payload, { res2: crmSyncBatch(ss, SHEET_NAME_ARCHIVE, payload.archive, user) });
+        return { status: 'success', message: 'Batch sync complete', details: [payload.res1, payload.res2] };
 
     case 'sendMessage': return crmSendMessage(payload.chatId, payload.message);
     case 'bulksend': return crmBulkSendMessage(ss, payload.clientIds, payload.templateName);
@@ -299,6 +303,52 @@ function crmUpsertRow(ss, sheetName, dataObject, idKey, user) {
     crmUpdateRow(ss, sheetName, dataObject, idKey, user);
     return 'Updated';
   }
+}
+
+function crmSyncBatch(ss, sheetName, items, user) {
+    if (!items || items.length === 0) return 'No items';
+    const sheet = crmGetOrCreateSheet(ss, sheetName);
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const idColIndex = headers.indexOf('id');
+    
+    // Read all existing data once
+    const data = sheet.getDataRange().getValues();
+    const dataRows = data.length > 1 ? data.slice(1) : [];
+    
+    const existingDataMap = {};
+    dataRows.forEach((row, i) => {
+        existingDataMap[row[idColIndex]] = { rowIndex: i + 2, rowData: row };
+    });
+    
+    const rowsToAppend = [];
+    
+    items.forEach(c => {
+        if (existingDataMap[c.id]) {
+            // Update mode: modify the dataRow in memory
+            const rInfo = existingDataMap[c.id];
+            const newRowData = headers.map((header, colIdx) => c[header] !== undefined ? c[header] : rInfo.rowData[colIdx]);
+            dataRows[rInfo.rowIndex - 2] = newRowData;
+        } else {
+            // Insert mode: add to append array
+            const newRowData = headers.map(header => c[header] !== undefined ? c[header] : '');
+            if (sheetName === SHEET_NAME_CLIENTS) {
+                // Ensure default date if missing for appends
+                const docIdx = headers.indexOf('Дата добавления');
+                if (docIdx > -1 && !newRowData[docIdx]) newRowData[docIdx] = new Date().toISOString();
+            }
+            rowsToAppend.push(newRowData);
+        }
+    });
+    
+    // Write changes back to sheet
+    if (dataRows.length > 0) {
+        sheet.getRange(2, 1, dataRows.length, headers.length).setValues(dataRows);
+    }
+    if (rowsToAppend.length > 0) {
+        sheet.getRange(2 + dataRows.length, 1, rowsToAppend.length, headers.length).setValues(rowsToAppend);
+    }
+    
+    return 'Synced ' + items.length + ' items to ' + sheetName;
 }
 
 function crmDeleteRow(ss, sheetName, id, idKey) {
