@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Client, formatDateForDisplay } from '../../types';
+import { Button } from './Button';
 
 const LoadingSpinner: React.FC = () => (
     <div className="flex justify-center items-center py-8">
@@ -19,6 +21,7 @@ export const OrderHistory: React.FC<{ client: Client }> = ({ client }) => {
   const [orders, setOrders] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -51,35 +54,48 @@ export const OrderHistory: React.FC<{ client: Client }> = ({ client }) => {
   return (
     <div className="space-y-3">
       {orders.map((order) => (
-        <div key={order.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600">
-           <div className="flex justify-between items-start">
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200">Заказ от {formatDateForDisplay(order['Дата добавления'])}</h4>
-              <span className="text-xs font-mono px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded-full">{order['Договор']}</span>
+        <div key={order.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600 flex flex-col sm:flex-row gap-4 justify-between items-start">
+           <div className="flex-1 w-full">
+               <div className="flex justify-between items-start">
+                  <h4 className="font-semibold text-gray-800 dark:text-gray-200">Заказ от {formatDateForDisplay(order['Дата добавления'])}</h4>
+                  <span className="text-xs font-mono px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded-full">{order['Договор']}</span>
+               </div>
+               <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                 <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Срок:</dt>
+                    <dd className="text-gray-800 dark:text-gray-200">{order['Срок']} мес.</dd>
+                 </div>
+                 <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Сумма:</dt>
+                    <dd className="text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(order['Общая сумма'] || 0)}</dd>
+                 </div>
+                 <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Статус:</dt>
+                    <dd className="text-gray-800 dark:text-gray-200">{order['Статус сделки']}</dd>
+                 </div>
+                 <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Окончание:</dt>
+                    <dd className="text-gray-800 dark:text-gray-200">{formatDateForDisplay(order['Окончание'])}</dd>
+                 </div>
+               </dl>
+               {order['Заказ - QR'] && (
+                <div className='mt-2 pt-2 border-t border-gray-200 dark:border-gray-600'>
+                     <dt className="text-gray-500 dark:text-gray-400 text-xs">Детали заказа:</dt>
+                     <dd className="text-gray-800 dark:text-gray-200 text-sm font-mono whitespace-pre-wrap">{order['Заказ - QR']}</dd>
+                </div>
+               )}
            </div>
-           <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-             <div>
-                <dt className="text-gray-500 dark:text-gray-400">Срок:</dt>
-                <dd className="text-gray-800 dark:text-gray-200">{order['Срок']} мес.</dd>
-             </div>
-             <div>
-                <dt className="text-gray-500 dark:text-gray-400">Сумма:</dt>
-                <dd className="text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(order['Общая сумма'] || 0)}</dd>
-             </div>
-             <div>
-                <dt className="text-gray-500 dark:text-gray-400">Статус:</dt>
-                <dd className="text-gray-800 dark:text-gray-200">{order['Статус сделки']}</dd>
-             </div>
-             <div>
-                <dt className="text-gray-500 dark:text-gray-400">Окончание:</dt>
-                <dd className="text-gray-800 dark:text-gray-200">{formatDateForDisplay(order['Окончание'])}</dd>
-             </div>
-           </dl>
-           {order['Заказ - QR'] && (
-            <div className='mt-2 pt-2 border-t border-gray-200 dark:border-gray-600'>
-                 <dt className="text-gray-500 dark:text-gray-400 text-xs">Детали заказа:</dt>
-                 <dd className="text-gray-800 dark:text-gray-200 text-sm font-mono">{order['Заказ - QR']}</dd>
-            </div>
-           )}
+           
+           <div className="w-full sm:w-auto self-stretch sm:self-center shrink-0">
+               <Button 
+                   size="sm" 
+                   variant="secondary" 
+                   className="w-full sm:w-auto h-full sm:h-auto py-2 sm:py-2 flex items-center justify-center bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 font-medium"
+                   onClick={() => navigate('/add-client', { state: { clientToReorder: order } })}
+                >
+                   Сдать снова (с теми же шинами)
+               </Button>
+           </div>
         </div>
       ))}
     </div>

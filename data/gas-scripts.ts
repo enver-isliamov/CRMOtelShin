@@ -94,6 +94,7 @@ function routeActionCRM(payload) {
     case 'add': return { status: 'success', newId: crmAddRow(ss, SHEET_NAME_CLIENTS, payload.client, user) };
     case 'update': return { status: 'success', message: crmUpdateRow(ss, SHEET_NAME_CLIENTS, payload.client, 'id', user) };
     case 'delete': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_CLIENTS, payload.clientId, 'id') };
+    case 'archive': return crmArchiveClient(ss, payload.clientId, user);
     case 'bulkdelete': return { status: 'success', message: crmBulkDeleteRows(ss, SHEET_NAME_CLIENTS, payload.clientIds, 'id') };
     case 'reorder': return crmReorderClient(ss, payload.oldClientId, payload.client, user);
     case 'addtemplate': return { status: 'success', message: crmAddRow(ss, SHEET_NAME_TEMPLATES, payload.template, user) };
@@ -366,6 +367,35 @@ function crmBulkDeleteRows(ss, sheetName, ids, idKey) {
   for (let i = data.length - 1; i >= 1; i--) if (ids.includes(String(data[i][idCol]))) rows.push(i + 1);
   rows.forEach(r => sheet.deleteRow(r));
   return rows.length + ' записей удалено.';
+}
+
+function crmArchiveClient(ss, clientId, user) {
+  const clientSheet = crmGetOrCreateSheet(ss, SHEET_NAME_CLIENTS);
+  const archiveSheet = crmGetOrCreateSheet(ss, SHEET_NAME_ARCHIVE);
+  const clientRowNum = crmFindRowById(clientSheet, clientId, 'id');
+  
+  if (clientRowNum === -1) {
+    // If not found in WebBase, assume it's already archived or deleted
+    return { status: 'success', message: 'Заказ не найден в активной базе, возможно уже в архиве.' };
+  }
+
+  const clientHeaders = clientSheet.getRange(1, 1, 1, clientSheet.getLastColumn()).getValues()[0];
+  const oldClientDataValues = clientSheet.getRange(clientRowNum, 1, 1, clientHeaders.length).getValues()[0];
+  
+  const archiveHeaders = archiveSheet.getRange(1, 1, 1, archiveSheet.getLastColumn()).getValues()[0];
+  
+  const newArchiveRow = archiveHeaders.map(header => {
+    const idx = clientHeaders.indexOf(header);
+    if (header === 'Дата архивации') return new Date().toISOString();
+    if (idx > -1) return oldClientDataValues[idx];
+    return '';
+  });
+  
+  archiveSheet.appendRow(newArchiveRow);
+  clientSheet.deleteRow(clientRowNum);
+  
+  crmLogHistory(ss, clientId, user, 'Заказ завершен', 'Переведен в архив');
+  return { status: 'success', message: 'Заказ успешно переведен в архив.' };
 }
 
 function crmReorderClient(ss, oldClientId, newClientData, user) {

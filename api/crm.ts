@@ -168,6 +168,12 @@ export default async function handler(req: any, res: any) {
         await syncToGas(payload.googleSheetId, 'sync_delete_client', { clientId: payload.clientId, user });
         break;
 
+      case 'archive':
+        await pool.query('UPDATE clients SET is_archived = TRUE WHERE id = $1', [payload.clientId]);
+        await logHistory(pool, payload.clientId, user, 'Заказ завершен', 'Переведен в архив');
+        await syncToGas(payload.googleSheetId, 'archive', { clientId: payload.clientId, user });
+        break;
+
       case 'bulkdelete':
         await pool.query('DELETE FROM clients WHERE id = ANY($1)', [payload.clientIds]);
         for (const id of payload.clientIds) {

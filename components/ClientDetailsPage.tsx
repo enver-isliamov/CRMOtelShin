@@ -167,6 +167,23 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
         }
     }, [selectedTemplateName, templates, client]);
 
+    const handleArchive = async () => {
+        if (!client) return;
+        if (window.confirm(`Вы уверены, что хотите завершить хранение и перевести заказ клиента "${client['Имя клиента']}" в архив?`)) {
+            setIsSubmitting(true);
+            try {
+                await api.archiveClient(client.id);
+                showToast('Заказ переведен в архив', 'success');
+                await refreshData();
+                navigate('/clients', { replace: true });
+            } catch (e: any) {
+                showToast(e.message, 'error');
+            } finally {
+                setIsSubmitting(false);
+            }
+        }
+    };
+
     const handleDelete = async () => {
         if (!client) return;
         if (window.confirm(`Вы уверены, что хотите удалить клиента "${client['Имя клиента']}"?`)) {
@@ -478,9 +495,12 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 </Button>
                             </div>
                             
-                            <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                            <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0 flex-wrap">
                                 <Button size="md" variant="primary" onClick={handleNewOrder} className="flex-1 sm:flex-none justify-center !bg-green-600 hover:!bg-green-700">
-                                    <DocumentPlusIcon className="w-5 h-5 mr-1"/> Новый заказ
+                                    <DocumentPlusIcon className="w-5 h-5 mr-1"/> Доп. комплект
+                                </Button>
+                                <Button size="md" variant="secondary" onClick={handleArchive} className="flex-1 sm:flex-none justify-center !bg-orange-50 !text-orange-600 dark:!bg-orange-900/30 dark:!text-orange-300">
+                                    В архив (Выдать)
                                 </Button>
                                 <Button size="md" variant="danger" onClick={handleDelete} className="justify-center px-3">
                                     <DeleteIcon/>

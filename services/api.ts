@@ -210,6 +210,10 @@ export const api = {
   deleteClient: async (clientId: string): Promise<void> => {
     await requestAPI('delete', { clientId: clientId });
   },
+
+  archiveClient: async (clientId: string): Promise<void> => {
+    await requestAPI('archive', { clientId: clientId });
+  },
   
   bulkDeleteClients: async (clientIds: string[]): Promise<void> => {
     await requestAPI('bulkdelete', { clientIds: clientIds });

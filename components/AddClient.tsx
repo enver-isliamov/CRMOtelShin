@@ -255,6 +255,8 @@ const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Cli
             ? rawPhone.substring(2) 
             : rawPhone;
 
+        const clonedPhotos = Array.isArray(sourceClient.photoUrls) ? [...sourceClient.photoUrls] : [];
+
         return {
             ...defaultOrderState, 
             'Имя клиента': sourceClient['Имя клиента'],
@@ -263,7 +265,9 @@ const getInitialState = (mode: 'create' | 'edit' | 'reorder', sourceClient?: Cli
             'Chat ID': sourceClient['Chat ID'],
             'Номер Авто': sourceClient['Номер Авто'],
             'Источник трафика': sourceClient['Источник трафика'],
-            'Склад хранения': sourceClient['Склад хранения'] || defaultOrderState['Склад хранения']
+            'Склад хранения': sourceClient['Склад хранения'] || defaultOrderState['Склад хранения'],
+            'photoUrls': clonedPhotos,
+            'metadata': sourceClient['metadata'] || ''
         };
     }
     
