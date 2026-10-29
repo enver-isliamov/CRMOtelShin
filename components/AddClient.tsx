@@ -10,13 +10,10 @@ import { Card } from './ui/Card';
 import { MultiTireInput } from './ui/MultiTireInput';
 import { ImageUpload } from './ui/ImageUpload';
 
-// --- ICONS ---
-const UserIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>;
-const TireIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 9.068l.44-2.396M11.25 9.068l-3.41 1.936m3.41-1.936l1.936 3.41M11.25 9.068a4.5 4.5 0 013.182-.968h.063a4.5 4.5 0 013.478 5.432l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a2.25 2.25 0 00-2.208-1.956H9.413a2.25 2.25 0 00-2.208 1.956l-1.29 7.234a.75.75 0 01-1.42-.25l-1.29-7.234a4.5 4.5 0 016.12 6.132h.063a4.5 4.5 0 013.182.968z" /></svg>;
-const CreditCardIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 21z" /></svg>;
-const ArrowLeftIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
-const CheckIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>;
+import { UserIcon, TireIcon, CreditCardIcon, ArrowLeftIcon, CheckIcon } from './icons/Icons';
+
 const SpinnerIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+
 
 const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; label: React.ReactNode}> = ({ name, checked, onChange, label }) => (
     <label className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800/60 rounded-lg cursor-pointer border-2 border-gray-200 dark:border-gray-700 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 dark:has-[:checked]:bg-primary-900/20 transition-all duration-200">
@@ -912,7 +909,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                                 </span>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-4 pt-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                                     <Input 
                                         label="Цена за месяц, ₽" 
                                         name="Цена за месяц" 
@@ -936,6 +933,38 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                         </div>
                         </div>
                     </Card>
+
+                    {/* Bottom Action Bar for Mobile & Desktop */}
+                    <div className="pt-2 pb-6 flex flex-col sm:flex-row gap-3">
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            disabled={isSubmitting}
+                            className="w-full justify-center !py-3.5 text-base font-bold shadow-md active:scale-[0.99] transition-transform"
+                        >
+                            {isSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <SpinnerIcon className="w-5 h-5 text-white" />
+                                    <span>Сохранение...</span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-2">
+                                    <CheckIcon className="w-5 h-5" />
+                                    <span>{mode === 'edit' ? 'Сохранить изменения' : 'Создать и сохранить заказ'}</span>
+                                </span>
+                            )}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            onClick={handleCancel}
+                            className="w-full sm:w-auto justify-center"
+                        >
+                            Отмена
+                        </Button>
+                    </div>
                 </form>
             </div>
         </div>

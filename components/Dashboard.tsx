@@ -9,10 +9,9 @@ import { DebtorsList } from './ui/DebtorsList';
 import { TotalEarningsCounter } from './ui/TotalEarningsCounter';
 
 
-// --- Icons ---
-const UserGroupIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.962a3.75 3.75 0 015.25 0m-5.25 0a3.75 3.75 0 00-5.25 0M3 16.5v-1.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 15v1.5m-18 0l-2.25.625a3.375 3.375 0 00-1.125 4.125l1.5 3.75a3.375 3.375 0 004.125 1.125L12 18.75l8.25 4.5a3.375 3.375 0 004.125-1.125l1.5-3.75a3.375 3.375 0 00-1.125-4.125L18 16.5m-18 0h18" /></svg>;
-const CurrencyRubleIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 7.5l3 4.5m0 0l3-4.5M12 12v5.25M15 12H9m6 3H9m12-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const ExclamationTriangleIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>;
+// --- CANONICAL ICONS ---
+import { UserGroupIcon, CurrencyRubleIcon, ExclamationTriangleIcon } from './icons/Icons';
+
 
 // Custom hook to animate numbers
 const useAnimatedValue = (endValue: number, duration = 1000) => {

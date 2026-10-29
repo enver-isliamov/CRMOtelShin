@@ -9,20 +9,21 @@ import { PhotoGallery } from './ui/PhotoGallery';
 import { OrderHistory } from './ui/Timeline';
 import { PaymentModal } from './ui/PaymentModal';
 
-// --- ICONS ---
-const ArrowLeftIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
-const EditIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>;
-const MessageIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>;
-const DeleteIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>;
-const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
-const ReceiptIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
-const ShieldCheckIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>;
-const BanknotesIcon: React.FC<{className?: string}> = ({className="w-4 h-4"}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6H2.25m0 0v10.5m0-10.5h16.5m-16.5 0h16.5m0 0v10.5m0-10.5a.75.75 0 01.75-.75h.75m0 0A2.25 2.25 0 0121.75 6v10.5a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 16.5V6a2.25 2.25 0 012.25-2.25h16.5M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /></svg>;
+// --- CANONICAL ICONS ---
+import { 
+    ArrowLeftIcon, 
+    EditIcon, 
+    MessageIcon, 
+    TrashIcon as DeleteIcon, 
+    DocumentPlusIcon, 
+    ReceiptIcon, 
+    ShieldCheckIcon, 
+    BanknotesIcon,
+    TireIcon,
+    CurrencyRubleIcon as CashIcon,
+    UserIcon
+} from './icons/Icons';
 
-// Section Icons
-const TireIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clipRule="evenodd" /></svg>;
-const CashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M1 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm12 4a3 3 0 11-6 0 3 3 0 016 0zM4 9a1 1 0 100-2 1 1 0 000 2zm13-1a1 1 0 11-2 0 1 1 0 012 0zM1.75 14.5a.75.75 0 000 1.5c4.417 0 8.693.603 12.749 1.73 1.111.309 2.251-.512 2.251-1.696v-.784a.75.75 0 00-1.5 0v.784a.25.25 0 01-.35.216C11.536 15.583 7.772 15 4.25 15h-.75A1.5 1.5 0 002 16.5v.75a.75.75 0 001.5 0v-.75a.25.25 0 01.25-.25h.75c4.363 0 8.514.836 12.25 2.302a.75.75 0 00.55-1.396 35.808 35.808 0 00-14.73-2.003.75.75 0 00-.82.647z" clipRule="evenodd" /></svg>;
-const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.25 1.25 0 002.228-1.417a6.002 6.002 0 019.614 0a1.25 1.25 0 002.228 1.417a8.502 8.502 0 00-14.07 0z" /></svg>;
 
 // Helper to extract JSON groups
 const getTireGroups = (client: Client): TireGroup[] => {
@@ -506,40 +507,52 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
             </div>
 
             {/* Sticky Bottom Actions Bar (Mobile Optimized) */}
-            <div className="sticky bottom-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] safe-area-inset-bottom">
-                <div className="max-w-4xl mx-auto flex flex-wrap gap-2 justify-between items-center">
+            <div className="sticky bottom-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-2.5 sm:p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-2 sm:gap-3 justify-between items-stretch sm:items-center">
                     
                     {mode === 'view' && (
                         <>
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <Button size="md" variant="secondary" onClick={() => setIsPaymentModalOpen(true)} className="flex-1 sm:flex-none justify-center !bg-emerald-50 !text-emerald-700 hover:!bg-emerald-100 dark:!bg-emerald-950/40 dark:!text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Принять оплату">
-                                    <BanknotesIcon className="w-5 h-5 mr-1 text-emerald-600 dark:text-emerald-400"/> Оплата
-                                </Button>
-                                <Button size="md" variant="secondary" onClick={handleEditClient} className="flex-1 sm:flex-none justify-center">
-                                    <EditIcon/> <span className="ml-1">Изм.</span>
-                                </Button>
-                                {/* SMS Button */}
-                                <Button size="md" variant="secondary" onClick={handleClientMessage} className="flex-1 sm:flex-none justify-center" title="Написать клиенту">
-                                    <MessageIcon/> <span className="ml-1">SMS</span>
-                                </Button>
-                                {/* Admin Button */}
-                                <Button size="md" variant="secondary" onClick={handleAdminMessage} className="flex-1 sm:flex-none justify-center !bg-blue-50 !text-blue-600 dark:!bg-blue-900/30 dark:!text-blue-300" title="Написать админу">
-                                    <ShieldCheckIcon className="w-5 h-5"/> <span className="ml-1">Админу</span>
-                                </Button>
-                                <Button size="md" variant="secondary" onClick={handleGenerateReceipt} className="flex-1 sm:flex-none justify-center !bg-indigo-50 !text-indigo-600 dark:!bg-indigo-900/30 dark:!text-indigo-300" title="Чек">
-                                    <ReceiptIcon className="w-5 h-5"/>
+                            {/* Primary Payment Action Button */}
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Button 
+                                    size="md" 
+                                    variant="secondary" 
+                                    onClick={() => setIsPaymentModalOpen(true)} 
+                                    className="flex-1 sm:flex-none justify-center !py-2.5 !px-4 !bg-emerald-600 hover:!bg-emerald-700 !text-white font-bold shadow-sm active:scale-[0.98] transition-transform text-sm"
+                                    title="Принять оплату"
+                                >
+                                    <BanknotesIcon className="w-5 h-5 mr-1.5 text-white"/> 
+                                    <span>
+                                        {Number(client['Долг'] || 0) > 0 
+                                            ? `Принять оплату (${new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)})`
+                                            : 'Принять оплату'
+                                        }
+                                    </span>
                                 </Button>
                             </div>
                             
-                            <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0 flex-wrap">
-                                <Button size="md" variant="primary" onClick={handleNewOrder} className="flex-1 sm:flex-none justify-center !bg-green-600 hover:!bg-green-700">
-                                    <DocumentPlusIcon className="w-5 h-5 mr-1"/> Доп. комплект
+                            {/* Secondary Actions: Clean Scrollable Strip on Mobile, Wrap on Desktop */}
+                            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap">
+                                <Button size="md" variant="secondary" onClick={handleEditClient} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm">
+                                    <EditIcon className="w-4 h-4 mr-1 text-gray-500"/> <span>Изм.</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleArchive} className="flex-1 sm:flex-none justify-center !bg-orange-50 !text-orange-600 dark:!bg-orange-900/30 dark:!text-orange-300">
-                                    В архив (Выдать)
+                                <Button size="md" variant="secondary" onClick={handleGenerateReceipt} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-indigo-50 !text-indigo-700 dark:!bg-indigo-900/30 dark:!text-indigo-300" title="Чек и договор">
+                                    <ReceiptIcon className="w-4 h-4 mr-1 text-indigo-600 dark:text-indigo-400"/> <span>Чек</span>
                                 </Button>
-                                <Button size="md" variant="danger" onClick={handleDelete} className="justify-center px-3">
-                                    <DeleteIcon/>
+                                <Button size="md" variant="secondary" onClick={handleClientMessage} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm" title="Написать клиенту">
+                                    <MessageIcon className="w-4 h-4 mr-1 text-gray-500"/> <span>SMS</span>
+                                </Button>
+                                <Button size="md" variant="secondary" onClick={handleAdminMessage} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-blue-50 !text-blue-700 dark:!bg-blue-900/30 dark:!text-blue-300" title="Написать админу">
+                                    <ShieldCheckIcon className="w-4 h-4 mr-1 text-blue-600 dark:text-blue-400"/> <span>Админу</span>
+                                </Button>
+                                <Button size="md" variant="secondary" onClick={handleNewOrder} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-green-50 !text-green-700 hover:!bg-green-100 dark:!bg-green-950/40 dark:!text-green-300" title="Дополнительный комплект">
+                                    <DocumentPlusIcon className="w-4 h-4 mr-1 text-green-600 dark:text-green-400"/> <span>+ Комплект</span>
+                                </Button>
+                                <Button size="md" variant="secondary" onClick={handleArchive} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-orange-50 !text-orange-700 dark:!bg-orange-900/30 dark:!text-orange-300" title="Выдать и архивировать">
+                                    <span>В архив</span>
+                                </Button>
+                                <Button size="md" variant="danger" onClick={handleDelete} className="flex-shrink-0 justify-center px-2.5 !py-2" title="Удалить">
+                                    <DeleteIcon className="w-4 h-4"/>
                                 </Button>
                             </div>
                         </>

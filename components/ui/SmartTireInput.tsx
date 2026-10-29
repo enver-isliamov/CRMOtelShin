@@ -13,25 +13,9 @@ interface SmartTireInputProps {
   onHasRimsChange?: (val: 'Да' | 'Нет') => void;
 }
 
-// --- ICONS ---
-const SunIcon: React.FC<{className?: string}> = ({ className = "w-4 h-4" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-  </svg>
-);
+// --- CANONICAL ICONS ---
+import { SunIcon, SnowflakeIcon, DiscIcon } from '../icons/Icons';
 
-const SnowflakeIcon: React.FC<{className?: string}> = ({ className = "w-4 h-4" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2.25v6M12 15.75v6M4.5 12h5.25M14.25 12h5.25M6.375 6.375l3.712 3.713M13.913 13.913l3.712 3.712M6.375 17.625l3.712-3.712M13.913 10.088l3.712-3.713" />
-  </svg>
-);
-
-const DiscIcon: React.FC<{className?: string}> = ({ className = "w-4 h-4" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 8.625a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25zM12 12a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-  </svg>
-);
 
 // --- CONSTANTS ---
 const COMMON_WIDTHS = ['135', '145', '155', '165', '175', '185', '195', '205', '215', '225', '235', '245', '255', '265', '275', '285', '295', '305', '315', '325'];

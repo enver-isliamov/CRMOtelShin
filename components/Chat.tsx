@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, Client } from '../types';
+import { ArrowLeftIcon } from './icons/Icons';
 
 interface ChatProps {
     clients: Client[];
@@ -113,41 +114,56 @@ export function Chat({ clients }: ChatProps) {
     };
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] bg-white dark:bg-gray-900">
-            {/* Sidebar List */}
-            <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 overflow-y-auto">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex h-[calc(100vh-4rem)] bg-white dark:bg-gray-900 overflow-hidden">
+            {/* Sidebar List (Hidden on mobile if a chat is active) */}
+            <div className={`${selectedChatId ? 'hidden md:block' : 'w-full'} md:w-1/3 md:max-w-xs border-r border-gray-200 dark:border-gray-800 overflow-y-auto`}>
+                <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-gray-800 dark:text-white">Сообщения</h2>
+                    <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 py-0.5 px-2 rounded-full font-medium">
+                        {sessions.length}
+                    </span>
                 </div>
                 <ul>
                     {sessions.map(session => (
                         <li 
                             key={session.chat_id}
                             onClick={() => setSelectedChatId(session.chat_id)}
-                            className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${selectedChatId === session.chat_id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                            className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${selectedChatId === session.chat_id ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
                         >
                             <div className="flex justify-between items-start mb-1">
                                 <span className="font-semibold text-gray-900 dark:text-gray-100">{session.client_name}</span>
                                 <span className="text-xs text-gray-400">{new Date(session.created_at).toLocaleDateString()}</span>
                             </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                {session.direction === 'outbound' && <span className="text-blue-500">Вы: </span>}
+                                {session.direction === 'outbound' && <span className="text-primary-500">Вы: </span>}
                                 {session.content}
                             </p>
                         </li>
                     ))}
+                    {sessions.length === 0 && (
+                        <li className="p-8 text-center text-sm text-gray-400">
+                            Нет активных сообщений
+                        </li>
+                    )}
                 </ul>
             </div>
 
-            {/* Chat Area */}
-            <div className="flex-1 flex flex-col">
+            {/* Chat Area (Hidden on mobile if no chat is selected) */}
+            <div className={`${!selectedChatId ? 'hidden md:flex' : 'flex'} flex-1 flex flex-col`}>
                 {selectedChatId ? (
                     <>
-                        {/* Header */}
-                        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-                            <div>
-                                <h3 className="font-bold text-gray-800 dark:text-white">
-                                    {sessions.find(s => s.chat_id === selectedChatId)?.client_name}
+                        {/* Header with back button on mobile */}
+                        <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 bg-gray-50 dark:bg-gray-900">
+                            <button
+                                onClick={() => setSelectedChatId(null)}
+                                className="md:hidden p-2 -ml-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+                                title="Назад к списку"
+                            >
+                                <ArrowLeftIcon className="w-5 h-5" />
+                            </button>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-gray-800 dark:text-white truncate">
+                                    {sessions.find(s => s.chat_id === selectedChatId)?.client_name || 'Чат'}
                                 </h3>
                                 <span className="text-xs text-gray-500">Chat ID: {selectedChatId}</span>
                             </div>
