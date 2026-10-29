@@ -292,7 +292,7 @@ async function handleContactAuth(pool: Pool, chatId: string, contact: any) {
         [phone]
     );
 
-    if (res.rowCount > 0) {
+    if (res.rowCount && res.rowCount > 0) {
         const client = res.rows[0].data;
         const clientId = res.rows[0].id;
         client['Chat ID'] = chatId;

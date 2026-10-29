@@ -224,7 +224,7 @@ export default async function handler(req: any, res: any) {
 
       case 'getarchived':
         const clientLookupRes = await pool.query('SELECT data->>\'Телефон\' as phone FROM clients WHERE id = $1', [payload.clientId]);
-        if (clientLookupRes.rowCount > 0) {
+        if (clientLookupRes.rowCount && clientLookupRes.rowCount > 0) {
             const phone = clientLookupRes.rows[0].phone;
             const archRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE AND (phone = $1 OR data->>\'Телефон\' = $1)', [phone]);
             result.orders = archRes.rows.map(r => r.data);

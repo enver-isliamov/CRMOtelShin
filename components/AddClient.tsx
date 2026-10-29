@@ -65,9 +65,12 @@ const ServiceCheckboxCard: React.FC<{
 
 const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-const formatDate = (date: Date) => {
-    const tzOffset = date.getTimezoneOffset() * 60000;
-    const localIsoDate = new Date(date.getTime() - tzOffset);
+const formatDate = (date: any) => {
+    if (!date) return '';
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    const localIsoDate = new Date(d.getTime() - tzOffset);
     return localIsoDate.toISOString().split('T')[0];
 }
 
@@ -380,7 +383,7 @@ const SmartDurationSelector: React.FC<{
 
 
 export const AddClient: React.FC<{ 
-    settings: Settings, 
+    settings?: Settings, 
     onClientAdd: () => void,
     showToast: (msg: string, type: 'success' | 'error') => void 
 }> = ({ settings, onClientAdd, showToast }) => {
@@ -395,6 +398,7 @@ export const AddClient: React.FC<{
     const sourceClient = clientToEdit || clientToReorder;
 
     // State
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [tireGroups, setTireGroups] = useState<TireGroup[]>([]);
     const [draftGroup, setDraftGroup] = useState<TireGroup | null>(null);
     
@@ -555,11 +559,20 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         
+        if (isSubmitting) return;
+
         // 1. Validation (Blocking UI)
+        if (!formData['Имя клиента']?.trim()) {
+            setValidationToast({ message: 'Укажите ФИО клиента!', type: 'error' });
+            return;
+        }
+
         if (tireGroups.length === 0) {
-             setValidationToast({ message: `Добавьте хотя бы одну группу шин в заказ!`, type: 'error' });
+             setValidationToast({ message: 'Добавьте хотя бы одну группу шин в заказ!', type: 'error' });
              return;
         }
+
+        setIsSubmitting(true);
 
         // 2. Prepare Payload (Blocking UI)
         let dataForSubmission = { ...formData };
@@ -650,7 +663,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 showToast('Успешно сохранено!', 'success');
 
                 // Step D: Send Telegram Notifications (Optional, Skip for Edit to be non-intrusive)
-                if (mode !== 'edit') {
+                if (mode !== 'edit' && settings) {
                     const allRecipientIds = [
                         ...(settings.adminIds?.split(',').map(id => id.trim()).filter(Boolean) || []),
                         ...(settings.managerIds?.split(',').map(id => id.trim()).filter(Boolean) || [])
@@ -667,6 +680,8 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                 console.error("Background Save Error:", error);
                 // User is already on another page, but the global toast will show this error.
                 showToast(`Ошибка сохранения: ${error.message}`, 'error');
+            } finally {
+                setIsSubmitting(false);
             }
         })();
     };

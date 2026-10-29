@@ -15,6 +15,7 @@ import { Chat } from './components/Chat';
 import TelegramLK from './components/TelegramLK';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 import { ThemeSwitcher } from './components/ui/ThemeSwitcher';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Icons
 import { 
@@ -136,17 +137,23 @@ export default function App() {
   return (
     <BrowserRouter>
       <Layout isLoading={isLoading} onRefresh={() => fetchData(false)}>
-        <Routes>
-          <Route path="/" element={<Dashboard clients={clients} archive={archive} templates={templates} />} />
-          <Route path="/clients" element={<ClientsView clients={clients} headers={headers} templates={templates} savedViews={savedViews} onSaveViews={handleSaveViews} refreshData={fetchData} />} />
-          <Route path="/clients/:id" element={<ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={fetchData} settings={settings} />} />
-          <Route path="/chat" element={<Chat clients={clients} />} />
-          <Route path="/add-client" element={<AddClient settings={settings} onClientAdd={() => fetchData(true)} showToast={addToast} />} />
-          <Route path="/masters" element={<MastersView masters={masters} setMasters={setMasters} clients={clients} />} />
-          <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={fetchData} needsSetup={!settings.googleSheetId && settings.apiMode === 'GAS'} />} />
-          <Route path="/tg-lk" element={<TelegramLK />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Dashboard clients={clients} archive={archive} templates={templates} />} />
+            <Route path="/clients" element={<ClientsView clients={clients} headers={headers} templates={templates} savedViews={savedViews} onSaveViews={handleSaveViews} refreshData={fetchData} />} />
+            <Route path="/clients/:id" element={<ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={fetchData} settings={settings} />} />
+            <Route path="/chat" element={<Chat clients={clients} />} />
+            <Route path="/add-client" element={
+              <ErrorBoundary fallbackTitle="Ошибка формы добавления заказа">
+                <AddClient settings={settings} onClientAdd={() => fetchData(true)} showToast={addToast} />
+              </ErrorBoundary>
+            } />
+            <Route path="/masters" element={<MastersView masters={masters} setMasters={setMasters} clients={clients} />} />
+            <Route path="/settings" element={<Settings initialSettings={settings} initialTemplates={templates} initialMasters={masters} clients={clients} onSave={fetchData} needsSetup={!settings.googleSheetId && settings.apiMode === 'GAS'} />} />
+            <Route path="/tg-lk" element={<TelegramLK />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </Layout>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </BrowserRouter>
