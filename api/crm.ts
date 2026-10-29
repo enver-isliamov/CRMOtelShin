@@ -155,12 +155,29 @@ export default async function handler(req: any, res: any) {
 
       case 'update':
         const updatedClient = payload.client;
+        const existingRes = await pool.query('SELECT data, contract, name, phone, status FROM clients WHERE id = $1', [updatedClient.id]);
+        let mergedData = updatedClient;
+        let contract = updatedClient['Договор'];
+        let name = updatedClient['Имя клиента'];
+        let phone = updatedClient['Телефон'];
+        let status = updatedClient['Статус сделки'];
+
+        if (existingRes.rowCount && existingRes.rowCount > 0) {
+          const oldRow = existingRes.rows[0];
+          mergedData = { ...(oldRow.data || {}), ...updatedClient };
+          contract = contract || oldRow.contract || mergedData['Договор'];
+          name = name || oldRow.name || mergedData['Имя клиента'];
+          phone = phone || oldRow.phone || mergedData['Телефон'];
+          status = status || oldRow.status || mergedData['Статус сделки'];
+        }
+
         await pool.query(
-          'UPDATE clients SET contract = $1, name = $2, phone = $3, status = $4, data = $5, updated_at = NOW() WHERE id = $6',
-          [updatedClient['Договор'], updatedClient['Имя клиента'], updatedClient['Телефон'], updatedClient['Статус сделки'], JSON.stringify(updatedClient), updatedClient.id]
+          'UPDATE clients SET contract = COALESCE($1, contract), name = COALESCE($2, name), phone = COALESCE($3, phone), status = COALESCE($4, status), data = $5, updated_at = NOW() WHERE id = $6',
+          [contract, name, phone, status, JSON.stringify(mergedData), updatedClient.id]
         );
         await logHistory(pool, updatedClient.id, user, 'Данные обновлены', 'Изменено в CRM');
-        await syncToGas(payload.googleSheetId, 'sync_client', { client: updatedClient, user });
+        await syncToGas(payload.googleSheetId, 'sync_client', { client: mergedData, user });
+        result.client = mergedData;
         break;
 
       case 'delete':

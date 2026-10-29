@@ -1,4 +1,5 @@
 import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCurrency, parseDuration } from '../types';
+import { photoStorage } from '../utils/photoStorage';
 import { 
   INITIAL_CLIENTS, 
   INITIAL_ARCHIVE, 
@@ -59,7 +60,17 @@ export const LocalCRMStorage = {
         try {
             localStorage.setItem('crm_clients', JSON.stringify(clients));
         } catch (e) {
-            console.warn("Local storage save clients error:", e);
+            console.warn("Local storage save clients quota exceeded, storing sanitized records:", e);
+            try {
+                // Keep client metadata safe by stripping huge base64 strings (which are kept in IndexedDB)
+                const sanitized = clients.map(c => ({
+                    ...c,
+                    photoUrls: (Array.isArray(c.photoUrls) ? c.photoUrls : []).filter(u => !u.startsWith('data:'))
+                }));
+                localStorage.setItem('crm_clients', JSON.stringify(sanitized));
+            } catch (err2) {
+                console.error("Local storage completely failed to save clients:", err2);
+            }
         }
     },
     getArchive(): Client[] {
@@ -507,8 +518,8 @@ export const api = {
     try {
         const result = await requestAPI('getclients');
 
-        const processClients = (data: any[]): Client[] => {
-            return (data || []).map((c: any) => ({
+        const processClients = async (data: any[]): Promise<Client[]> => {
+            const list: Client[] = (data || []).map((c: any) => ({
                 ...c,
                 'Общая сумма': parseCurrency(c['Общая сумма']),
                 'Долг': parseCurrency(c['Долг']),
@@ -517,19 +528,43 @@ export const api = {
                 'Кол-во шин': parseDuration(c['Кол-во шин']),
                 photoUrls: typeof c.photoUrls === 'string' && c.photoUrls.length > 0 ? c.photoUrls.split(',') : (Array.isArray(c.photoUrls) ? c.photoUrls : [])
             }));
+            
+            // Merge with local persistent IndexedDB photos for each client
+            for (const client of list) {
+                const localPhotos = await photoStorage.getPhotosForClient(client['Договор'], client.id);
+                if (localPhotos.length > 0) {
+                    client.photoUrls = Array.from(new Set([...(client.photoUrls || []), ...localPhotos]));
+                }
+            }
+            return list;
         };
 
-        const clients = processClients(result.clients);
-        const archive = processClients(result.archive);
+        const clients = await processClients(result.clients);
+        const archive = await processClients(result.archive);
 
         return { headers: result.headers || headers, clients, archive };
     } catch (error) {
         console.warn("API Error fallback in fetchClients:", error);
         const local = executeLocalAction('getclients');
+        const processLocal = async (data: any[]): Promise<Client[]> => {
+            const list: Client[] = (data || []).map((c: any) => ({
+                ...c,
+                photoUrls: Array.isArray(c.photoUrls) ? c.photoUrls : []
+            }));
+            for (const client of list) {
+                const localPhotos = await photoStorage.getPhotosForClient(client['Договор'], client.id);
+                if (localPhotos.length > 0) {
+                    client.photoUrls = Array.from(new Set([...(client.photoUrls || []), ...localPhotos]));
+                }
+            }
+            return list;
+        };
+        const clients = await processLocal(local.clients || []);
+        const archive = await processLocal(local.archive || []);
         return {
             headers,
-            clients: local.clients || [],
-            archive: local.archive || []
+            clients,
+            archive
         };
     }
   },
@@ -539,6 +574,18 @@ export const api = {
       ...updatedClient,
       photoUrls: Array.isArray(updatedClient.photoUrls) ? updatedClient.photoUrls.join(',') : updatedClient.photoUrls,
     };
+    
+    // Save photos to IndexedDB
+    if (Array.isArray(updatedClient.photoUrls) && updatedClient.photoUrls.length > 0) {
+      const photosToStore = updatedClient.photoUrls.map(url => ({
+        id: url,
+        clientId: updatedClient.id,
+        contractNumber: updatedClient['Договор'],
+        dataUrl: url
+      }));
+      photoStorage.saveBatch(photosToStore);
+    }
+    
     await requestAPI('update', { client: clientToSend });
     return updatedClient as Client;
   },
@@ -687,7 +734,17 @@ export const api = {
                         mimeType: file.type,
                         fileData: fileData,
                     });
-                    resolve({ fileUrl: result?.fileUrl || dataUrl });
+                    const finalUrl = result?.fileUrl || dataUrl;
+                    
+                    // Persist to IndexedDB so photo survives page reload
+                    await photoStorage.savePhoto({
+                        id: finalUrl,
+                        clientId: client.id,
+                        contractNumber: client['Договор'],
+                        dataUrl: finalUrl
+                    });
+                    
+                    resolve({ fileUrl: finalUrl });
                 } catch (error) {
                     reject(error);
                 }
@@ -701,13 +758,18 @@ export const api = {
   },
   
   fetchPhotosForContract: async (contractNumber?: string, clientId?: string): Promise<string[]> => {
-    if (!contractNumber && !clientId) return [];
-    try {
-        const result = await requestAPI('getphotos', { contractNumber, clientId });
-        return result?.photoUrls || [];
-    } catch(e) {
-        return [];
+    let serverUrls: string[] = [];
+    if (contractNumber || clientId) {
+        try {
+            const result = await requestAPI('getphotos', { contractNumber, clientId });
+            if (result?.photoUrls && Array.isArray(result.photoUrls)) {
+                serverUrls = result.photoUrls;
+            }
+        } catch(e) {}
     }
+    // Also retrieve from IndexedDB
+    const localUrls = await photoStorage.getPhotosForClient(contractNumber, clientId);
+    return Array.from(new Set([...serverUrls, ...localUrls]));
   },
 
   fetchClientHistory: async (clientId: string): Promise<ClientEvent[]> => {

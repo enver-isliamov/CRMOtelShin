@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '../../types';
 import { api } from '../../services/api';
+import { photoStorage } from '../../utils/photoStorage';
 import { Lightbox } from './Lightbox';
 import { ImageUpload } from './ImageUpload';
 import { Button } from './Button';
@@ -48,10 +49,12 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
   // Sync state when client prop updates
   useEffect(() => {
     const existing = parseClientPhotos(client);
-    setPhotoUrls(prev => Array.from(new Set([...prev, ...existing])));
-  }, [client]);
+    if (existing.length > 0) {
+      setPhotoUrls(prev => Array.from(new Set([...prev, ...existing])));
+    }
+  }, [client?.photoUrls]);
 
-  // Load photos from backend
+  // Load photos from backend & IndexedDB
   useEffect(() => {
     let isMounted = true;
     const fetchPhotos = async () => {
@@ -59,8 +62,9 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
       setIsFetchingPhotos(true);
       try {
         const urls = await api.fetchPhotosForContract(client['Договор'], client.id);
-        if (isMounted && urls && urls.length > 0) {
-          setPhotoUrls(prev => Array.from(new Set([...prev, ...urls])));
+        if (isMounted) {
+          const clientPhotos = parseClientPhotos(client);
+          setPhotoUrls(Array.from(new Set([...clientPhotos, ...(urls || [])])));
         }
       } catch (e: any) {
         console.warn("Photos fetch warning:", e);
@@ -85,7 +89,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
       const finalUrls = Array.from(new Set([...photoUrls, ...newUrls]));
       
       await api.updateClient({ 
-        id: client.id, 
+        ...client, 
         photoUrls: finalUrls
       });
       
@@ -110,8 +114,9 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
     setPhotoUrls(updatedUrls);
 
     try {
+      await photoStorage.deletePhoto(urlToDelete);
       await api.updateClient({
-        id: client.id,
+        ...client,
         photoUrls: updatedUrls
       });
       showToast("Фотография удалена", 'success');

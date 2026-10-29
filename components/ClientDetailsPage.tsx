@@ -130,16 +130,15 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [selectedLightboxUrl, setSelectedLightboxUrl] = useState<string | null>(null);
 
     useEffect(() => {
-        // PRIORITY 1: Check if client object was passed in navigation state
-        if (location.state?.client) {
-            setClient(location.state.client);
-            return;
-        }
-
-        // PRIORITY 2: Fallback to ID lookup (e.g. on direct link or reload)
         if (!id) return;
         const foundClient = clients.find(c => String(c.id) === String(id));
-        setClient(foundClient);
+        if (foundClient) {
+            // Live data from database/storage always takes precedence
+            setClient(foundClient);
+        } else if (location.state?.client) {
+            // Fallback while clients list is loading on initial mount
+            setClient(location.state.client);
+        }
     }, [id, clients, location.state]);
 
     const showToast = (message: string, type: 'success' | 'error') => {
