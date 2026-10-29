@@ -177,7 +177,10 @@ export function executeLocalAction(action: string, payload: any = {}, user: stri
         }
 
         case 'update': {
-            const updated = payload.client;
+            const updated = { ...payload.client };
+            if (typeof updated.photoUrls === 'string') {
+                updated.photoUrls = updated.photoUrls.length > 0 ? updated.photoUrls.split(',') : [];
+            }
             let foundInActive = false;
             const updatedClients = clients.map(c => {
                 if (c.id === updated.id) {
@@ -355,6 +358,21 @@ export function executeLocalAction(action: string, payload: any = {}, user: stri
                 status: 'success',
                 fileUrl: `data:${payload.mimeType || 'image/jpeg'};base64,${payload.fileData}`
             };
+
+        case 'getphotos': {
+            const { contractNumber, clientId } = payload;
+            let found = clients.find(c => (contractNumber && c['Договор'] === contractNumber) || (clientId && c.id === clientId));
+            if (!found) {
+                found = archive.find(c => (contractNumber && c['Договор'] === contractNumber) || (clientId && c.id === clientId));
+            }
+            const rawPhotos = found?.photoUrls;
+            const photoUrls = Array.isArray(rawPhotos)
+                ? rawPhotos
+                : (typeof (rawPhotos as unknown) === 'string' && (rawPhotos as unknown as string).trim().length > 0
+                    ? (rawPhotos as unknown as string).split(',')
+                    : []);
+            return { status: 'success', photoUrls };
+        }
 
         case 'import':
             if (payload.clients) LocalCRMStorage.saveClients(payload.clients);
@@ -682,10 +700,10 @@ export const api = {
     });
   },
   
-  fetchPhotosForContract: async (contractNumber: string): Promise<string[]> => {
-    if (!contractNumber) return [];
+  fetchPhotosForContract: async (contractNumber?: string, clientId?: string): Promise<string[]> => {
+    if (!contractNumber && !clientId) return [];
     try {
-        const result = await requestAPI('getphotos', { contractNumber });
+        const result = await requestAPI('getphotos', { contractNumber, clientId });
         return result?.photoUrls || [];
     } catch(e) {
         return [];

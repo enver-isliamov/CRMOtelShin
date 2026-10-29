@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
 import { PhotoGallery } from './ui/PhotoGallery';
+import { Lightbox } from './ui/Lightbox';
 import { OrderHistory } from './ui/Timeline';
 import { PaymentModal } from './ui/PaymentModal';
 
@@ -126,6 +127,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [selectedLightboxUrl, setSelectedLightboxUrl] = useState<string | null>(null);
 
     useEffect(() => {
         // PRIORITY 1: Check if client object was passed in navigation state
@@ -342,11 +344,18 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         );
     }
 
-    const descClean = (client['Заказ - QR'] || '').split('||JSON:')[0];
+    const rawPhotos = client?.photoUrls;
+    const clientPhotos: string[] = Array.isArray(rawPhotos)
+        ? rawPhotos.filter(Boolean)
+        : (typeof (rawPhotos as unknown) === 'string' && (rawPhotos as unknown as string).trim().length > 0
+            ? (rawPhotos as unknown as string).split(',').map(s => s.trim()).filter(Boolean)
+            : []);
+    const descClean = (client?.['Заказ - QR'] || '').split('||JSON:')[0];
 
     return (
         <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            {selectedLightboxUrl && <Lightbox imageUrl={selectedLightboxUrl} onClose={() => setSelectedLightboxUrl(null)} />}
             
             {/* Sticky Header */}
             <div className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
@@ -421,7 +430,9 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                         <div className="bg-white dark:bg-gray-800 rounded-xl p-1 shadow-sm border border-gray-200 dark:border-gray-700 flex">
                             <TabButton active={activeTab === 'details'} onClick={() => setActiveTab('details')}>Детали</TabButton>
                             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>История</TabButton>
-                            <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>Фото</TabButton>
+                            <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>
+                                Фото {clientPhotos.length > 0 ? `(${clientPhotos.length})` : ''}
+                            </TabButton>
                         </div>
 
                         {activeTab === 'details' && (
@@ -477,6 +488,52 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                      <DetailItem label="Наличие дисков" value={client['Наличие дисков']} />
                                      <DetailItem label="DOT-код" value={client['DOT-код']} />
                                 </SectionBlock>
+
+                                {/* Photo Strip in Details Tab */}
+                                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 dark:text-gray-500">📸</span>
+                                            <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Фотографии шин и дисков {clientPhotos.length > 0 ? `(${clientPhotos.length})` : ''}
+                                            </h4>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('photos')}
+                                            className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+                                        >
+                                            {clientPhotos.length > 0 ? 'Все фото ➔' : '+ Загрузить фото'}
+                                        </button>
+                                    </div>
+                                    <div className="p-3">
+                                        {clientPhotos.length > 0 ? (
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                                {clientPhotos.slice(0, 6).map((url, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => setSelectedLightboxUrl(url)}
+                                                        className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xs cursor-pointer group bg-gray-100 dark:bg-gray-900"
+                                                    >
+                                                        <img src={url} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                        <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded text-[9px] font-mono bg-black/70 text-white leading-none">
+                                                            #{idx + 1}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div 
+                                                onClick={() => setActiveTab('photos')}
+                                                className="py-3 px-4 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                                            >
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    Нет прикрепленных фото. <span className="text-primary-600 dark:text-primary-400 font-semibold underline">Нажмите здесь</span>, чтобы загрузить из галереи или с камеры.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
                                 <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-xl p-4">
                                     <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Заметки</h4>

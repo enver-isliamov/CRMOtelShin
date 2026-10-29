@@ -336,6 +336,43 @@ export default async function handler(req: any, res: any) {
         result.info = infoData.result;
         break;
 
+      case 'uploadfile':
+        const { mimeType, fileData, filename, client } = payload;
+        if (payload.googleSheetId) {
+          try {
+            const gasUpload: any = await syncToGas(payload.googleSheetId, 'uploadfile', payload);
+            if (gasUpload && gasUpload.fileUrl) {
+              result.fileUrl = gasUpload.fileUrl;
+              result.status = 'success';
+              break;
+            }
+          } catch (e) {
+            console.warn("GAS file upload error, fallback to data URI:", e);
+          }
+        }
+        result.fileUrl = `data:${mimeType || 'image/jpeg'};base64,${fileData}`;
+        result.status = 'success';
+        break;
+
+      case 'getphotos': {
+        const { contractNumber, clientId } = payload;
+        let clientRow = null;
+        if (clientId) {
+          clientRow = await pool.query('SELECT data FROM clients WHERE id = $1', [clientId]);
+        } else if (contractNumber) {
+          clientRow = await pool.query('SELECT data FROM clients WHERE contract = $1 OR data->>\'Договор\' = $1', [contractNumber]);
+        }
+        if (clientRow && clientRow.rowCount && clientRow.rowCount > 0) {
+          const cData = clientRow.rows[0].data;
+          const photos = cData?.photoUrls;
+          result.photoUrls = Array.isArray(photos) ? photos : (typeof photos === 'string' && photos.length > 0 ? photos.split(',') : []);
+        } else {
+          result.photoUrls = [];
+        }
+        result.status = 'success';
+        break;
+      }
+
       case 'import':
         // 1. Fetch existing records to build a lookup map for deduplication
         const existingClientsRes = await pool.query('SELECT id, contract, name, phone FROM clients');

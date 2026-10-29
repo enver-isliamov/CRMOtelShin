@@ -643,7 +643,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                     }
                 }
 
-                const existingUrls = sourceClient?.photoUrls || [];
+                const existingUrls = formData.photoUrls || sourceClient?.photoUrls || [];
                 const finalClientData = { 
                     ...dataForSubmission,
                     photoUrls: [...new Set([...existingUrls, ...uploadedUrls])]
@@ -796,7 +796,14 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                                 />
                             </div>
                             
-                            <ImageUpload onFilesChange={setFilesToUpload} />
+                            <ImageUpload 
+                                onFilesChange={setFilesToUpload} 
+                                existingPhotos={formData.photoUrls || []}
+                                onRemoveExisting={(urlToRemove) => setFormData(prev => ({
+                                    ...prev,
+                                    photoUrls: (prev.photoUrls || []).filter(u => u !== urlToRemove)
+                                }))}
+                            />
 
                             <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
                                 <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
