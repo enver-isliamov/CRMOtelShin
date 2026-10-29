@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { SmartTireInput } from './SmartTireInput';
 import { TireGroup, PRICE_BY_DIAMETER, DEFAULT_PRICE } from '../../types';
@@ -10,9 +9,42 @@ interface MultiTireInputProps {
   onDraftChange: (draft: TireGroup | null) => void;
 }
 
-const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
-const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;
-const CheckIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>;
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+  </svg>
+);
+
+const EditIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+  </svg>
+);
+
+const SunSmallIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+  </svg>
+);
+
+const SnowflakeSmallIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2.25v6M12 15.75v6M4.5 12h5.25M14.25 12h5.25M6.375 6.375l3.712 3.713M13.913 13.913l3.712 3.712M6.375 17.625l3.712-3.712M13.913 10.088l3.712-3.713" />
+  </svg>
+);
 
 export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroupsChange, onDraftChange }) => {
   const [currentValue, setCurrentValue] = useState('');
@@ -82,7 +114,7 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
       const payload = isFormOpen ? draft : null;
       const payloadJSON = JSON.stringify(payload);
 
-      // CRITICAL FIX: Only call onDraftChange if the object actually changed.
+      // CRITICAL: Only call onDraftChange if the object actually changed.
       // This prevents infinite render loops with the parent component.
       if (prevDraftJSON.current !== payloadJSON) {
           prevDraftJSON.current = payloadJSON;
@@ -187,7 +219,7 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
   const handleAddNew = () => {
       resetForm();
       setIsFormOpen(true);
-  }
+  };
 
   const isInputValid = () => {
       const { diameter } = parseValue(currentValue);
@@ -198,76 +230,135 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
     <div className="space-y-4">
         {/* List of Added Groups */}
         {groups.length > 0 && (
-            <div className="space-y-2 mb-4">
-                {groups.map((group) => (
-                    <div 
-                        key={group.id} 
-                        onClick={() => handleEditGroup(group)}
-                        className={`
-                            relative flex items-center justify-between p-3 border rounded-lg shadow-sm cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600
-                            ${editingGroupId === group.id 
-                                ? 'bg-primary-50 border-primary-500 ring-1 ring-primary-500 dark:bg-primary-900/30' 
-                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                            }
-                        `}
-                    >
-                        <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-gray-900 dark:text-white">{group.count} шт</span>
-                                <span className="text-gray-400">|</span>
-                                <span className="font-semibold text-primary-600 dark:text-primary-400">{group.width}/{group.profile} R{group.diameter}</span>
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                                {group.brand} {group.model} 
-                                <span className="ml-2 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-500">
-                                    {group.season}
-                                </span>
-                                {group.hasRims === 'Да' && <span className="ml-1 text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">Диски</span>}
-                            </div>
-                            {/* Short DOT preview */}
-                            {group.dot && (
-                                <div className="text-xs text-gray-400 font-mono mt-1 truncate max-w-[250px]">
-                                    DOT: {group.dot}
+            <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-semibold text-gray-500 dark:text-gray-400 px-1">
+                    <span>Добавленные шины ({groups.reduce((acc, g) => acc + g.count, 0)} шт)</span>
+                    {groups.length > 1 && <span className="text-primary-600 dark:text-primary-400">Разноширокий комплект</span>}
+                </div>
+                
+                {groups.map((group, index) => {
+                    const groupLabel = groups.length > 1 
+                        ? (index === 0 ? 'Передняя ось' : index === 1 ? 'Задняя ось' : `Группа ${index + 1}`)
+                        : 'Основной комплект';
+
+                    const isEditing = editingGroupId === group.id;
+
+                    return (
+                        <div 
+                            key={group.id} 
+                            onClick={() => handleEditGroup(group)}
+                            className={`
+                                group relative p-3.5 rounded-xl border transition-all cursor-pointer shadow-xs
+                                ${isEditing 
+                                    ? 'bg-primary-50/70 border-primary-500 ring-2 ring-primary-500/30 dark:bg-primary-950/30 dark:border-primary-500' 
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
+                                }
+                            `}
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                    {/* Top meta tags */}
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/80 px-2 py-0.5 rounded-md">
+                                            {groupLabel}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/80 px-2 py-0.5 rounded-md">
+                                            {group.season === 'Лето' ? <SunSmallIcon /> : <SnowflakeSmallIcon />}
+                                            {group.season}
+                                        </span>
+                                        {group.hasRims === 'Да' && (
+                                            <span className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800">
+                                                С дисками
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Brand & Model + Dimensions */}
+                                    <div className="flex items-baseline gap-2 flex-wrap">
+                                        <span className="text-base font-bold text-gray-900 dark:text-white">
+                                            {group.brand} {group.model}
+                                        </span>
+                                        <span className="text-sm font-mono font-semibold text-primary-600 dark:text-primary-400">
+                                            {group.width}/{group.profile} R{group.diameter}
+                                        </span>
+                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                            {group.count} шт
+                                        </span>
+                                    </div>
+
+                                    {/* DOT Codes Preview */}
+                                    {group.dot && (
+                                        <div className="text-xs text-gray-400 dark:text-gray-400 font-mono mt-1.5 flex items-center gap-1 truncate">
+                                            <span className="text-[10px] font-sans font-semibold text-gray-400 uppercase">DOT:</span>
+                                            <span>{group.dot}</span>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    {isEditing ? (
+                                        <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 animate-pulse px-2 py-1">
+                                            Изменяется...
+                                        </span>
+                                    ) : (
+                                        <button 
+                                            type="button" 
+                                            onClick={(e) => { e.stopPropagation(); handleEditGroup(group); }}
+                                            className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            title="Редактировать группу"
+                                        >
+                                            <EditIcon />
+                                        </button>
+                                    )}
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => handleRemoveGroup(group.id, e)}
+                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                                        title="Удалить группу"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                            {editingGroupId === group.id && (
-                                <span className="text-xs font-bold text-primary-600 mr-2 animate-pulse">Редактируется...</span>
-                            )}
-                            <button 
-                                type="button" 
-                                onClick={(e) => handleRemoveGroup(group.id, e)}
-                                className="p-2 text-gray-400 hover:text-red-500 transition-colors z-10"
-                            >
-                                <TrashIcon />
-                            </button>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         )}
 
-        {/* Add Button */}
+        {/* Add Group Button (when form closed) */}
         {!isFormOpen && (
             <button
                 type="button"
                 onClick={handleAddNew}
-                className="w-full py-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:border-primary-500 dark:hover:text-primary-400 transition-all flex items-center justify-center gap-2 font-medium bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800"
+                className="w-full py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 rounded-xl text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 bg-gray-50/70 dark:bg-gray-800/40 hover:bg-primary-50/30 dark:hover:bg-primary-950/20 transition-all flex items-center justify-center gap-2 font-medium text-sm shadow-2xs"
             >
-                <PlusIcon /> Добавить группу шин / ось
+                <PlusIcon />
+                <span>Добавить группу шин / разноширокую ось</span>
             </button>
         )}
 
-        {/* Edit/Create Block */}
+        {/* Edit/Create Form Block */}
         {isFormOpen && (
-            <div className={`transition-all duration-300 animate-in fade-in slide-in-from-top-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-xl shadow-sm ring-1 ring-black/5 ${editingGroupId ? 'ring-primary-500 border-primary-500' : ''}`}>
-                <div className="flex justify-between items-center mb-4">
-                    <span className={`text-sm font-bold uppercase tracking-wider ${editingGroupId ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {editingGroupId ? "Редактирование группы" : "Новая группа шин"}
-                    </span>
+            <div className={`p-4 sm:p-5 rounded-xl border bg-white dark:bg-gray-800 shadow-sm transition-all duration-200 animate-in fade-in slide-in-from-top-2 ${
+                editingGroupId 
+                    ? 'border-primary-500 ring-2 ring-primary-500/20' 
+                    : 'border-gray-200 dark:border-gray-700'
+            }`}>
+                <div className="flex justify-between items-center pb-3 mb-4 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-primary-600 dark:bg-primary-400 animate-ping" />
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                            {editingGroupId ? "Редактирование параметров шин" : "Параметры комплекта шин"}
+                        </span>
+                    </div>
                     {groups.length > 0 && (
-                        <button type="button" onClick={handleCancel} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">
+                        <button 
+                            type="button" 
+                            onClick={handleCancel} 
+                            className="text-xs text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 font-medium hover:underline px-2 py-1"
+                        >
                             Отменить
                         </button>
                     )}
@@ -286,18 +377,25 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
                 />
                 
                 {/* DOT Codes Grid - Separated per tire */}
-                <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">DOT-коды (для каждой шины)</label>
+                <div className="mt-4 pt-3.5 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            DOT-коды шин (неделя и год выпуска)
+                        </label>
+                        <span className="text-[11px] text-gray-400">по 4 цифры, напр. 4223</span>
+                    </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {dotInputs.map((dot, idx) => (
                             <div key={idx} className="relative">
-                                <span className="absolute left-2 top-1.5 text-[10px] text-gray-400 font-bold select-none">#{idx + 1}</span>
+                                <span className="absolute left-2.5 top-2 text-[10px] text-gray-400 font-bold select-none">
+                                    #{idx + 1}
+                                </span>
                                 <input 
                                     type="text"
                                     value={dot}
                                     onChange={(e) => handleDotChange(idx, e.target.value)}
                                     placeholder="4523"
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 pl-7 pr-2 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-300 text-center font-mono uppercase"
+                                    className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 shadow-2xs focus:border-primary-500 focus:ring-1 focus:ring-primary-500 py-1.5 pl-8 pr-2 text-sm dark:bg-gray-800 dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600 text-center font-mono uppercase transition-colors"
                                     maxLength={4}
                                 />
                             </div>
@@ -305,17 +403,27 @@ export const MultiTireInput: React.FC<MultiTireInputProps> = ({ groups, onGroups
                     </div>
                 </div>
 
-                <div className="mt-4 flex justify-end">
+                {/* Form Action Controls */}
+                <div className="mt-5 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end gap-2.5">
+                    {groups.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={handleCancel}
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Закрыть
+                        </button>
+                    )}
                     <Button 
                         type="button" 
-                        variant={editingGroupId ? "primary" : "secondary"}
+                        variant="primary"
                         size="md"
                         onClick={handleSaveGroup}
                         disabled={!isInputValid()}
                         className={!isInputValid() ? 'opacity-50 cursor-not-allowed' : ''}
                     >
                         {editingGroupId ? <CheckIcon /> : <PlusIcon />} 
-                        <span className="ml-1">
+                        <span className="ml-1.5 font-semibold">
                             {editingGroupId ? "Сохранить изменения" : "Добавить в заказ"}
                         </span>
                     </Button>

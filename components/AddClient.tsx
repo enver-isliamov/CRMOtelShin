@@ -25,6 +25,47 @@ const CheckboxPill: React.FC<{name: string; checked: boolean; onChange: (e: Reac
     </label>
 );
 
+const ServiceCheckboxCard: React.FC<{
+    name: string;
+    checked: boolean;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    title: string;
+    price: string;
+    isFree?: boolean;
+    icon: string;
+}> = ({ name, checked, onChange, title, price, isFree, icon }) => (
+    <label className={`
+        relative flex items-center gap-3 p-3 sm:p-3.5 rounded-xl cursor-pointer border transition-all duration-150 select-none shadow-2xs
+        ${checked
+            ? 'bg-primary-50/70 border-primary-500 dark:bg-primary-950/40 dark:border-primary-500 ring-1 ring-primary-500/20'
+            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+        }
+    `}>
+        <input 
+            type="checkbox" 
+            name={name} 
+            checked={checked} 
+            onChange={onChange} 
+            className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500" 
+        />
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base select-none">{icon}</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {title}
+                </span>
+            </div>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-md flex-shrink-0 ${
+                isFree 
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' 
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+            }`}>
+                {price}
+            </span>
+        </div>
+    </label>
+);
+
 const STORAGE_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const formatDate = (date: Date) => {
@@ -709,9 +750,20 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                         </div>
                     </Card>
 
-                    <Card title="Шины и Услуги" actions={<TireIcon className="text-gray-400"/>}>
+                    <Card 
+                        title="Шины и Услуги" 
+                        actions={
+                            <div className="flex items-center gap-2">
+                                {Number(formData['Кол-во шин'] || 0) > 0 && (
+                                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
+                                        {formData['Кол-во шин']} шт
+                                    </span>
+                                )}
+                                <TireIcon className="text-gray-400"/>
+                            </div>
+                        }
+                    >
                         <div className="space-y-6">
-                            
                             <MultiTireInput 
                                 groups={tireGroups}
                                 onGroupsChange={handleGroupsChange}
@@ -719,25 +771,51 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                             />
                             
                             <div>
-                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Описание и дефекты (общее)</label>
-                            <textarea
-                                id="description"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                rows={3}
-                                placeholder="Без латок, с шипами, без порезов и т.д."
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-150"
+                                <label htmlFor="description" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Описание состояния и дефектов
+                                </label>
+                                <textarea
+                                    id="description"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    rows={3}
+                                    placeholder="Особые отметки: глубина протектора, латки, износ, состояние шипов, царапины на дисках..."
+                                    className="block w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-2xs focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 py-2.5 px-3 text-sm dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-colors"
                                 />
                             </div>
                             
                             <ImageUpload onFilesChange={setFilesToUpload} />
 
-                            <div>
-                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Дополнительные услуги</h4>
+                            <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                                    Дополнительные услуги
+                                </h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <CheckboxPill name="Услуга: Вывоз" checked={!!formData['Услуга: Вывоз']} onChange={handleInputChange} label={<>Вывоз шин <span className="text-green-600 font-bold">БЕСПЛАТНО</span></>} />
-                                    <CheckboxPill name="Услуга: Мойка" checked={!!formData['Услуга: Мойка']} onChange={handleInputChange} label={<>Мойка колёс <span className="font-bold">200₽</span></>} />
-                                    <CheckboxPill name="Услуга: Упаковка" checked={!!formData['Услуга: Упаковка']} onChange={handleInputChange} label={<>Упаковка в пакеты <span className="font-bold">350₽</span></>} />
+                                    <ServiceCheckboxCard 
+                                        name="Услуга: Вывоз" 
+                                        checked={!!formData['Услуга: Вывоз']} 
+                                        onChange={handleInputChange} 
+                                        title="Вывоз шин" 
+                                        price="0 ₽" 
+                                        isFree={true}
+                                        icon="🚚" 
+                                    />
+                                    <ServiceCheckboxCard 
+                                        name="Услуга: Мойка" 
+                                        checked={!!formData['Услуга: Мойка']} 
+                                        onChange={handleInputChange} 
+                                        title="Мойка колёс" 
+                                        price="200 ₽" 
+                                        icon="🚿" 
+                                    />
+                                    <ServiceCheckboxCard 
+                                        name="Услуга: Упаковка" 
+                                        checked={!!formData['Услуга: Упаковка']} 
+                                        onChange={handleInputChange} 
+                                        title="Упаковка в пакеты" 
+                                        price="350 ₽" 
+                                        icon="📦" 
+                                    />
                                 </div>
                             </div>
                         </div>
