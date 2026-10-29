@@ -8,7 +8,8 @@ import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
 
 // --- CANONICAL ICONS ---
-import { SearchIcon, BookmarkIcon, XMarkIcon, FilterIcon } from './icons/Icons';
+import { SearchIcon, BookmarkIcon, XMarkIcon, FilterIcon, ArrowDownTrayIcon } from './icons/Icons';
+import { ExportClientsModal } from './ui/ExportClientsModal';
 
 const getFieldType = (fieldName: string) => {
     const name = fieldName.toLowerCase();
@@ -41,11 +42,12 @@ export const ClientsView: React.FC<{
     savedViews: SavedView[];
     onSaveViews: (views: SavedView[]) => void;
     refreshData: () => Promise<void>;
-}> = ({ clients, savedViews, onSaveViews, refreshData }) => {
+}> = ({ clients, headers = [], savedViews, onSaveViews, refreshData }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [filters, setFilters] = useState({
     status: 'all',
     warehouse: 'all',
@@ -221,6 +223,15 @@ export const ClientsView: React.FC<{
             >
                 <FilterIcon className="w-5 h-5"/>
             </button>
+
+            <button 
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center justify-center gap-1.5 px-3 h-[42px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:ring-2 focus:ring-primary-500 font-medium text-sm transition-all whitespace-nowrap shadow-sm active:scale-95"
+                title="Экспорт списка клиентов в CSV (бэкап)"
+            >
+                <ArrowDownTrayIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="hidden sm:inline">Экспорт CSV</span>
+            </button>
           </div>
 
           {/* Collapsible Filter Panel */}
@@ -356,6 +367,20 @@ export const ClientsView: React.FC<{
             </div>
         )}
       </Card>
+
+      {/* CSV Export & Backup Modal */}
+      <ExportClientsModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        allClients={clients}
+        filteredClients={sortedClients}
+        headers={headers}
+        isFilteredActive={Boolean(isFiltersActive || searchTerm.trim())}
+        onSuccess={(result) => {
+          showToast(`Экспортировано ${result.rowCount} клиентов в файл "${result.filename}"`, 'success');
+        }}
+      />
     </div>
   );
 };
+
