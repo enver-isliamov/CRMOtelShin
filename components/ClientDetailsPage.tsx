@@ -7,6 +7,7 @@ import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
 import { PhotoGallery } from './ui/PhotoGallery';
 import { OrderHistory } from './ui/Timeline';
+import { PaymentModal } from './ui/PaymentModal';
 
 // --- ICONS ---
 const ArrowLeftIcon: React.FC<{className?: string}> = ({ className="w-5 h-5" }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
@@ -16,6 +17,7 @@ const DeleteIcon: React.FC<{className?: string}> = ({ className="h-4 w-4" }) => 
 const DocumentPlusIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 const ReceiptIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>;
 const ShieldCheckIcon: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>;
+const BanknotesIcon: React.FC<{className?: string}> = ({className="w-4 h-4"}) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6H2.25m0 0v10.5m0-10.5h16.5m-16.5 0h16.5m0 0v10.5m0-10.5a.75.75 0 01.75-.75h.75m0 0A2.25 2.25 0 0121.75 6v10.5a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 16.5V6a2.25 2.25 0 012.25-2.25h16.5M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /></svg>;
 
 // Section Icons
 const TireIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clipRule="evenodd" /></svg>;
@@ -122,6 +124,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [preview, setPreview] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
     useEffect(() => {
         // PRIORITY 1: Check if client object was passed in navigation state
@@ -181,6 +184,19 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
             } finally {
                 setIsSubmitting(false);
             }
+        }
+    };
+
+    const handlePaymentSuccess = async (newDebt: number, _paidAmount: number, sendReceipt: boolean, receiptHtml?: string) => {
+        if (client) {
+            setClient(prev => prev ? ({ ...prev, 'Долг': newDebt }) : prev);
+        }
+        await refreshData();
+        if (sendReceipt && receiptHtml) {
+            setPreview(receiptHtml);
+            setSelectedTemplateName('');
+            setMessageTarget('client');
+            setMode('message');
         }
     };
 
@@ -411,11 +427,27 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                             <div className="space-y-4 animate-in fade-in duration-300">
                                 {/* Key Metrics Grid */}
                                 <div className="grid grid-cols-2 gap-3">
-                                     <div className={`p-4 rounded-xl border ${Number(client['Долг'] || 0) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800'}`}>
-                                        <p className={`text-xs font-bold uppercase tracking-wider ${Number(client['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>Долг</p>
-                                        <p className={`text-xl sm:text-2xl font-black mt-1 ${Number(client['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
-                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
-                                        </p>
+                                     <div className={`p-4 rounded-xl border flex flex-col justify-between ${Number(client['Долг'] || 0) > 0 ? 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800'}`}>
+                                        <div>
+                                            <p className={`text-xs font-bold uppercase tracking-wider ${Number(client['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                                {Number(client['Долг'] || 0) > 0 ? 'Долг' : 'Оплачено'}
+                                            </p>
+                                            <p className={`text-xl sm:text-2xl font-black mt-1 ${Number(client['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
+                                                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsPaymentModalOpen(true)}
+                                            className={`mt-2.5 w-full py-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 ${
+                                                Number(client['Долг'] || 0) > 0
+                                                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                                                    : 'bg-white hover:bg-gray-100 text-green-700 dark:bg-gray-800 dark:text-green-300 border border-green-200 dark:border-green-800'
+                                            }`}
+                                        >
+                                            <BanknotesIcon className="w-3.5 h-3.5" />
+                                            <span>{Number(client['Долг'] || 0) > 0 ? 'Принять оплату' : '+ Внести оплату'}</span>
+                                        </button>
                                     </div>
                                     <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-800">
                                         <p className="text-xs font-bold uppercase tracking-wider text-blue-500">Окончание</p>
@@ -452,6 +484,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
 
                                 <SectionBlock title="Финансы" icon={<CashIcon/>}>
                                      <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Общая сумма'] || 0))} className="col-span-1 sm:col-span-1" />
+                                     <DetailItem label="Текущий долг" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Долг'] || 0))} className={`col-span-1 sm:col-span-1 font-bold ${Number(client['Долг'] || 0) > 0 ? '!text-red-600 dark:!text-red-400' : '!text-green-600 dark:!text-green-400'}`} />
                                      <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Цена за месяц'] || 0))} />
                                      <DetailItem label="Срок хранения" value={`${client['Срок']} мес.`} />
                                      <DetailItem label="Начало хранения" value={formatDateForDisplay(client['Начало'])} />
@@ -479,6 +512,9 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     {mode === 'view' && (
                         <>
                             <div className="flex gap-2 w-full sm:w-auto">
+                                <Button size="md" variant="secondary" onClick={() => setIsPaymentModalOpen(true)} className="flex-1 sm:flex-none justify-center !bg-emerald-50 !text-emerald-700 hover:!bg-emerald-100 dark:!bg-emerald-950/40 dark:!text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Принять оплату">
+                                    <BanknotesIcon className="w-5 h-5 mr-1 text-emerald-600 dark:text-emerald-400"/> Оплата
+                                </Button>
                                 <Button size="md" variant="secondary" onClick={handleEditClient} className="flex-1 sm:flex-none justify-center">
                                     <EditIcon/> <span className="ml-1">Изм.</span>
                                 </Button>
@@ -517,6 +553,16 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     )}
                 </div>
             </div>
+
+            {client && (
+                <PaymentModal
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                    client={client}
+                    onPaymentSuccess={handlePaymentSuccess}
+                    showToast={showToast}
+                />
+            )}
         </div>
     );
 };

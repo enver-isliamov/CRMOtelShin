@@ -174,6 +174,31 @@ export default async function handler(req: any, res: any) {
         await syncToGas(payload.googleSheetId, 'archive', { clientId: payload.clientId, user });
         break;
 
+      case 'payment':
+        const clientRes = await pool.query('SELECT data FROM clients WHERE id = $1', [payload.clientId]);
+        if (clientRes.rowCount === 0) {
+          throw new Error('Клиент не найден');
+        }
+        const clientData = clientRes.rows[0].data;
+        const currentDebt = Number(clientData['Долг'] || 0);
+        const paidAmount = Number(payload.amount) || 0;
+        const newDebt = Math.max(0, currentDebt - paidAmount);
+        clientData['Долг'] = newDebt;
+
+        await pool.query(
+          'UPDATE clients SET data = $1, updated_at = NOW() WHERE id = $2',
+          [JSON.stringify(clientData), payload.clientId]
+        );
+        const methodStr = payload.paymentMethod ? ` (${payload.paymentMethod})` : '';
+        const commentStr = payload.comment ? `. ${payload.comment}` : '';
+        const details = `Принята оплата: ${paidAmount} ₽${methodStr}. Остаток долга: ${newDebt} ₽${commentStr}`;
+        await logHistory(pool, payload.clientId, user, 'Оплата', details);
+        await syncToGas(payload.googleSheetId, 'sync_client', { client: clientData, user });
+        result.client = clientData;
+        result.newDebt = newDebt;
+        result.message = details;
+        break;
+
       case 'bulkdelete':
         await pool.query('DELETE FROM clients WHERE id = ANY($1)', [payload.clientIds]);
         for (const id of payload.clientIds) {

@@ -214,6 +214,21 @@ export const api = {
   archiveClient: async (clientId: string): Promise<void> => {
     await requestAPI('archive', { clientId: clientId });
   },
+
+  recordPayment: async (
+    clientId: string,
+    amount: number,
+    paymentMethod: string,
+    comment?: string
+  ): Promise<{ newDebt?: number; message: string; client?: Client }> => {
+    const result = await requestAPI('payment', {
+      clientId,
+      amount,
+      paymentMethod,
+      comment: comment || '',
+    });
+    return result;
+  },
   
   bulkDeleteClients: async (clientIds: string[]): Promise<void> => {
     await requestAPI('bulkdelete', { clientIds: clientIds });

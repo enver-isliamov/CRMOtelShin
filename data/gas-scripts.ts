@@ -95,6 +95,7 @@ function routeActionCRM(payload) {
     case 'update': return { status: 'success', message: crmUpdateRow(ss, SHEET_NAME_CLIENTS, payload.client, 'id', user) };
     case 'delete': return { status: 'success', message: crmDeleteRow(ss, SHEET_NAME_CLIENTS, payload.clientId, 'id') };
     case 'archive': return crmArchiveClient(ss, payload.clientId, user);
+    case 'payment': return crmRecordPayment(ss, payload.clientId, payload.amount, payload.paymentMethod, payload.comment, user);
     case 'bulkdelete': return { status: 'success', message: crmBulkDeleteRows(ss, SHEET_NAME_CLIENTS, payload.clientIds, 'id') };
     case 'reorder': return crmReorderClient(ss, payload.oldClientId, payload.client, user);
     case 'addtemplate': return { status: 'success', message: crmAddRow(ss, SHEET_NAME_TEMPLATES, payload.template, user) };
@@ -396,6 +397,30 @@ function crmArchiveClient(ss, clientId, user) {
   
   crmLogHistory(ss, clientId, user, 'Заказ завершен', 'Переведен в архив');
   return { status: 'success', message: 'Заказ успешно переведен в архив.' };
+}
+
+function crmRecordPayment(ss, clientId, amount, paymentMethod, comment, user) {
+  const clientSheet = crmGetOrCreateSheet(ss, SHEET_NAME_CLIENTS);
+  const rowNum = crmFindRowById(clientSheet, clientId, 'id');
+  if (rowNum === -1) {
+    return { status: 'error', message: 'Клиент не найден в таблице.' };
+  }
+  const headers = clientSheet.getRange(1, 1, 1, clientSheet.getLastColumn()).getValues()[0];
+  const debtIdx = headers.indexOf('Долг');
+  if (debtIdx === -1) {
+    return { status: 'error', message: 'Колонка "Долг" не найдена.' };
+  }
+  const currentVal = clientSheet.getRange(rowNum, debtIdx + 1).getValue();
+  const currentDebt = parseFloat(String(currentVal).replace(/[^0-9.-]/g, '')) || 0;
+  const paid = parseFloat(amount) || 0;
+  const newDebt = Math.max(0, currentDebt - paid);
+  clientSheet.getRange(rowNum, debtIdx + 1).setValue(newDebt);
+
+  const methodStr = paymentMethod ? ' (' + paymentMethod + ')' : '';
+  const commentStr = comment ? '. Примечание: ' + comment : '';
+  const details = 'Внесено: ' + paid + ' ₽' + methodStr + '. Остаток долга: ' + newDebt + ' ₽' + commentStr;
+  crmLogHistory(ss, clientId, user, 'Оплата', details);
+  return { status: 'success', newDebt: newDebt, message: details };
 }
 
 function crmReorderClient(ss, oldClientId, newClientData, user) {
