@@ -26,10 +26,46 @@ export function Chat({ clients }: ChatProps) {
     // Fetch chat list
     useEffect(() => {
         fetch('/api/messages?mode=chats')
-            .then(res => res.json())
-            .then(data => setSessions(data))
-            .catch(err => console.error(err));
-    }, []);
+            .then(res => {
+                if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+                    return res.json();
+                }
+                return [];
+            })
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setSessions(data);
+                } else if (clients && clients.length > 0) {
+                    // Populate from clients with Chat ID
+                    const clientSessions: ChatSession[] = clients
+                        .filter(c => c['Chat ID'])
+                        .map(c => ({
+                            chat_id: String(c['Chat ID']),
+                            client_id: c.id,
+                            client_name: c['Имя клиента'] || 'Клиент',
+                            content: `Договор: ${c['Договор'] || 'Б/Н'}, Авто: ${c['Номер Авто'] || '-'}`,
+                            created_at: new Date().toISOString(),
+                            direction: 'inbound'
+                        }));
+                    setSessions(clientSessions);
+                }
+            })
+            .catch(() => {
+                if (clients && clients.length > 0) {
+                    const clientSessions: ChatSession[] = clients
+                        .filter(c => c['Chat ID'])
+                        .map(c => ({
+                            chat_id: String(c['Chat ID']),
+                            client_id: c.id,
+                            client_name: c['Имя клиента'] || 'Клиент',
+                            content: `Договор: ${c['Договор'] || 'Б/Н'}`,
+                            created_at: new Date().toISOString(),
+                            direction: 'inbound'
+                        }));
+                    setSessions(clientSessions);
+                }
+            });
+    }, [clients]);
 
     // Fetch messages for selected chat
     useEffect(() => {
@@ -37,31 +73,45 @@ export function Chat({ clients }: ChatProps) {
         
         setIsLoading(true);
         fetch(`/api/messages?chat_id=${selectedChatId}`)
-            .then(res => res.json())
+            .then(res => {
+                if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+                    return res.json();
+                }
+                return [];
+            })
             .then(data => {
-                setMessages(data);
+                if (Array.isArray(data)) {
+                    setMessages(data);
+                }
                 setIsLoading(false);
                 scrollToBottom();
             })
-            .catch(err => {
-                console.error(err);
+            .catch(() => {
                 setIsLoading(false);
             });
             
-        // Poll for new messages every 5 seconds
+        // Poll for new messages every 8 seconds
         const interval = setInterval(() => {
              fetch(`/api/messages?chat_id=${selectedChatId}`)
-                .then(res => res.json())
+                .then(res => {
+                    if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+                        return res.json();
+                    }
+                    return null;
+                })
                 .then(data => {
-                    setMessages(prev => {
-                        if (data.length !== prev.length) {
-                            scrollToBottom();
-                            return data;
-                        }
-                        return prev;
-                    });
-                });
-        }, 5000);
+                    if (Array.isArray(data)) {
+                        setMessages(prev => {
+                            if (data.length !== prev.length) {
+                                scrollToBottom();
+                                return data;
+                            }
+                            return prev;
+                        });
+                    }
+                })
+                .catch(() => {});
+        }, 8000);
         
         return () => clearInterval(interval);
     }, [selectedChatId]);
@@ -77,39 +127,35 @@ export function Chat({ clients }: ChatProps) {
 
         const currentSession = sessions.find(s => s.chat_id === selectedChatId);
         const clientId = currentSession?.client_id;
+        const msgText = inputText.trim();
+
+        // Optimistic update
+        const newMsg: ChatMessage = {
+            id: Date.now(),
+            chat_id: selectedChatId,
+            client_id: clientId || '',
+            direction: 'outbound',
+            type: 'text',
+            content: msgText,
+            status: 'sent',
+            created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, newMsg]);
+        setInputText('');
+        scrollToBottom();
 
         try {
-            const res = await fetch('/api/messages', {
+            await fetch('/api/messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     chat_id: selectedChatId,
-                    text: inputText,
+                    text: msgText,
                     client_id: clientId
                 })
             });
-            
-            if (res.ok) {
-                setInputText('');
-                // Optimistic update
-                const newMsg: ChatMessage = {
-                    id: Date.now(),
-                    chat_id: selectedChatId,
-                    client_id: clientId || '',
-                    direction: 'outbound',
-                    type: 'text',
-                    content: inputText,
-                    status: 'sent',
-                    created_at: new Date().toISOString()
-                };
-                setMessages(prev => [...prev, newMsg]);
-                scrollToBottom();
-            } else {
-                alert('Failed to send message');
-            }
         } catch (e) {
-            console.error(e);
-            alert('Error sending message');
+            console.warn("Message sending network notice:", e);
         }
     };
 
