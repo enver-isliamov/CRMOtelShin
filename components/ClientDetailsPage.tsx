@@ -54,7 +54,7 @@ const getTireGroups = (client: Client): TireGroup[] => {
     return groups;
 };
 
-// Authentic Russian Car License Plate Badge (Clean style without RUS / Flag)
+// Authentic Russian Car License Plate Badge (Clean style with rounded-lg & subtle matching border)
 const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = ({ plate, className = '' }) => {
     if (!plate || !plate.trim()) return null;
     const raw = plate.trim().toUpperCase();
@@ -68,22 +68,22 @@ const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = (
         const [, l1, digits, l2, region] = match;
         return (
             <div 
-                className={`inline-flex items-center bg-white text-black border-[1.5px] border-black rounded-[3px] shadow-xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono tracking-tight leading-none ${className}`}
+                className={`inline-flex items-center bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono tracking-tight leading-none ${className}`}
                 title={`Госномер: ${l1} ${digits} ${l2} ${region}`}
             >
                 {/* Main section: Letter Digits Letters */}
-                <div className="flex items-center px-1.5 py-1 gap-1 text-[13px] font-black text-black bg-white">
+                <div className="flex items-center px-2 py-1 gap-1 text-[13px] font-bold">
                     <span className="text-[12px]">{l1}</span>
                     <span className="text-[14px] font-extrabold tracking-wider">{digits}</span>
                     <span className="text-[12px]">{l2}</span>
                 </div>
 
-                {/* Thin vertical partition */}
-                <div className="w-[1.5px] bg-black shrink-0 self-stretch" />
+                {/* Thin vertical partition matching the border color */}
+                <div className="w-px bg-gray-300 dark:bg-gray-600 self-stretch my-0.5" />
 
                 {/* Region Section without RUS/Flag */}
-                <div className="flex items-center justify-center px-1.5 py-1 bg-white min-w-[24px]">
-                    <span className="text-[12px] font-black text-black tracking-normal">
+                <div className="flex items-center justify-center px-2 py-1 min-w-[24px]">
+                    <span className="text-[12px] font-extrabold tracking-normal">
                         {region}
                     </span>
                 </div>
@@ -97,15 +97,15 @@ const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = (
         const [, mainPart, region] = generalMatch;
         return (
             <div 
-                className={`inline-flex items-center bg-white text-black border-[1.5px] border-black rounded-[3px] shadow-xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono leading-none ${className}`}
+                className={`inline-flex items-center bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono leading-none ${className}`}
                 title={`Госномер: ${raw}`}
             >
-                <div className="flex items-center px-1.5 py-1 text-[13px] font-black text-black bg-white">
+                <div className="flex items-center px-2 py-1 text-[13px] font-bold">
                     {mainPart}
                 </div>
-                <div className="w-[1.5px] bg-black shrink-0 self-stretch" />
-                <div className="flex items-center justify-center px-1.5 py-1 bg-white min-w-[22px]">
-                    <span className="text-[12px] font-black text-black tracking-normal">{region}</span>
+                <div className="w-px bg-gray-300 dark:bg-gray-600 self-stretch my-0.5" />
+                <div className="flex items-center justify-center px-2 py-1 min-w-[22px]">
+                    <span className="text-[12px] font-extrabold tracking-normal">{region}</span>
                 </div>
             </div>
         );
@@ -114,7 +114,7 @@ const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = (
     // Fallback for custom or special text
     return (
         <div 
-            className={`inline-flex items-center px-2 py-0.5 bg-white text-black border-[1.5px] border-black rounded-[3px] shadow-xs select-all whitespace-nowrap shrink-0 font-mono text-xs font-black tracking-wider leading-none ${className}`}
+            className={`inline-flex items-center px-2.5 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xs select-all whitespace-nowrap shrink-0 font-mono text-xs font-bold tracking-wider leading-none ${className}`}
         >
             <span>{raw}</span>
         </div>

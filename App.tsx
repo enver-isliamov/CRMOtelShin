@@ -14,7 +14,6 @@ import { MastersView } from './components/MastersView';
 import { Chat } from './components/Chat';
 import TelegramLK from './components/TelegramLK';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
-import { ThemeSwitcher } from './components/ui/ThemeSwitcher';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Icons
@@ -60,7 +59,6 @@ function Layout({ children, isLoading, onRefresh }: { children?: React.ReactNode
                             </svg>
                             <span className="hidden md:inline">{isLoading ? 'Обновление...' : 'Обновить'}</span>
                         </button>
-                        <ThemeSwitcher />
                     </div>
                 </header>
                 <main className="flex-1 overflow-y-auto relative">

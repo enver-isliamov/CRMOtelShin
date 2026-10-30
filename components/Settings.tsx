@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { VisualEditor } from './ui/VisualEditor';
 import { ToastContainer } from './ui/Toast';
+import { ThemeSwitcher } from './ui/ThemeSwitcher';
 import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
 
 // --- Icons ---
@@ -201,6 +202,21 @@ const GeneralSettingsTab: React.FC<{
     return (
         <div className="space-y-6">
             
+            {/* THEME SELECTION SECTION */}
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">Тема оформления</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Переключение между светлой, тёмной и системной темой интерфейса
+                        </p>
+                    </div>
+                    <div className="self-start sm:self-auto">
+                        <ThemeSwitcher />
+                    </div>
+                </div>
+            </div>
+
             {/* API MODE SWITCHER */}
             <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Источник данных (Backend)</h4>
