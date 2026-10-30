@@ -99,23 +99,39 @@ export const TotalEarningsCounter: React.FC<TotalEarningsCounterProps> = ({ clie
     }
     
     return (
-        <Card className="h-full bg-gradient-to-br from-primary-600 to-indigo-700 dark:from-primary-700 dark:to-indigo-800 text-white shadow-lg overflow-hidden relative">
-             <div className="z-10 relative">
-                <dl>
-                    <dt className="text-sm font-medium text-white/80 truncate">Всего заработано</dt>
-                    <dd className="text-3xl sm:text-4xl font-bold tracking-tight mt-1">
-                        {formatCurrency(animatedDisplayValue)}
-                    </dd>
-                    <dd className="text-xs text-white/60 mt-1">
-                        {firstDealDate 
-                            ? `с ${firstDealDate.toLocaleDateString('ru-RU')}`
-                            : 'Нет данных для расчета'}
-                    </dd>
-                </dl>
+        <Card className="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between bg-gradient-to-br from-primary-600 to-indigo-700 dark:from-primary-700 dark:to-indigo-800 text-white shadow-lg overflow-hidden relative border-0">
+             {/* Top row: Title and Badge Icon */}
+             <div className="flex items-start justify-between z-10 relative">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-white/80">Всего заработано</p>
+                    <h3 className="text-sm font-medium text-white/95 mt-0.5">Накопительный итог</h3>
+                </div>
+                <div className="flex-shrink-0 bg-white/20 text-white rounded-xl p-2.5 backdrop-blur-xs">
+                    <TrendingUpIcon className="w-5 h-5" />
+                </div>
              </div>
-             <div className="absolute -bottom-4 -right-4 sm:-bottom-8 sm:-right-8 text-white/10 pointer-events-none">
-                <TrendingUpIcon className="h-24 w-24 sm:h-40 sm:w-40" />
-            </div>
+
+             {/* Middle row: Big animated counter */}
+             <div className="mt-3 flex-grow z-10 relative">
+                <p className="text-3xl sm:text-4xl font-black tracking-tight">{formatCurrency(animatedDisplayValue)}</p>
+                <div className="mt-2 flex items-center gap-2 text-xs text-white/80">
+                    <span>активные и архивные договоры</span>
+                </div>
+             </div>
+
+             {/* Bottom row: Deal start note */}
+             <div className="mt-auto pt-3 z-10 relative border-t border-white/15">
+                <p className="text-[11px] text-white/70">
+                    {firstDealDate 
+                        ? `Начало учета: с ${firstDealDate.toLocaleDateString('ru-RU')}`
+                        : 'Расчет по всем сделкам'}
+                </p>
+             </div>
+
+             {/* Decorative Background Icon */}
+             <div className="absolute -bottom-6 -right-6 text-white/10 pointer-events-none">
+                <TrendingUpIcon className="h-32 w-32 rotate-6" />
+             </div>
         </Card>
     );
 };

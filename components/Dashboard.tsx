@@ -688,9 +688,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ clients, archive, template
                 </div>
                 
                 <div className="col-span-1 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '50ms'}}>
-                    <Card className="h-full bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white shadow-lg overflow-hidden border-0">
-                        <LiveIncomeCounter monthlyIncome={globalStats.activeContractsMonthlyIncome} />
-                    </Card>
+                    <LiveIncomeCounter monthlyIncome={globalStats.activeContractsMonthlyIncome} />
                 </div>
                 
                 <div className="col-span-1 sm:col-span-1 lg:col-span-2 animate-slide-in-bottom" style={{animationDelay: '100ms'}}>

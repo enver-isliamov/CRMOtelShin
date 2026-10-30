@@ -26,7 +26,7 @@ export const Card: React.FC<CardProps> = ({ title, actions, children, className 
           {actions && <div className="ml-4 flex-shrink-0">{actions}</div>}
         </div>
       )}
-      <div className={paddingClasses}>
+      <div className={`${paddingClasses} ${className.includes('h-full') ? 'h-full flex flex-col' : ''}`}>
         {children}
       </div>
     </div>
