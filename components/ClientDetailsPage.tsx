@@ -23,14 +23,13 @@ import {
     DiscIcon,
     SunIcon,
     SnowflakeIcon,
-    CurrencyRubleIcon as CashIcon,
     UserIcon,
     PhoneIcon,
     CalendarDaysIcon,
     CheckIcon
 } from './icons/Icons';
 
-// Helper to extract JSON groups
+// Helper to extract JSON tire groups
 const getTireGroups = (client: Client): TireGroup[] => {
     let groups: TireGroup[] = [];
     if (client.metadata) {
@@ -55,14 +54,14 @@ const getTireGroups = (client: Client): TireGroup[] => {
     return groups;
 };
 
-// Russian Car License Plate Badge
+// Russian Car License Plate Badge (No awkward breaks)
 const RussianCarPlateBadge: React.FC<{ plate?: string }> = ({ plate }) => {
     if (!plate || !plate.trim()) return null;
     const cleanPlate = plate.trim().toUpperCase();
     return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md font-mono text-[11px] font-black tracking-wider bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-900 dark:border-gray-400 shadow-2xs select-all whitespace-nowrap">
-            <span className="mr-1">{cleanPlate}</span>
-            <span className="border-l border-gray-900 dark:border-gray-400 pl-1 text-[8px] font-bold text-gray-500 dark:text-gray-400">
+        <span className="inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-black tracking-wider bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-900 dark:border-gray-400 shadow-2xs whitespace-nowrap shrink-0">
+            <span className="mr-1.5">{cleanPlate}</span>
+            <span className="border-l border-gray-900 dark:border-gray-400 pl-1 text-[9px] font-bold text-gray-500 dark:text-gray-400">
                 RUS
             </span>
         </span>
@@ -107,20 +106,20 @@ const getRemainingDaysInfo = (endDateString?: string) => {
     };
 };
 
-// Section Container with icon and clean header
+// Section Container with clean header
 const SectionBlock: React.FC<{
     title: string;
     children: React.ReactNode;
     icon?: React.ReactNode;
-    action?: React.ReactNode;
-}> = ({ title, children, icon, action }) => (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl overflow-hidden shadow-xs">
-        <div className="bg-gray-50/70 dark:bg-gray-900/40 px-3.5 py-2.5 border-b border-gray-200 dark:border-gray-700/80 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                {icon && <span className="text-gray-500 dark:text-gray-400">{icon}</span>}
-                <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{title}</h4>
+    badge?: React.ReactNode;
+}> = ({ title, children, icon, badge }) => (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200/90 dark:border-gray-700/80 rounded-2xl overflow-hidden shadow-xs">
+        <div className="bg-gray-50/80 dark:bg-gray-900/40 px-3.5 sm:px-4 py-2.5 border-b border-gray-200/80 dark:border-gray-700/80 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+                {icon && <span className="text-gray-500 dark:text-gray-400 shrink-0">{icon}</span>}
+                <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider truncate">{title}</h4>
             </div>
-            {action && <div>{action}</div>}
+            {badge && <div className="shrink-0">{badge}</div>}
         </div>
         <div className="p-3.5 sm:p-4">
             {children}
@@ -128,46 +127,12 @@ const SectionBlock: React.FC<{
     </div>
 );
 
-// Multiple Tire Groups Breakdown
-const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
-    const groups = getTireGroups(client);
-    if (groups.length === 0) return null;
-
-    return (
-        <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-700/80">
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Комплекты ({groups.length}):</p>
-            <div className="space-y-1.5">
-                {groups.map((g: TireGroup, idx: number) => (
-                    <div 
-                        key={idx} 
-                        className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/70 text-xs"
-                    >
-                        <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-[10px] flex items-center justify-center shrink-0">
-                                #{idx + 1}
-                            </span>
-                            <div className="truncate">
-                                <span className="font-bold text-gray-900 dark:text-white mr-1.5">{g.brand} {g.model}</span>
-                                <span className="text-gray-500 dark:text-gray-400">{g.count} шт. · {g.season === 'Лето' ? '☀️' : '❄️'}</span>
-                            </div>
-                        </div>
-
-                        <span className="shrink-0 font-mono font-bold bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-300 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
-                            {g.width}/{g.profile} R{g.diameter}
-                        </span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 // Segmented Navigation Tab Button
 const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
     <button
         type="button"
         onClick={onClick}
-        className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+        className={`flex-1 py-2 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
             active
                 ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 shadow-xs'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
@@ -387,8 +352,8 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
     if (clients.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50 dark:bg-gray-950">
-                <div className="w-9 h-9 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-3"></div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Загрузка данных...</p>
+                <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-3"></div>
+                <p className="text-xs text-gray-500 font-medium">Загрузка данных...</p>
             </div>
         );
     }
@@ -417,6 +382,15 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
             : []);
     const descClean = (client?.['Заказ - QR'] || '').split('||JSON:')[0]?.trim();
     const expiryInfo = getRemainingDaysInfo(client['Окончание']);
+    const groups = getTireGroups(client);
+
+    // Initials for avatar
+    const initials = (client['Имя клиента'] || 'К')
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase();
 
     // Deal Status Styling
     const status = client['Статус сделки'] || 'На складе';
@@ -435,36 +409,37 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             {selectedLightboxUrl && <Lightbox imageUrl={selectedLightboxUrl} onClose={() => setSelectedLightboxUrl(null)} />}
             
-            {/* 1. STICKY TOP APP BAR (Compact & Mobile-Optimized) */}
+            {/* 1. STICKY TOP APP BAR (Compact & Mobile-Safe, No Text Overflows) */}
             <header className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 py-2.5 shadow-xs">
                 <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                         <button 
                             type="button"
                             onClick={() => navigate('/clients')} 
-                            className="p-1.5 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
-                            title="Назад"
+                            className="p-1.5 -ml-1 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+                            title="Назад к клиентам"
                         >
                             <ArrowLeftIcon className="w-5 h-5" />
                         </button>
 
                         <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-nowrap">
                                 <h1 className="text-sm sm:text-base font-black text-gray-900 dark:text-white truncate">
                                     {client['Имя клиента']}
                                 </h1>
                                 <RussianCarPlateBadge plate={client['Номер Авто']} />
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                            <div className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                                 <span className="font-mono">#{client['Договор']}</span>
                                 <span>·</span>
-                                <span className="truncate">{client['Склад хранения'] || 'Основной'}: ячейка <b>{client['Ячейка'] || '—'}</b></span>
+                                <span>{client['Склад хранения'] || 'Основной'}</span>
+                                {client['Ячейка'] && <span>(ячейка {client['Ячейка']})</span>}
                             </div>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${statusStyles}`}>
+                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border whitespace-nowrap ${statusStyles}`}>
                             {status}
                         </span>
                     </div>
@@ -532,90 +507,16 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                 {mode === 'view' && (
                     <div className="max-w-4xl mx-auto space-y-3.5">
                         
-                        {/* 2.1 EXECUTIVE HERO BANNER (Optimized for Mobile & Desktop) */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700/80 p-3 sm:p-4 shadow-xs">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-700/60">
-                                
-                                {/* 1. Finance & Debt Glance */}
-                                <div className="col-span-2 sm:col-span-1 pb-2 sm:pb-0 sm:pr-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-semibold text-gray-400 uppercase">Оплата</span>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                                            hasDebt 
-                                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300' 
-                                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                        }`}>
-                                            {hasDebt ? 'Долг' : 'Оплачено'}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-baseline justify-between mt-1">
-                                        <p className={`text-xl sm:text-2xl font-black ${
-                                            hasDebt ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
-                                        }`}>
-                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsPaymentModalOpen(true)}
-                                            className="text-[11px] font-bold text-primary-600 dark:text-primary-400 hover:underline"
-                                        >
-                                            {hasDebt ? '+ Оплатить' : '+ Доплата'}
-                                        </button>
-                                    </div>
-
-                                    <p className="text-[11px] text-gray-400 mt-0.5">
-                                        Всего: {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Общая сумма'] || 0))} ({client['Цена за месяц'] || 0} ₽/мес)
-                                    </p>
-                                </div>
-
-                                {/* 2. Expiration Date Glance */}
-                                <div className="pt-2 sm:pt-0 sm:px-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-semibold text-gray-400 uppercase">Окончание</span>
-                                        {expiryInfo && (
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${expiryInfo.badgeClass}`}>
-                                                {expiryInfo.text}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <p className="text-base sm:text-lg font-black text-gray-900 dark:text-white mt-1">
-                                        {formatDateForDisplay(client['Окончание'])}
-                                    </p>
-
-                                    <p className="text-[11px] text-gray-400 mt-0.5">
-                                        {client['Срок']} мес. (с {formatDateForDisplay(client['Начало'])})
-                                    </p>
-                                </div>
-
-                                {/* 3. Storage Location Glance */}
-                                <div className="pt-2 sm:pt-0 sm:pl-3">
-                                    <span className="text-[11px] font-semibold text-gray-400 uppercase">Локация на складе</span>
-                                    
-                                    <div className="flex items-baseline justify-between mt-1">
-                                        <span className="font-mono text-base sm:text-lg font-black text-gray-900 dark:text-white">
-                                            {client['Ячейка'] ? `Ячейка ${client['Ячейка']}` : 'Ячейка не указана'}
-                                        </span>
-                                    </div>
-
-                                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                                        {client['Склад хранения'] || 'Основной склад'}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2.2 MODERN COMPACT SEGMENTED TABS */}
-                        <div className="bg-gray-100 dark:bg-gray-900 p-1 rounded-xl flex border border-gray-200 dark:border-gray-800">
+                        {/* 2.1 MODERN COMPACT SEGMENTED TABS */}
+                        <div className="bg-gray-100 dark:bg-gray-900 p-1 rounded-2xl flex border border-gray-200 dark:border-gray-800">
                             <TabButton active={activeTab === 'details'} onClick={() => setActiveTab('details')}>
                                 <TireIcon className="w-3.5 h-3.5" />
-                                <span>Шины и заказ</span>
+                                <span>Данные и заказ</span>
                             </TabButton>
                             
                             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
                                 <CalendarDaysIcon className="w-3.5 h-3.5" />
-                                <span>История</span>
+                                <span>История ({client['Срок'] || 0}м)</span>
                             </TabButton>
                             
                             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>
@@ -628,17 +529,98 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                             </TabButton>
                         </div>
 
-                        {/* 2.3 DETAILS TAB */}
+                        {/* 2.2 DETAILS TAB: LOGICALLY SEPARATED BLOCKS */}
                         {activeTab === 'details' && (
-                            <div className="space-y-3 animate-in fade-in duration-150">
+                            <div className="space-y-3.5 animate-in fade-in duration-150">
                                 
-                                {/* Tires and Parameters Block */}
+                                {/* BLOCK 1: ORDER & STORAGE OVERVIEW (Active Contract, Dates, Location, Finances) */}
                                 <SectionBlock 
-                                    title="Параметры шин" 
-                                    icon={<TireIcon className="w-4 h-4 text-primary-600" />}
-                                    action={
+                                    title="Текущий заказ и хранение" 
+                                    icon={<CalendarDaysIcon className="w-4 h-4 text-primary-600" />}
+                                    badge={
+                                        <span className="font-mono text-xs font-bold text-gray-500">
+                                            #{client['Договор']}
+                                        </span>
+                                    }
+                                >
+                                    {/* Financial & Time Glance Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pb-3 border-b border-gray-100 dark:border-gray-700/70">
+                                        
+                                        {/* 1. Debt / Payment Status */}
+                                        <div className="p-2.5 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Оплата / Долг</span>
+                                            <p className={`text-base sm:text-lg font-black mt-0.5 whitespace-nowrap tabular-nums ${
+                                                hasDebt ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                            }`}>
+                                                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
+                                            </p>
+                                            <span className={`text-[10px] font-bold ${hasDebt ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                {hasDebt ? 'Задолженность' : 'Оплачено 100%'}
+                                            </span>
+                                        </div>
+
+                                        {/* 2. Total Sum & Monthly Rate */}
+                                        <div className="p-2.5 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Сумма заказа</span>
+                                            <p className="text-base sm:text-lg font-black mt-0.5 text-gray-900 dark:text-white whitespace-nowrap tabular-nums">
+                                                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Общая сумма'] || 0))}
+                                            </p>
+                                            <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                                                {client['Цена за месяц'] || 0} ₽/мес
+                                            </span>
+                                        </div>
+
+                                        {/* 3. Expiration Date & Countdown */}
+                                        <div className="p-2.5 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Окончание</span>
+                                            <p className="text-base sm:text-lg font-black mt-0.5 text-gray-900 dark:text-white whitespace-nowrap">
+                                                {formatDateForDisplay(client['Окончание'])}
+                                            </p>
+                                            {expiryInfo ? (
+                                                <span className={`text-[10px] font-bold ${expiryInfo.isExpired ? 'text-rose-500' : 'text-blue-500'} whitespace-nowrap`}>
+                                                    {expiryInfo.text}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-400">{client['Срок']} мес.</span>
+                                            )}
+                                        </div>
+
+                                        {/* 4. Cell & Warehouse */}
+                                        <div className="p-2.5 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ячейка / Склад</span>
+                                            <p className="text-base sm:text-lg font-mono font-black mt-0.5 text-gray-900 dark:text-white whitespace-nowrap truncate">
+                                                {client['Ячейка'] ? `№ ${client['Ячейка']}` : '—'}
+                                            </p>
+                                            <span className="text-[10px] text-gray-400 truncate block">
+                                                {client['Склад хранения'] || 'Основной'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Storage Dates Info Row */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2.5 text-xs text-gray-600 dark:text-gray-300">
+                                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30">
+                                            <span className="text-gray-400 text-[11px]">Начало:</span>
+                                            <span className="font-bold whitespace-nowrap">{formatDateForDisplay(client['Начало'])}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30">
+                                            <span className="text-gray-400 text-[11px]">Срок:</span>
+                                            <span className="font-bold whitespace-nowrap">{client['Срок']} мес.</span>
+                                        </div>
+                                        <div className="col-span-2 sm:col-span-1 flex items-center justify-between p-1.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30">
+                                            <span className="text-gray-400 text-[11px]">Напомнить:</span>
+                                            <span className="font-bold whitespace-nowrap">{formatDateForDisplay(client['Напомнить'])}</span>
+                                        </div>
+                                    </div>
+                                </SectionBlock>
+
+                                {/* BLOCK 2: TIRES & EQUIPMENT (Model, Size, Season, Wheels, DOT, Extra Services) */}
+                                <SectionBlock 
+                                    title="Параметры шин и комплектация" 
+                                    icon={<TireIcon className="w-4 h-4 text-indigo-600" />}
+                                    badge={
                                         <div className="flex items-center gap-1.5">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${
                                                 client['Сезон'] === 'Лето'
                                                     ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                                                     : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
@@ -646,21 +628,22 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                                 {client['Сезон'] === 'Лето' ? '☀️ Лето' : '❄️ Зима'}
                                             </span>
 
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                                 <DiscIcon className="w-3 h-3 text-indigo-500" />
-                                                <span>{client['Наличие дисков'] === 'Да' ? 'Диски' : 'Без дисков'}</span>
+                                                <span>{client['Наличие дисков'] === 'Да' ? 'С дисками' : 'Без дисков'}</span>
                                             </span>
                                         </div>
                                     }
                                 >
-                                    <div className="space-y-2.5">
-                                        {/* Main Brand & Size Highlight */}
-                                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
-                                            <div className="min-w-0 mr-2">
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                    <div className="space-y-3">
+                                        {/* Main Tire Model & Size Highlight */}
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 gap-2">
+                                            <div className="min-w-0">
+                                                <span className="text-[10px] font-bold uppercase text-gray-400 block tracking-wider">Марка и модель шин</span>
+                                                <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white truncate mt-0.5">
                                                     {client['Бренд_Модель'] || 'Марка не указана'}
                                                 </p>
-                                                <div className="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5">
+                                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                                                     <span>{client['Кол-во шин'] || 4} шт.</span>
                                                     {client['DOT-код'] && (
                                                         <>
@@ -671,30 +654,56 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                                 </div>
                                             </div>
 
-                                            <span className="px-2.5 py-1 rounded-lg font-mono text-xs font-black bg-primary-600 text-white shrink-0 shadow-2xs">
+                                            <span className="px-3 py-1.5 rounded-xl font-mono text-xs sm:text-sm font-black bg-primary-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
                                                 {client['Размер шин'] || 'Размер —'}
                                             </span>
                                         </div>
 
-                                        {/* Multi-set Groups if present */}
-                                        <TireGroupsView client={client} />
+                                        {/* Multi-set Groups if client has multiple wheelsets */}
+                                        {groups.length > 0 && (
+                                            <div className="space-y-1.5 pt-1">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Составные комплекты ({groups.length}):</p>
+                                                <div className="space-y-1.5">
+                                                    {groups.map((g: TireGroup, idx: number) => (
+                                                        <div 
+                                                            key={idx} 
+                                                            className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/70 text-xs"
+                                                        >
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                                                    #{idx + 1}
+                                                                </span>
+                                                                <div className="truncate">
+                                                                    <span className="font-bold text-gray-900 dark:text-white mr-1.5">{g.brand} {g.model}</span>
+                                                                    <span className="text-gray-500 dark:text-gray-400">{g.count} шт. · {g.season === 'Лето' ? '☀️' : '❄️'}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <span className="shrink-0 font-mono font-bold bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-300 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 whitespace-nowrap">
+                                                                {g.width}/{g.profile} R{g.diameter}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Minimalist Extra Services Strip */}
-                                        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
-                                            <span className="text-[11px] font-semibold text-gray-400 uppercase mr-1">Услуги:</span>
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-700/70 text-xs">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">Услуги:</span>
                                             {client['Услуга: Мойка'] && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 font-semibold text-[11px]">
-                                                    🚿 Мойка
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 font-semibold text-[11px] whitespace-nowrap">
+                                                    🚿 Мойка шин
                                                 </span>
                                             )}
                                             {client['Услуга: Упаковка'] && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 font-semibold text-[11px]">
-                                                    📦 Пакеты
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 font-semibold text-[11px] whitespace-nowrap">
+                                                    📦 Упаковка в пакеты
                                                 </span>
                                             )}
                                             {client['Услуга: Вывоз'] && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 font-semibold text-[11px]">
-                                                    🚚 Вывоз
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 font-semibold text-[11px] whitespace-nowrap">
+                                                    🚚 Вывоз и доставка
                                                 </span>
                                             )}
                                             {!client['Услуга: Мойка'] && !client['Услуга: Упаковка'] && !client['Услуга: Вывоз'] && (
@@ -704,30 +713,95 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                     </div>
                                 </SectionBlock>
 
-                                {/* Photo Gallery Quick Strip */}
+                                {/* BLOCK 3: CUSTOMER PROFILE & CONTACTS */}
                                 <SectionBlock 
-                                    title={`Фотографии (${clientPhotos.length})`}
+                                    title="Данные и контакты клиента" 
+                                    icon={<UserIcon className="w-4 h-4 text-blue-600" />}
+                                    badge={
+                                        <RussianCarPlateBadge plate={client['Номер Авто']} />
+                                    }
+                                >
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                        {/* Direct Phone Calling */}
+                                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-200/60 dark:border-gray-700/60">
+                                            <span className="text-gray-400 text-[11px] shrink-0 mr-2">Телефон:</span>
+                                            {client['Телефон'] ? (
+                                                <a 
+                                                    href={`tel:${client['Телефон']}`} 
+                                                    className="font-bold text-primary-600 dark:text-primary-400 flex items-center gap-1 hover:underline whitespace-nowrap"
+                                                >
+                                                    <PhoneIcon className="w-3.5 h-3.5 text-primary-600" />
+                                                    <span className="font-mono">{client['Телефон']}</span>
+                                                </a>
+                                            ) : <span className="text-gray-400">—</span>}
+                                        </div>
+
+                                        {/* Telegram Chat ID */}
+                                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-200/60 dark:border-gray-700/60">
+                                            <span className="text-gray-400 text-[11px] shrink-0 mr-2">Telegram:</span>
+                                            {client['Chat ID'] ? (
+                                                <span className="inline-flex items-center gap-1.5 font-mono font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                                    <span>{client['Chat ID']}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 text-[11px]">Не привязан</span>
+                                            )}
+                                        </div>
+
+                                        {/* Client Address */}
+                                        {client['Адрес клиента'] && (
+                                            <div className="sm:col-span-2 flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-200/60 dark:border-gray-700/60">
+                                                <span className="text-gray-400 text-[11px] shrink-0 mr-2">Адрес:</span>
+                                                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{client['Адрес клиента']}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Client Source & Creation Date */}
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50/60 dark:bg-gray-900/30">
+                                            <span className="text-gray-400 text-[11px]">Источник:</span>
+                                            <span className="font-medium truncate">{client['Источник трафика'] || 'Прямое обращение'}</span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50/60 dark:bg-gray-900/30">
+                                            <span className="text-gray-400 text-[11px]">Создан в CRM:</span>
+                                            <span className="font-medium whitespace-nowrap">{formatDateForDisplay(client['Дата добавления'] || client['Начало'])}</span>
+                                        </div>
+                                    </div>
+                                </SectionBlock>
+
+                                {/* BLOCK 4: ORDER NOTES & PHOTO QUICK STRIP */}
+                                {descClean && (
+                                    <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl p-3 text-xs">
+                                        <p className="font-bold text-amber-800 dark:text-amber-300 uppercase text-[10px] mb-1">Заметки к заказу:</p>
+                                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{descClean}</p>
+                                    </div>
+                                )}
+
+                                {/* Fast Photo Preview Strip */}
+                                <SectionBlock 
+                                    title={`Фотографии комплекта (${clientPhotos.length})`}
                                     icon={<span className="text-xs select-none">📸</span>}
-                                    action={
+                                    badge={
                                         <button
                                             type="button"
                                             onClick={() => setActiveTab('photos')}
                                             className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:underline"
                                         >
-                                            {clientPhotos.length > 0 ? 'Галерея ➔' : '+ Фото'}
+                                            {clientPhotos.length > 0 ? 'Галерея ➔' : '+ Загрузить'}
                                         </button>
                                     }
                                 >
                                     {clientPhotos.length > 0 ? (
-                                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+                                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 -mx-1 px-1">
                                             {clientPhotos.slice(0, 8).map((url, idx) => (
                                                 <div
                                                     key={idx}
                                                     onClick={() => setSelectedLightboxUrl(url)}
-                                                    className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shrink-0 cursor-pointer group bg-gray-100 dark:bg-gray-900 shadow-2xs"
+                                                    className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shrink-0 cursor-pointer group bg-gray-100 dark:bg-gray-900 shadow-2xs"
                                                 >
                                                     <img src={url} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                                    <span className="absolute bottom-0.5 left-0.5 px-1 rounded text-[8px] font-mono bg-black/70 text-white">
+                                                    <span className="absolute bottom-1 left-1 px-1 rounded text-[8px] font-mono bg-black/70 text-white">
                                                         #{idx + 1}
                                                     </span>
                                                 </div>
@@ -735,81 +809,33 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveTab('photos')}
-                                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center text-[10px] text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0 font-medium"
+                                                className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center text-[10px] text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0 font-medium transition-colors"
                                             >
-                                                <span>+ Еще</span>
+                                                <span>+ Все ({clientPhotos.length})</span>
                                             </button>
                                         </div>
                                     ) : (
                                         <div 
                                             onClick={() => setActiveTab('photos')}
-                                            className="py-3 px-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                                            className="py-3 px-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
                                         >
                                             <p className="text-xs text-gray-500">
-                                                Фотографий пока нет. <span className="text-primary-600 font-bold underline">Загрузить с камеры</span>
+                                                Фотографий шин пока нет. <span className="text-primary-600 font-bold underline">Загрузить фото</span>
                                             </p>
                                         </div>
                                     )}
                                 </SectionBlock>
-
-                                {/* Notes if present */}
-                                {descClean && (
-                                    <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl p-3 text-xs">
-                                        <p className="font-bold text-amber-800 dark:text-amber-300 uppercase text-[10px] mb-1">Заметки к заказу:</p>
-                                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{descClean}</p>
-                                    </div>
-                                )}
-
-                                {/* Minimalist Secondary Info & Contacts Block */}
-                                <SectionBlock title="Контакты и данные" icon={<UserIcon className="w-4 h-4 text-blue-600" />}>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
-                                            <span className="text-gray-400">Телефон:</span>
-                                            {client['Телефон'] ? (
-                                                <a 
-                                                    href={`tel:${client['Телефон']}`} 
-                                                    className="font-bold text-primary-600 dark:text-primary-400 flex items-center gap-1 hover:underline"
-                                                >
-                                                    <PhoneIcon className="w-3.5 h-3.5" />
-                                                    <span>{client['Телефон']}</span>
-                                                </a>
-                                            ) : <span className="text-gray-400">—</span>}
-                                        </div>
-
-                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
-                                            <span className="text-gray-400">Telegram Chat ID:</span>
-                                            <span className="font-mono font-semibold">{client['Chat ID'] || 'Не привязан'}</span>
-                                        </div>
-
-                                        {client['Адрес клиента'] && (
-                                            <div className="sm:col-span-2 flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
-                                                <span className="text-gray-400 shrink-0 mr-2">Адрес:</span>
-                                                <span className="font-medium truncate">{client['Адрес клиента']}</span>
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
-                                            <span className="text-gray-400">Источник:</span>
-                                            <span>{client['Источник трафика'] || 'Прямое'}</span>
-                                        </div>
-
-                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
-                                            <span className="text-gray-400">Создан:</span>
-                                            <span>{formatDateForDisplay(client['Дата добавления'] || client['Начало'])}</span>
-                                        </div>
-                                    </div>
-                                </SectionBlock>
                             </div>
                         )}
                         
-                        {/* 2.4 HISTORY TAB */}
+                        {/* 2.3 HISTORY TAB */}
                         {activeTab === 'history' && (
-                            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-xs animate-in fade-in duration-150">
+                            <div className="animate-in fade-in duration-150">
                                 <OrderHistory client={client} />
                             </div>
                         )}
                         
-                        {/* 2.5 PHOTOS TAB */}
+                        {/* 2.4 PHOTOS TAB */}
                         {activeTab === 'photos' && (
                             <div className="animate-in fade-in duration-150">
                                 <PhotoGallery 
@@ -834,14 +860,14 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 <button 
                                     type="button"
                                     onClick={() => setIsPaymentModalOpen(true)} 
-                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs active:scale-98 transition-all text-xs sm:text-sm whitespace-nowrap"
+                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs active:scale-98 transition-all text-xs sm:text-sm whitespace-nowrap"
                                     title="Принять оплату"
                                 >
                                     <BanknotesIcon className="w-4 h-4 text-white" /> 
                                     <span>
                                         {hasDebt 
                                             ? `Оплатить (${new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)})`
-                                            : 'Принять оплату'
+                                            : 'Внести оплату'
                                         }
                                     </span>
                                 </button>
