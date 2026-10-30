@@ -641,10 +641,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                             <div className="min-w-0">
                                                 <span className="text-[10px] font-bold uppercase text-gray-400 block tracking-wider">Марка и модель шин</span>
                                                 <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white truncate mt-0.5">
-                                                    {client['Бренд_Модель'] || 'Марка не указана'}
+                                                    {client['Бренд_Модель'] || (groups.length > 0 ? `${groups[0].brand || ''} ${groups[0].model || ''}`.trim() : '') || 'Марка не указана'}
                                                 </p>
                                                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                                                    <span>{client['Кол-во шин'] || 4} шт.</span>
+                                                    <span>{client['Кол-во шин'] || (groups.length > 0 ? groups.reduce((acc, g) => acc + (g.count || 0), 0) : 4)} шт.</span>
                                                     {client['DOT-код'] && (
                                                         <>
                                                             <span>·</span>
@@ -655,14 +655,19 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                             </div>
 
                                             <span className="px-3 py-1.5 rounded-xl font-mono text-xs sm:text-sm font-black bg-primary-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
-                                                {client['Размер шин'] || 'Размер —'}
+                                                {client['Размер шин'] || (groups.length > 0 ? `${groups[0].width}/${groups[0].profile} R${groups[0].diameter}` : '') || 'Размер —'}
                                             </span>
                                         </div>
 
-                                        {/* Multi-set Groups if client has multiple wheelsets */}
-                                        {groups.length > 0 && (
+                                        {/* Multi-set Groups: displayed ONLY when there are multiple sets or staggered wheelsets (e.g. front/rear axles) */}
+                                        {groups.length > 1 && (
                                             <div className="space-y-1.5 pt-1">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Составные комплекты ({groups.length}):</p>
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                        Разноширокие / Составные комплекты ({groups.length}):
+                                                    </p>
+                                                    <span className="text-[10px] text-gray-400 font-medium">Разбивка по осям/партиям</span>
+                                                </div>
                                                 <div className="space-y-1.5">
                                                     {groups.map((g: TireGroup, idx: number) => (
                                                         <div 
