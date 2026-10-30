@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Client, MessageTemplate, TireGroup, formatDateForDisplay, Settings } from '../types';
+import { Client, MessageTemplate, TireGroup, formatDateForDisplay, parseDate, Settings } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
@@ -21,10 +20,15 @@ import {
     ShieldCheckIcon, 
     BanknotesIcon,
     TireIcon,
+    DiscIcon,
+    SunIcon,
+    SnowflakeIcon,
     CurrencyRubleIcon as CashIcon,
-    UserIcon
+    UserIcon,
+    PhoneIcon,
+    CalendarDaysIcon,
+    CheckIcon
 } from './icons/Icons';
-
 
 // Helper to extract JSON groups
 const getTireGroups = (client: Client): TireGroup[] => {
@@ -49,61 +53,129 @@ const getTireGroups = (client: Client): TireGroup[] => {
         }
     }
     return groups;
-}
+};
 
-const SectionBlock: React.FC<{title: string, children: React.ReactNode, icon?: React.ReactNode}> = ({ title, children, icon }) => (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
-        <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-            {icon && <span className="text-gray-400 dark:text-gray-500">{icon}</span>}
-            <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{title}</h4>
+// Russian Car License Plate Badge
+const RussianCarPlateBadge: React.FC<{ plate?: string }> = ({ plate }) => {
+    if (!plate || !plate.trim()) return null;
+    const cleanPlate = plate.trim().toUpperCase();
+    return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md font-mono text-[11px] font-black tracking-wider bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-900 dark:border-gray-400 shadow-2xs select-all whitespace-nowrap">
+            <span className="mr-1">{cleanPlate}</span>
+            <span className="border-l border-gray-900 dark:border-gray-400 pl-1 text-[8px] font-bold text-gray-500 dark:text-gray-400">
+                RUS
+            </span>
+        </span>
+    );
+};
+
+// Expiry Days Calculator and Badge
+const getRemainingDaysInfo = (endDateString?: string) => {
+    if (!endDateString) return null;
+    const endDate = parseDate(endDateString);
+    if (!endDate) return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const diffMs = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+        return { 
+            text: `Просрочен ${Math.abs(diffDays)} дн.`, 
+            isExpired: true, 
+            badgeClass: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900' 
+        };
+    }
+    if (diffDays === 0) {
+        return { 
+            text: 'Истекает сегодня!', 
+            isExpired: false, 
+            badgeClass: 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 font-bold' 
+        };
+    }
+    if (diffDays <= 7) {
+        return { 
+            text: `${diffDays} дн. осталось`, 
+            isExpired: false, 
+            badgeClass: 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 font-bold' 
+        };
+    }
+    return { 
+        text: `${diffDays} дн. осталось`, 
+        isExpired: false, 
+        badgeClass: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900' 
+    };
+};
+
+// Section Container with icon and clean header
+const SectionBlock: React.FC<{
+    title: string;
+    children: React.ReactNode;
+    icon?: React.ReactNode;
+    action?: React.ReactNode;
+}> = ({ title, children, icon, action }) => (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-gray-50/70 dark:bg-gray-900/40 px-3.5 py-2.5 border-b border-gray-200 dark:border-gray-700/80 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                {icon && <span className="text-gray-500 dark:text-gray-400">{icon}</span>}
+                <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{title}</h4>
+            </div>
+            {action && <div>{action}</div>}
         </div>
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="p-3.5 sm:p-4">
             {children}
         </div>
     </div>
 );
 
-const DetailItem: React.FC<{ label: string; value: React.ReactNode, className?: string }> = ({ label, value, className }) => (
-    <div className={className}>
-        <dt className="text-[10px] sm:text-xs font-medium text-gray-400 dark:text-gray-500 uppercase mb-0.5">{label}</dt>
-        <dd className="text-sm sm:text-base font-medium text-gray-900 dark:text-white break-words leading-tight">{value || '—'}</dd>
-    </div>
-);
-
+// Multiple Tire Groups Breakdown
 const TireGroupsView: React.FC<{ client: Client }> = ({ client }) => {
     const groups = getTireGroups(client);
     if (groups.length === 0) return null;
 
     return (
-         <div className="col-span-1 sm:col-span-2 space-y-2 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
-            <p className="text-xs font-bold text-gray-500 uppercase">Состав комплекта:</p>
-            {groups.map((g: TireGroup, idx: number) => (
-                <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-                     <span>
-                         <span className="font-bold">{g.count} шт</span> • {g.brand} {g.model}
-                     </span>
-                     <span className="font-mono text-gray-600 dark:text-gray-400 font-semibold">
-                         {g.width}/{g.profile} R{g.diameter}
-                     </span>
-                </div>
-            ))}
-         </div>
+        <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-700/80">
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Комплекты ({groups.length}):</p>
+            <div className="space-y-1.5">
+                {groups.map((g: TireGroup, idx: number) => (
+                    <div 
+                        key={idx} 
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/70 text-xs"
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                #{idx + 1}
+                            </span>
+                            <div className="truncate">
+                                <span className="font-bold text-gray-900 dark:text-white mr-1.5">{g.brand} {g.model}</span>
+                                <span className="text-gray-500 dark:text-gray-400">{g.count} шт. · {g.season === 'Лето' ? '☀️' : '❄️'}</span>
+                            </div>
+                        </div>
+
+                        <span className="shrink-0 font-mono font-bold bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-300 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                            {g.width}/{g.profile} R{g.diameter}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 };
 
-const TabButton: React.FC<{active: boolean, onClick: ()=>void, children: React.ReactNode}> = ({ active, onClick, children }) => (
+// Segmented Navigation Tab Button
+const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
     <button
         type="button"
         onClick={onClick}
-        className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors duration-200 focus:outline-none ${
+        className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             active
-            ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 shadow-xs'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
         }`}
     >
         {children}
     </button>
-)
+);
 
 interface ClientDetailsPageProps {
     clients: Client[];
@@ -125,7 +197,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [selectedTemplateName, setSelectedTemplateName] = useState<string>('');
     const [preview, setPreview] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedLightboxUrl, setSelectedLightboxUrl] = useState<string | null>(null);
 
@@ -133,10 +205,8 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
         if (!id) return;
         const foundClient = clients.find(c => String(c.id) === String(id));
         if (foundClient) {
-            // Live data from database/storage always takes precedence
             setClient(foundClient);
         } else if (location.state?.client) {
-            // Fallback while clients list is loading on initial mount
             setClient(location.state.client);
         }
     }, [id, clients, location.state]);
@@ -224,21 +294,19 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
             setIsSubmitting(true);
             try {
                 if (messageTarget === 'admin') {
-                    // Send to all admins
                     const adminIds = settings.adminIds.split(',').map(id => id.trim()).filter(Boolean);
                     if (adminIds.length === 0) throw new Error("ID администраторов не настроены в настройках.");
                     
                     await Promise.all(adminIds.map(id => api.sendMessage(id, preview)));
                     showToast(`Отправлено администраторам (${adminIds.length})`, 'success');
                 } else {
-                    // Send to client
                     if (!client['Chat ID']) throw new Error("У клиента не указан Chat ID.");
                     const result = await api.sendMessage(client['Chat ID'] as string, preview);
                     showToast(result.message, result.success ? 'success' : 'error');
                 }
                 
                 if (messageTarget === 'client') {
-                    await refreshData(); // Refresh only if client interaction
+                    await refreshData();
                 }
                 setMode('view');
             } catch(e: any) {
@@ -265,18 +333,19 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
         setMessageTarget('admin');
         setMode('message');
         setPreview('');
-    }
+    };
 
     const handleClientMessage = () => {
         setMessageTarget('client');
         setMode('message');
         setPreview('');
-    }
+    };
 
     const handleGenerateReceipt = () => {
         if (!client) return;
         const groups = getTireGroups(client);
-        const formatCurrency = (val: number | undefined) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
+        const formatCurrency = (val: number | undefined) => 
+            new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(val || 0);
         
         let tiresText = '';
         if (groups.length > 0) {
@@ -317,23 +386,20 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
 
     if (clients.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-100 dark:bg-gray-950">
-                <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4"></div>
-                <p className="text-gray-500 dark:text-gray-400">Загрузка базы данных...</p>
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50 dark:bg-gray-950">
+                <div className="w-9 h-9 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-3"></div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Загрузка данных...</p>
             </div>
         );
     }
 
     if (!client) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-100 dark:bg-gray-950">
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50 dark:bg-gray-950">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-sm w-full">
-                    <div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-                        <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Клиент не найден</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                        Возможно, клиент был удален или ID в ссылке указан неверно.
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">Клиент не найден</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
+                        Возможно, карточка была удалена или перенесена в архив.
                     </p>
                     <Button onClick={() => navigate('/clients')} className="w-full justify-center">
                         Вернуться к списку
@@ -349,69 +415,109 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         : (typeof (rawPhotos as unknown) === 'string' && (rawPhotos as unknown as string).trim().length > 0
             ? (rawPhotos as unknown as string).split(',').map(s => s.trim()).filter(Boolean)
             : []);
-    const descClean = (client?.['Заказ - QR'] || '').split('||JSON:')[0];
+    const descClean = (client?.['Заказ - QR'] || '').split('||JSON:')[0]?.trim();
+    const expiryInfo = getRemainingDaysInfo(client['Окончание']);
+
+    // Deal Status Styling
+    const status = client['Статус сделки'] || 'На складе';
+    const statusStyles = {
+        'На складе': 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+        'Оплачено': 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+        'Частичная оплата': 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+        'Без оплаты': 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+        'Завершено': 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
+    }[status] || 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+
+    const hasDebt = Number(client['Долг'] || 0) > 0;
 
     return (
-        <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
+        <div className="flex flex-col h-full bg-gray-50/70 dark:bg-gray-950">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             {selectedLightboxUrl && <Lightbox imageUrl={selectedLightboxUrl} onClose={() => setSelectedLightboxUrl(null)} />}
             
-            {/* Sticky Header */}
-            <div className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <button onClick={() => navigate('/clients')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300">
-                        <ArrowLeftIcon />
-                    </button>
-                    <div className="flex flex-col min-w-0">
-                        <h1 className="text-lg font-bold leading-tight text-gray-900 dark:text-white truncate">
-                            {client['Имя клиента']}
-                        </h1>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="truncate">{client['Номер Авто']}</span>
-                            {client['Склад хранения'] && <span>• {client['Склад хранения']}</span>}
+            {/* 1. STICKY TOP APP BAR (Compact & Mobile-Optimized) */}
+            <header className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 py-2.5 shadow-xs">
+                <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <button 
+                            type="button"
+                            onClick={() => navigate('/clients')} 
+                            className="p-1.5 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+                            title="Назад"
+                        >
+                            <ArrowLeftIcon className="w-5 h-5" />
+                        </button>
+
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <h1 className="text-sm sm:text-base font-black text-gray-900 dark:text-white truncate">
+                                    {client['Имя клиента']}
+                                </h1>
+                                <RussianCarPlateBadge plate={client['Номер Авто']} />
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                <span className="font-mono">#{client['Договор']}</span>
+                                <span>·</span>
+                                <span className="truncate">{client['Склад хранения'] || 'Основной'}: ячейка <b>{client['Ячейка'] || '—'}</b></span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="flex-shrink-0">
-                     <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
-                         client['Статус сделки'] === 'На складе' ? 'bg-green-100 text-green-800' : 
-                         client['Статус сделки'] === 'Завершено' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'
-                     }`}>
-                         {client['Статус сделки']}
-                     </span>
-                </div>
-            </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 sm:pb-6">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${statusStyles}`}>
+                            {status}
+                        </span>
+                    </div>
+                </div>
+            </header>
+
+            {/* 2. SCROLLABLE CONTENT BODY */}
+            <main className="flex-1 overflow-y-auto p-3 sm:p-5 pb-24 sm:pb-24">
                 
-                {/* Mode: Message */}
+                {/* Mode: Message Composer */}
                 {mode === 'message' && (
-                    <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold dark:text-white">
-                                    {messageTarget === 'admin' ? 'Сообщение администратору' : 'Сообщение клиенту'}
-                                </h3>
-                                {messageTarget === 'admin' && <ShieldCheckIcon className="w-6 h-6 text-blue-500"/>}
+                    <div className="max-w-2xl mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-200">
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-xs border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-primary-50 dark:bg-primary-950 text-primary-600">
+                                        <MessageIcon className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                                            {messageTarget === 'admin' ? 'Сообщение администраторам' : `Сообщение: ${client['Имя клиента']}`}
+                                        </h3>
+                                        <p className="text-[11px] text-gray-500">
+                                            {messageTarget === 'admin' ? 'Администраторам системы' : `В Telegram: ${client['Chat ID'] || 'Без ID'}`}
+                                        </p>
+                                    </div>
+                                </div>
+                                {messageTarget === 'admin' && <ShieldCheckIcon className="w-5 h-5 text-blue-500"/>}
                             </div>
-                            <div className="space-y-4">
+
+                            <div className="space-y-3">
                                 <div>
-                                    <label htmlFor="template" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Шаблон</label>
+                                    <label htmlFor="template" className="block text-[11px] font-bold uppercase text-gray-500 mb-1">
+                                        Шаблон:
+                                    </label>
                                     <select 
                                         id="template" 
                                         value={selectedTemplateName} 
                                         onChange={e => setSelectedTemplateName(e.target.value)} 
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white transition duration-150"
+                                        className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 py-2 px-2.5 text-xs dark:bg-gray-800 dark:text-white"
                                     >
                                         <option value="">-- Индивидуальное сообщение / Чек --</option>
-                                        {templates.map(t => <option key={t['Название шаблона']} value={t['Название шаблона']}>{t['Название шаблона']}</option>)}
+                                        {templates.map(t => (
+                                            <option key={t['Название шаблона']} value={t['Название шаблона']}>
+                                                {t['Название шаблона']}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
+
                                 <div>
-                                    <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-2">Сообщение (HTML)</h4>
                                     <div 
-                                        className="p-3 border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 min-h-[150px] max-h-[40vh] overflow-y-auto font-mono text-sm whitespace-pre-wrap outline-none focus:ring-2 focus:ring-primary-500" 
+                                        className="p-3 border rounded-lg bg-gray-50 dark:bg-gray-900/60 dark:border-gray-700 min-h-[140px] max-h-[35vh] overflow-y-auto font-mono text-xs whitespace-pre-wrap outline-none text-gray-800 dark:text-gray-200" 
                                         contentEditable
                                         onInput={(e) => setPreview(e.currentTarget.innerText)} 
                                         dangerouslySetInnerHTML={{ __html: preview }}
@@ -424,205 +530,428 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
 
                 {/* Mode: View (Tabs) */}
                 {mode === 'view' && (
-                    <div className="max-w-4xl mx-auto space-y-6">
-                        {/* Tab Nav */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl p-1 shadow-sm border border-gray-200 dark:border-gray-700 flex">
-                            <TabButton active={activeTab === 'details'} onClick={() => setActiveTab('details')}>Детали</TabButton>
-                            <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>История</TabButton>
-                            <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>
-                                Фото {clientPhotos.length > 0 ? `(${clientPhotos.length})` : ''}
-                            </TabButton>
-                        </div>
+                    <div className="max-w-4xl mx-auto space-y-3.5">
+                        
+                        {/* 2.1 EXECUTIVE HERO BANNER (Optimized for Mobile & Desktop) */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700/80 p-3 sm:p-4 shadow-xs">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-700/60">
+                                
+                                {/* 1. Finance & Debt Glance */}
+                                <div className="col-span-2 sm:col-span-1 pb-2 sm:pb-0 sm:pr-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-semibold text-gray-400 uppercase">Оплата</span>
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                            hasDebt 
+                                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300' 
+                                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                        }`}>
+                                            {hasDebt ? 'Долг' : 'Оплачено'}
+                                        </span>
+                                    </div>
 
-                        {activeTab === 'details' && (
-                            <div className="space-y-4 animate-in fade-in duration-300">
-                                {/* Key Metrics Grid */}
-                                <div className="grid grid-cols-2 gap-3">
-                                     <div className={`p-4 rounded-xl border flex flex-col justify-between ${Number(client['Долг'] || 0) > 0 ? 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800' : 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800'}`}>
-                                        <div>
-                                            <p className={`text-xs font-bold uppercase tracking-wider ${Number(client['Долг'] || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                {Number(client['Долг'] || 0) > 0 ? 'Долг' : 'Оплачено'}
-                                            </p>
-                                            <p className={`text-xl sm:text-2xl font-black mt-1 ${Number(client['Долг'] || 0) > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>
-                                                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
-                                            </p>
-                                        </div>
+                                    <div className="flex items-baseline justify-between mt-1">
+                                        <p className={`text-xl sm:text-2xl font-black ${
+                                            hasDebt ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                        }`}>
+                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Долг'] || 0))}
+                                        </p>
                                         <button
                                             type="button"
                                             onClick={() => setIsPaymentModalOpen(true)}
-                                            className={`mt-2.5 w-full py-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 ${
-                                                Number(client['Долг'] || 0) > 0
-                                                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                                                    : 'bg-white hover:bg-gray-100 text-green-700 dark:bg-gray-800 dark:text-green-300 border border-green-200 dark:border-green-800'
-                                            }`}
+                                            className="text-[11px] font-bold text-primary-600 dark:text-primary-400 hover:underline"
                                         >
-                                            <BanknotesIcon className="w-3.5 h-3.5" />
-                                            <span>{Number(client['Долг'] || 0) > 0 ? 'Принять оплату' : '+ Внести оплату'}</span>
+                                            {hasDebt ? '+ Оплатить' : '+ Доплата'}
                                         </button>
                                     </div>
-                                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-800">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-blue-500">Окончание</p>
-                                        <p className="text-xl sm:text-2xl font-black mt-1 text-blue-700 dark:text-blue-300">{formatDateForDisplay(client['Окончание'])}</p>
-                                    </div>
+
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                        Всего: {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(client['Общая сумма'] || 0))} ({client['Цена за месяц'] || 0} ₽/мес)
+                                    </p>
                                 </div>
 
-                                {/* Contract Info */}
-                                <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm flex justify-between items-center">
-                                    <div>
-                                        <p className="text-xs text-gray-500 uppercase font-bold">Договор №</p>
-                                        <p className="text-lg font-mono font-bold text-gray-900 dark:text-white">{client['Договор']}</p>
+                                {/* 2. Expiration Date Glance */}
+                                <div className="pt-2 sm:pt-0 sm:px-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-semibold text-gray-400 uppercase">Окончание</span>
+                                        {expiryInfo && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${expiryInfo.badgeClass}`}>
+                                                {expiryInfo.text}
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-gray-500 uppercase font-bold">Ячейка</p>
-                                        <p className="text-lg font-bold text-gray-900 dark:text-white">{client['Ячейка'] || '—'}</p>
-                                    </div>
+
+                                    <p className="text-base sm:text-lg font-black text-gray-900 dark:text-white mt-1">
+                                        {formatDateForDisplay(client['Окончание'])}
+                                    </p>
+
+                                    <p className="text-[11px] text-gray-400 mt-0.5">
+                                        {client['Срок']} мес. (с {formatDateForDisplay(client['Начало'])})
+                                    </p>
                                 </div>
 
-                                <SectionBlock title="Шины и Хранение" icon={<TireIcon/>}>
-                                     <DetailItem label="Бренд" value={client['Бренд_Модель']} className="col-span-1 sm:col-span-2" />
-                                     <DetailItem label="Размер шин" value={client['Размер шин']} className="col-span-1 sm:col-span-2" />
-                                     <TireGroupsView client={client} />
-                                     <DetailItem label="Сезон" value={client['Сезон']} />
-                                     <DetailItem label="Кол-во" value={`${client['Кол-во шин']} шт.`} />
-                                     <DetailItem label="Наличие дисков" value={client['Наличие дисков']} />
-                                     <DetailItem label="DOT-код" value={client['DOT-код']} />
+                                {/* 3. Storage Location Glance */}
+                                <div className="pt-2 sm:pt-0 sm:pl-3">
+                                    <span className="text-[11px] font-semibold text-gray-400 uppercase">Локация на складе</span>
+                                    
+                                    <div className="flex items-baseline justify-between mt-1">
+                                        <span className="font-mono text-base sm:text-lg font-black text-gray-900 dark:text-white">
+                                            {client['Ячейка'] ? `Ячейка ${client['Ячейка']}` : 'Ячейка не указана'}
+                                        </span>
+                                    </div>
+
+                                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                                        {client['Склад хранения'] || 'Основной склад'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2.2 MODERN COMPACT SEGMENTED TABS */}
+                        <div className="bg-gray-100 dark:bg-gray-900 p-1 rounded-xl flex border border-gray-200 dark:border-gray-800">
+                            <TabButton active={activeTab === 'details'} onClick={() => setActiveTab('details')}>
+                                <TireIcon className="w-3.5 h-3.5" />
+                                <span>Шины и заказ</span>
+                            </TabButton>
+                            
+                            <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
+                                <CalendarDaysIcon className="w-3.5 h-3.5" />
+                                <span>История</span>
+                            </TabButton>
+                            
+                            <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>
+                                <span>📸 Фото</span>
+                                {clientPhotos.length > 0 && (
+                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 font-bold">
+                                        {clientPhotos.length}
+                                    </span>
+                                )}
+                            </TabButton>
+                        </div>
+
+                        {/* 2.3 DETAILS TAB */}
+                        {activeTab === 'details' && (
+                            <div className="space-y-3 animate-in fade-in duration-150">
+                                
+                                {/* Tires and Parameters Block */}
+                                <SectionBlock 
+                                    title="Параметры шин" 
+                                    icon={<TireIcon className="w-4 h-4 text-primary-600" />}
+                                    action={
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                                                client['Сезон'] === 'Лето'
+                                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                                    : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
+                                            }`}>
+                                                {client['Сезон'] === 'Лето' ? '☀️ Лето' : '❄️ Зима'}
+                                            </span>
+
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                                <DiscIcon className="w-3 h-3 text-indigo-500" />
+                                                <span>{client['Наличие дисков'] === 'Да' ? 'Диски' : 'Без дисков'}</span>
+                                            </span>
+                                        </div>
+                                    }
+                                >
+                                    <div className="space-y-2.5">
+                                        {/* Main Brand & Size Highlight */}
+                                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
+                                            <div className="min-w-0 mr-2">
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                                    {client['Бренд_Модель'] || 'Марка не указана'}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5">
+                                                    <span>{client['Кол-во шин'] || 4} шт.</span>
+                                                    {client['DOT-код'] && (
+                                                        <>
+                                                            <span>·</span>
+                                                            <span className="font-mono">DOT: {client['DOT-код']}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <span className="px-2.5 py-1 rounded-lg font-mono text-xs font-black bg-primary-600 text-white shrink-0 shadow-2xs">
+                                                {client['Размер шин'] || 'Размер —'}
+                                            </span>
+                                        </div>
+
+                                        {/* Multi-set Groups if present */}
+                                        <TireGroupsView client={client} />
+
+                                        {/* Minimalist Extra Services Strip */}
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+                                            <span className="text-[11px] font-semibold text-gray-400 uppercase mr-1">Услуги:</span>
+                                            {client['Услуга: Мойка'] && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 font-semibold text-[11px]">
+                                                    🚿 Мойка
+                                                </span>
+                                            )}
+                                            {client['Услуга: Упаковка'] && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 font-semibold text-[11px]">
+                                                    📦 Пакеты
+                                                </span>
+                                            )}
+                                            {client['Услуга: Вывоз'] && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 font-semibold text-[11px]">
+                                                    🚚 Вывоз
+                                                </span>
+                                            )}
+                                            {!client['Услуга: Мойка'] && !client['Услуга: Упаковка'] && !client['Услуга: Вывоз'] && (
+                                                <span className="text-gray-400 text-xs italic">Без дополнительных услуг</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </SectionBlock>
 
-                                {/* Photo Strip in Details Tab */}
-                                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
-                                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-gray-400 dark:text-gray-500">📸</span>
-                                            <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                Фотографии шин и дисков {clientPhotos.length > 0 ? `(${clientPhotos.length})` : ''}
-                                            </h4>
-                                        </div>
+                                {/* Photo Gallery Quick Strip */}
+                                <SectionBlock 
+                                    title={`Фотографии (${clientPhotos.length})`}
+                                    icon={<span className="text-xs select-none">📸</span>}
+                                    action={
                                         <button
                                             type="button"
                                             onClick={() => setActiveTab('photos')}
-                                            className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+                                            className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:underline"
                                         >
-                                            {clientPhotos.length > 0 ? 'Все фото ➔' : '+ Загрузить фото'}
+                                            {clientPhotos.length > 0 ? 'Галерея ➔' : '+ Фото'}
                                         </button>
-                                    </div>
-                                    <div className="p-3">
-                                        {clientPhotos.length > 0 ? (
-                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                                                {clientPhotos.slice(0, 6).map((url, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        onClick={() => setSelectedLightboxUrl(url)}
-                                                        className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xs cursor-pointer group bg-gray-100 dark:bg-gray-900"
-                                                    >
-                                                        <img src={url} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                                        <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded text-[9px] font-mono bg-black/70 text-white leading-none">
-                                                            #{idx + 1}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div 
+                                    }
+                                >
+                                    {clientPhotos.length > 0 ? (
+                                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+                                            {clientPhotos.slice(0, 8).map((url, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setSelectedLightboxUrl(url)}
+                                                    className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shrink-0 cursor-pointer group bg-gray-100 dark:bg-gray-900 shadow-2xs"
+                                                >
+                                                    <img src={url} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                    <span className="absolute bottom-0.5 left-0.5 px-1 rounded text-[8px] font-mono bg-black/70 text-white">
+                                                        #{idx + 1}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            <button
+                                                type="button"
                                                 onClick={() => setActiveTab('photos')}
-                                                className="py-3 px-4 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center text-[10px] text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0 font-medium"
                                             >
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                    Нет прикрепленных фото. <span className="text-primary-600 dark:text-primary-400 font-semibold underline">Нажмите здесь</span>, чтобы загрузить из галереи или с камеры.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-xl p-4">
-                                    <h4 className="text-xs font-bold text-yellow-600 dark:text-yellow-500 uppercase mb-2">Заметки</h4>
-                                    <p className="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap">{descClean || 'Нет описания'}</p>
-                                </div>
-
-                                <SectionBlock title="Финансы" icon={<CashIcon/>}>
-                                     <DetailItem label="Общая сумма" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Общая сумма'] || 0))} className="col-span-1 sm:col-span-1" />
-                                     <DetailItem label="Текущий долг" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Долг'] || 0))} className={`col-span-1 sm:col-span-1 font-bold ${Number(client['Долг'] || 0) > 0 ? '!text-red-600 dark:!text-red-400' : '!text-green-600 dark:!text-green-400'}`} />
-                                     <DetailItem label="Цена за месяц" value={new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(Number(client['Цена за месяц'] || 0))} />
-                                     <DetailItem label="Срок хранения" value={`${client['Срок']} мес.`} />
-                                     <DetailItem label="Начало хранения" value={formatDateForDisplay(client['Начало'])} />
+                                                <span>+ Еще</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div 
+                                            onClick={() => setActiveTab('photos')}
+                                            className="py-3 px-3 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                                        >
+                                            <p className="text-xs text-gray-500">
+                                                Фотографий пока нет. <span className="text-primary-600 font-bold underline">Загрузить с камеры</span>
+                                            </p>
+                                        </div>
+                                    )}
                                 </SectionBlock>
 
-                                <SectionBlock title="Контакты" icon={<UserIcon/>}>
-                                    <DetailItem label="Телефон" value={client['Телефон']} />
-                                    <DetailItem label="Chat ID" value={client['Chat ID']} />
-                                    <DetailItem label="Адрес клиента" value={client['Адрес клиента']} className="col-span-1 sm:col-span-2" />
+                                {/* Notes if present */}
+                                {descClean && (
+                                    <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl p-3 text-xs">
+                                        <p className="font-bold text-amber-800 dark:text-amber-300 uppercase text-[10px] mb-1">Заметки к заказу:</p>
+                                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{descClean}</p>
+                                    </div>
+                                )}
+
+                                {/* Minimalist Secondary Info & Contacts Block */}
+                                <SectionBlock title="Контакты и данные" icon={<UserIcon className="w-4 h-4 text-blue-600" />}>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
+                                            <span className="text-gray-400">Телефон:</span>
+                                            {client['Телефон'] ? (
+                                                <a 
+                                                    href={`tel:${client['Телефон']}`} 
+                                                    className="font-bold text-primary-600 dark:text-primary-400 flex items-center gap-1 hover:underline"
+                                                >
+                                                    <PhoneIcon className="w-3.5 h-3.5" />
+                                                    <span>{client['Телефон']}</span>
+                                                </a>
+                                            ) : <span className="text-gray-400">—</span>}
+                                        </div>
+
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
+                                            <span className="text-gray-400">Telegram Chat ID:</span>
+                                            <span className="font-mono font-semibold">{client['Chat ID'] || 'Не привязан'}</span>
+                                        </div>
+
+                                        {client['Адрес клиента'] && (
+                                            <div className="sm:col-span-2 flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
+                                                <span className="text-gray-400 shrink-0 mr-2">Адрес:</span>
+                                                <span className="font-medium truncate">{client['Адрес клиента']}</span>
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
+                                            <span className="text-gray-400">Источник:</span>
+                                            <span>{client['Источник трафика'] || 'Прямое'}</span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/40">
+                                            <span className="text-gray-400">Создан:</span>
+                                            <span>{formatDateForDisplay(client['Дата добавления'] || client['Начало'])}</span>
+                                        </div>
+                                    </div>
                                 </SectionBlock>
                             </div>
                         )}
                         
-                        {activeTab === 'history' && <OrderHistory client={client} />}
+                        {/* 2.4 HISTORY TAB */}
+                        {activeTab === 'history' && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-xs animate-in fade-in duration-150">
+                                <OrderHistory client={client} />
+                            </div>
+                        )}
                         
-                        {activeTab === 'photos' && <PhotoGallery client={client} refreshClientData={refreshData} showToast={showToast} />}
+                        {/* 2.5 PHOTOS TAB */}
+                        {activeTab === 'photos' && (
+                            <div className="animate-in fade-in duration-150">
+                                <PhotoGallery 
+                                    client={client} 
+                                    refreshClientData={refreshData} 
+                                    showToast={showToast} 
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
-            </div>
+            </main>
 
-            {/* Sticky Bottom Actions Bar (Mobile Optimized) */}
-            <div className="sticky bottom-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-2.5 sm:p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-2 sm:gap-3 justify-between items-stretch sm:items-center">
+            {/* 3. STICKY BOTTOM ACTIONS TOOLBAR (Mobile-First, Ergonomic) */}
+            <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-2.5 sm:p-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center">
                     
                     {mode === 'view' && (
                         <>
                             {/* Primary Payment Action Button */}
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <Button 
-                                    size="md" 
-                                    variant="secondary" 
+                            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                                <button 
+                                    type="button"
                                     onClick={() => setIsPaymentModalOpen(true)} 
-                                    className="flex-1 sm:flex-none justify-center !py-2.5 !px-4 !bg-emerald-600 hover:!bg-emerald-700 !text-white font-bold shadow-sm active:scale-[0.98] transition-transform text-sm"
+                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs active:scale-98 transition-all text-xs sm:text-sm whitespace-nowrap"
                                     title="Принять оплату"
                                 >
-                                    <BanknotesIcon className="w-5 h-5 mr-1.5 text-white"/> 
+                                    <BanknotesIcon className="w-4 h-4 text-white" /> 
                                     <span>
-                                        {Number(client['Долг'] || 0) > 0 
-                                            ? `Принять оплату (${new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)})`
+                                        {hasDebt 
+                                            ? `Оплатить (${new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)})`
                                             : 'Принять оплату'
                                         }
                                     </span>
-                                </Button>
+                                </button>
                             </div>
                             
-                            {/* Secondary Actions: Clean Scrollable Strip on Mobile, Wrap on Desktop */}
-                            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap">
-                                <Button size="md" variant="secondary" onClick={handleEditClient} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm">
-                                    <EditIcon className="w-4 h-4 mr-1 text-gray-500"/> <span>Изм.</span>
+                            {/* Secondary Actions Row */}
+                            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap">
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    onClick={handleEditClient} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !rounded-lg"
+                                    title="Редактировать заказ"
+                                >
+                                    <EditIcon className="w-3.5 h-3.5 mr-1 text-gray-500" /> 
+                                    <span>Изм.</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleGenerateReceipt} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-indigo-50 !text-indigo-700 dark:!bg-indigo-900/30 dark:!text-indigo-300" title="Чек и договор">
-                                    <ReceiptIcon className="w-4 h-4 mr-1 text-indigo-600 dark:text-indigo-400"/> <span>Чек</span>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    onClick={handleGenerateReceipt} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-indigo-50 !text-indigo-700 dark:!bg-indigo-950/40 dark:!text-indigo-300 !rounded-lg" 
+                                    title="Сформировать чек и договор"
+                                >
+                                    <ReceiptIcon className="w-3.5 h-3.5 mr-1 text-indigo-600 dark:text-indigo-400" /> 
+                                    <span>Чек</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleClientMessage} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm" title="Написать клиенту">
-                                    <MessageIcon className="w-4 h-4 mr-1 text-gray-500"/> <span>SMS</span>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    onClick={handleClientMessage} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !rounded-lg" 
+                                    title="Написать клиенту в Telegram"
+                                >
+                                    <MessageIcon className="w-3.5 h-3.5 mr-1 text-gray-500" /> 
+                                    <span>TG</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleAdminMessage} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-blue-50 !text-blue-700 dark:!bg-blue-900/30 dark:!text-blue-300" title="Написать админу">
-                                    <ShieldCheckIcon className="w-4 h-4 mr-1 text-blue-600 dark:text-blue-400"/> <span>Админу</span>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    onClick={handleNewOrder} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-emerald-50 !text-emerald-700 hover:!bg-emerald-100 dark:!bg-emerald-950/40 dark:!text-emerald-300 !rounded-lg" 
+                                    title="Добавить еще один комплект шин"
+                                >
+                                    <DocumentPlusIcon className="w-3.5 h-3.5 mr-1 text-emerald-600 dark:text-emerald-400" /> 
+                                    <span>+ Комплект</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleNewOrder} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-green-50 !text-green-700 hover:!bg-green-100 dark:!bg-green-950/40 dark:!text-green-300" title="Дополнительный комплект">
-                                    <DocumentPlusIcon className="w-4 h-4 mr-1 text-green-600 dark:text-green-400"/> <span>+ Комплект</span>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    onClick={handleAdminMessage} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-blue-50 !text-blue-700 dark:!bg-blue-950/30 dark:!text-blue-300 !rounded-lg" 
+                                    title="Сообщение администраторам"
+                                >
+                                    <ShieldCheckIcon className="w-3.5 h-3.5 mr-1 text-blue-600 dark:text-blue-400" /> 
+                                    <span>Админу</span>
                                 </Button>
-                                <Button size="md" variant="secondary" onClick={handleArchive} className="flex-shrink-0 justify-center !py-2 text-xs sm:text-sm !bg-orange-50 !text-orange-700 dark:!bg-orange-900/30 dark:!text-orange-300" title="Выдать и архивировать">
-                                    <span>В архив</span>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    onClick={handleArchive} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2 text-xs !bg-amber-50 !text-amber-800 dark:!bg-amber-950/30 dark:!text-amber-300 !rounded-lg" 
+                                    title="Завершить хранение и в архив"
+                                >
+                                    <span>Архив</span>
                                 </Button>
-                                <Button size="md" variant="danger" onClick={handleDelete} className="flex-shrink-0 justify-center px-2.5 !py-2" title="Удалить">
-                                    <DeleteIcon className="w-4 h-4"/>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="danger" 
+                                    onClick={handleDelete} 
+                                    className="flex-shrink-0 justify-center !p-1.5 !rounded-lg" 
+                                    title="Удалить клиента"
+                                >
+                                    <DeleteIcon className="w-3.5 h-3.5" />
                                 </Button>
                             </div>
                         </>
                     )}
 
                     {mode === 'message' && (
-                        <div className="flex w-full gap-3">
-                            <Button variant="outline" onClick={() => setMode('view')} disabled={isSubmitting} className="flex-1">Назад</Button>
-                            <Button onClick={handleSendMessage} disabled={isSubmitting || (messageTarget === 'client' && !client?.['Chat ID'])} className="flex-1">{isSubmitting ? 'Отправка...' : 'Отправить'}</Button>
+                        <div className="flex w-full gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setMode('view')} 
+                                disabled={isSubmitting} 
+                                className="flex-1 !rounded-xl"
+                            >
+                                Отмена
+                            </Button>
+                            <Button 
+                                size="sm"
+                                onClick={handleSendMessage} 
+                                disabled={isSubmitting || (messageTarget === 'client' && !client?.['Chat ID'])} 
+                                className="flex-1 !rounded-xl"
+                            >
+                                {isSubmitting ? 'Отправка...' : 'Отправить в Telegram'}
+                            </Button>
                         </div>
                     )}
                 </div>
-            </div>
+            </footer>
 
+            {/* Payment Modal */}
             {client && (
                 <PaymentModal
                     isOpen={isPaymentModalOpen}
