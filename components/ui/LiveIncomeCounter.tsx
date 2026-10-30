@@ -84,20 +84,25 @@ export const LiveIncomeCounter: React.FC<LiveIncomeCounterProps> = ({ monthlyInc
                         {formatCurrency(animatedValue)}
                     </dd>
                 </dl>
-                <div className="mt-4 flex items-center space-x-1 overflow-x-auto no-scrollbar pb-1 -ml-1 pl-1">
-                    {RATES.map(rate => (
-                       <button
-                         key={rate.id}
-                         onClick={() => setActiveRateId(rate.id)}
-                         className={`px-2 py-0.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
-                            activeRateId === rate.id 
-                                ? 'bg-white text-cyan-600 shadow' 
-                                : 'bg-white/20 text-white/80 hover:bg-white/40'
-                         }`}
-                       >
-                           {rate.label}
-                       </button>
-                    ))}
+                <div className="mt-4 grid grid-cols-7 gap-1 p-1 bg-black/25 rounded-xl backdrop-blur-xs">
+                    {RATES.map(rate => {
+                        const isActive = activeRateId === rate.id;
+                        return (
+                            <button
+                                key={rate.id}
+                                type="button"
+                                onClick={() => setActiveRateId(rate.id)}
+                                className={`py-1 text-center font-semibold rounded-lg transition-all duration-150 text-[11px] sm:text-xs ${
+                                    isActive 
+                                        ? 'bg-white text-teal-800 shadow-sm font-bold' 
+                                        : 'text-white/80 hover:text-white hover:bg-white/10'
+                                }`}
+                                title={`Доход за ${rate.label}`}
+                            >
+                                {rate.label}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
             
