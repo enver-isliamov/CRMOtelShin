@@ -907,104 +907,86 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                     title="Данные и контакты клиента" 
                                     icon={<UserIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />}
                                 >
-                                    <div className="space-y-3 text-xs">
-                                        {/* Structured Info Grid: Phone, Car Plate, Telegram ID */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                            {/* Phone Card */}
-                                            <div className="p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 flex flex-col justify-between min-h-[58px]">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Телефон
-                                                </span>
-                                                <div className="mt-1 flex items-center">
-                                                    {client['Телефон'] ? (
-                                                        <a 
-                                                            href={`tel:${client['Телефон']}`} 
-                                                            className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 transition-colors group"
-                                                            title="Позвонить клиенту"
-                                                        >
-                                                            <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
-                                                            <span>{client['Телефон']}</span>
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-gray-400 italic text-xs">Не указан</span>
-                                                    )}
-                                                </div>
+                                    <div className="space-y-2 text-xs">
+                                        {/* Contact & Vehicle Row - Styled identically to storage dates, clean & lightweight */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                            {/* Phone */}
+                                            <div className="flex items-center justify-between p-1.5 px-2.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30 min-h-[34px]">
+                                                <span className="text-gray-400 text-[11px]">Телефон:</span>
+                                                {client['Телефон'] ? (
+                                                    <a 
+                                                        href={`tel:${client['Телефон']}`} 
+                                                        className="inline-flex items-center gap-1 font-mono font-bold text-xs text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 transition-colors whitespace-nowrap"
+                                                        title="Позвонить клиенту"
+                                                    >
+                                                        <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                        <span>{client['Телефон']}</span>
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-xs">Не указан</span>
+                                                )}
                                             </div>
 
-                                            {/* Vehicle Plate Card */}
-                                            <div className="p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 flex flex-col justify-between min-h-[58px]">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Автомобиль
-                                                </span>
-                                                <div className="mt-1 flex items-center">
-                                                    {client['Номер Авто'] ? (
-                                                        <RussianCarPlateBadge plate={client['Номер Авто']} />
-                                                    ) : (
-                                                        <span className="text-gray-400 italic text-xs">Без номера</span>
-                                                    )}
-                                                </div>
+                                            {/* Vehicle Plate */}
+                                            <div className="flex items-center justify-between p-1.5 px-2.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30 min-h-[34px]">
+                                                <span className="text-gray-400 text-[11px]">Авто:</span>
+                                                {client['Номер Авто'] ? (
+                                                    <RussianCarPlateBadge plate={client['Номер Авто']} />
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-xs">Без номера</span>
+                                                )}
                                             </div>
 
-                                            {/* Telegram ID Card */}
-                                            <div className="p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 flex flex-col justify-between min-h-[58px]">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                    Telegram ID
-                                                </span>
-                                                <div className="mt-1 flex items-center">
-                                                    {client['Chat ID'] ? (
-                                                        <span 
-                                                            className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-gray-800 dark:text-gray-200"
-                                                            title={`Telegram Chat ID: ${client['Chat ID']}`}
-                                                        >
-                                                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                                                            <span>{client['Chat ID']}</span>
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-400 italic text-xs">Не привязан</span>
-                                                    )}
-                                                </div>
+                                            {/* Telegram */}
+                                            <div className="flex items-center justify-between p-1.5 px-2.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30 min-h-[34px]">
+                                                <span className="text-gray-400 text-[11px]">Telegram:</span>
+                                                {client['Chat ID'] ? (
+                                                    <span 
+                                                        className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-gray-800 dark:text-gray-200"
+                                                        title={`Telegram Chat ID: ${client['Chat ID']}`}
+                                                    >
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                                                        <span>{client['Chat ID']}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-xs">Не привязан</span>
+                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Client Address Card (Clickable to open map & navigate route, full wrap without truncate) */}
+                                        {/* Client Address (Clean, compact, no uppercase headers, clickable to open map & navigate route) */}
                                         {client['Адрес клиента'] && (
                                             <a 
                                                 href={`https://yandex.ru/maps/?text=${encodeURIComponent(client['Адрес клиента'])}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="group block p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/30 dark:hover:bg-primary-950/20 transition-all cursor-pointer"
+                                                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 p-1.5 px-2.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30 hover:bg-gray-100/80 dark:hover:bg-gray-800/50 transition-colors cursor-pointer text-xs"
                                                 title="Открыть адрес на Яндекс.Картах и проложить маршрут"
                                             >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <MapPinIcon className="w-3.5 h-3.5 text-rose-500 shrink-0 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                                            Адрес клиента:
-                                                        </span>
-                                                    </div>
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 dark:text-primary-400 group-hover:underline shrink-0">
-                                                        <span>Открыть карту и маршрут</span>
-                                                        <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                                <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+                                                    <span className="text-gray-400 text-[11px] shrink-0 mt-0.5 sm:mt-0">Адрес:</span>
+                                                    <span className="font-semibold text-gray-800 dark:text-gray-200 break-words leading-relaxed group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                                        {client['Адрес клиента']}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs font-medium text-gray-900 dark:text-gray-100 break-words leading-relaxed mt-1 group-hover:text-primary-700 dark:group-hover:text-primary-300 transition-colors">
-                                                    {client['Адрес клиента']}
-                                                </p>
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 dark:text-primary-400 group-hover:underline shrink-0 self-end sm:self-center">
+                                                    <span>Маршрут</span>
+                                                    <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                                </span>
                                             </a>
                                         )}
 
-                                        {/* Client Source & Creation Date in a sleek inline strip */}
-                                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-100 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
-                                            <div className="flex items-center gap-1.5 truncate">
-                                                <span className="text-gray-400">Источник:</span>
-                                                <span className="font-semibold text-gray-700 dark:text-gray-300 truncate">
+                                        {/* Client Source & Creation Date in matching compact style */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300 pt-0.5">
+                                            <div className="flex items-center justify-between p-1.5 px-2.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30 min-h-[32px]">
+                                                <span className="text-gray-400 text-[11px]">Источник:</span>
+                                                <span className="font-bold text-gray-700 dark:text-gray-200 truncate">
                                                     {client['Источник трафика'] || 'Прямое обращение'}
                                                 </span>
                                             </div>
-
-                                            <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                <span className="text-gray-400">Создан:</span>
-                                                <span className="font-semibold font-mono text-gray-700 dark:text-gray-300">
+                                            <div className="flex items-center justify-between p-1.5 px-2.5 rounded-lg bg-gray-50/60 dark:bg-gray-900/30 min-h-[32px]">
+                                                <span className="text-gray-400 text-[11px]">Создан:</span>
+                                                <span className="font-bold font-mono text-gray-700 dark:text-gray-200 whitespace-nowrap">
                                                     {formatDateForDisplay(client['Дата добавления'] || client['Начало'])}
                                                 </span>
                                             </div>
