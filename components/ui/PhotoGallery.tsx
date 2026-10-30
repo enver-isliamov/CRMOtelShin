@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '../../types';
 import { api } from '../../services/api';
-import { photoStorage } from '../../utils/photoStorage';
 import { Lightbox } from './Lightbox';
 import { ImageUpload } from './ImageUpload';
 import { Button } from './Button';
@@ -15,12 +14,6 @@ interface PhotoGalleryProps {
 const ImageIcon: React.FC<{className?: string}> = ({className = "h-5 w-5"}) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-  </svg>
-);
-
-const TrashSmallIcon: React.FC<{className?: string}> = ({ className = "h-3.5 w-3.5" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
   </svg>
 );
 
@@ -101,29 +94,6 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
     }
   };
 
-  const handleDeletePhoto = async (urlToDelete: string) => {
-    if (!window.confirm("Удалить эту фотографию из карточки?")) {
-      return;
-    }
-
-    const updatedUrls = photoUrls.filter(u => u !== urlToDelete);
-    setPhotoUrls(updatedUrls);
-
-    try {
-      await photoStorage.deletePhoto(urlToDelete);
-      await api.updateClient({
-        ...client,
-        photoUrls: updatedUrls
-      });
-      showToast("Фотография удалена", 'success');
-      await refreshClientData();
-    } catch (e: any) {
-      console.error("Failed to delete photo:", e);
-      showToast(`Не удалось удалить фото: ${e.message}`, 'error');
-      setPhotoUrls(photoUrls);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Existing Photo Gallery Section */}
@@ -138,7 +108,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
               </span>
             </h3>
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-              Нажмите на снимок для полноэкранного просмотра
+              Нажмите на снимок для полноэкранного просмотра. Удаление фото доступно через режим редактирования.
             </p>
           </div>
         </div>
@@ -158,27 +128,14 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ client, refreshClien
                   loading="lazy"
                 />
                 
-                {/* Mobile & Desktop Action Buttons */}
-                <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(url); }}
-                    className="w-7 h-7 bg-black/60 hover:bg-rose-600 text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
-                    title="Удалить фото"
-                  >
-                    <TrashSmallIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="absolute bottom-1.5 right-1.5 z-10 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setLightboxImageUrl(url); }}
-                    className="w-7 h-7 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
-                    title="Увеличить"
+                {/* Zoom button on hover / mobile touch */}
+                <div className="absolute top-1.5 right-1.5 z-10">
+                  <span
+                    className="w-7 h-7 bg-black/60 group-hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+                    title="Увеличить фото"
                   >
                     <ZoomInIcon className="w-3.5 h-3.5" />
-                  </button>
+                  </span>
                 </div>
 
                 {/* Index badge */}

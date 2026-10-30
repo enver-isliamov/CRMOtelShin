@@ -54,17 +54,70 @@ const getTireGroups = (client: Client): TireGroup[] => {
     return groups;
 };
 
-// Russian Car License Plate Badge (No awkward breaks)
-const RussianCarPlateBadge: React.FC<{ plate?: string }> = ({ plate }) => {
+// Authentic Russian Car License Plate Badge (Clean style without RUS / Flag)
+const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = ({ plate, className = '' }) => {
     if (!plate || !plate.trim()) return null;
-    const cleanPlate = plate.trim().toUpperCase();
+    const raw = plate.trim().toUpperCase();
+    const clean = raw.replace(/\s+/g, '');
+
+    // Standard Russian plate format: 1 letter + 3 digits + 2 letters + 2-3 digits region
+    // Russian letters allowed on plates: А, В, Е, К, М, Н, О, Р, С, Т, У, Х (and Latin equivalents)
+    const match = clean.match(/^([АВЕКМНОРСТУХABEKMHOPCTYX])(\d{3})([АВЕКМНОРСТУХABEKMHOPCTYX]{2})(\d{2,3})$/i);
+
+    if (match) {
+        const [, l1, digits, l2, region] = match;
+        return (
+            <div 
+                className={`inline-flex items-center bg-white text-black border-[1.5px] border-black rounded-[3px] shadow-xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono tracking-tight leading-none ${className}`}
+                title={`Госномер: ${l1} ${digits} ${l2} ${region}`}
+            >
+                {/* Main section: Letter Digits Letters */}
+                <div className="flex items-center px-1.5 py-1 gap-1 text-[13px] font-black text-black bg-white">
+                    <span className="text-[12px]">{l1}</span>
+                    <span className="text-[14px] font-extrabold tracking-wider">{digits}</span>
+                    <span className="text-[12px]">{l2}</span>
+                </div>
+
+                {/* Thin vertical partition */}
+                <div className="w-[1.5px] bg-black shrink-0 self-stretch" />
+
+                {/* Region Section without RUS/Flag */}
+                <div className="flex items-center justify-center px-1.5 py-1 bg-white min-w-[24px]">
+                    <span className="text-[12px] font-black text-black tracking-normal">
+                        {region}
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
+    // Secondary match: e.g. "А123ВС 77" or "A 123 BC 777"
+    const generalMatch = raw.match(/^(.*?)[-\s]+(\d{2,3})$/);
+    if (generalMatch) {
+        const [, mainPart, region] = generalMatch;
+        return (
+            <div 
+                className={`inline-flex items-center bg-white text-black border-[1.5px] border-black rounded-[3px] shadow-xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono leading-none ${className}`}
+                title={`Госномер: ${raw}`}
+            >
+                <div className="flex items-center px-1.5 py-1 text-[13px] font-black text-black bg-white">
+                    {mainPart}
+                </div>
+                <div className="w-[1.5px] bg-black shrink-0 self-stretch" />
+                <div className="flex items-center justify-center px-1.5 py-1 bg-white min-w-[22px]">
+                    <span className="text-[12px] font-black text-black tracking-normal">{region}</span>
+                </div>
+            </div>
+        );
+    }
+
+    // Fallback for custom or special text
     return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-black tracking-wider bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-900 dark:border-gray-400 shadow-2xs whitespace-nowrap shrink-0">
-            <span className="mr-1.5">{cleanPlate}</span>
-            <span className="border-l border-gray-900 dark:border-gray-400 pl-1 text-[9px] font-bold text-gray-500 dark:text-gray-400">
-                RUS
-            </span>
-        </span>
+        <div 
+            className={`inline-flex items-center px-2 py-0.5 bg-white text-black border-[1.5px] border-black rounded-[3px] shadow-xs select-all whitespace-nowrap shrink-0 font-mono text-xs font-black tracking-wider leading-none ${className}`}
+        >
+            <span>{raw}</span>
+        </div>
     );
 };
 
@@ -223,7 +276,7 @@ const TireSetCard: React.FC<{
                             {isStaggered && (
                                 <>
                                     <span>·</span>
-                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                    <span className="text-[10px] text-gray-700 dark:text-gray-300 font-semibold bg-gray-200/80 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                                         {badgeLabel === '#1' ? 'Передняя ось' : badgeLabel === '#2' ? 'Задняя ось' : 'Ось/партия'}
                                     </span>
                                 </>
@@ -232,8 +285,8 @@ const TireSetCard: React.FC<{
                     </div>
                 </div>
 
-                {/* Tire Size Pill with Monospace Font */}
-                <span className="px-2.5 py-1 rounded-lg font-mono text-xs sm:text-sm font-black bg-primary-600 text-white shadow-2xs shrink-0 whitespace-nowrap tracking-wide">
+                {/* Light & Clean Tire Size Pill (High contrast, lightweight, non-heavy) */}
+                <span className="px-2.5 py-1 rounded-lg font-mono text-xs sm:text-sm font-bold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 shadow-2xs shrink-0 whitespace-nowrap tracking-tight">
                     {size || 'Размер —'}
                 </span>
             </div>
@@ -762,11 +815,11 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 {/* BLOCK 2: TIRES & EQUIPMENT (Model, Size, Season, Wheels, DOT, Extra Services) */}
                                 <SectionBlock 
                                     title="Параметры шин и комплектация" 
-                                    icon={<TireIcon className="w-4 h-4 text-indigo-600" />}
+                                    icon={<TireIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />}
                                     badge={
                                         <div className="flex items-center gap-1.5">
                                             {groups.length > 1 && (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700 whitespace-nowrap">
                                                     Разноширокие ({groups.length})
                                                 </span>
                                             )}
@@ -779,7 +832,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                             </span>
 
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                                <DiscIcon className="w-3 h-3 text-indigo-500" />
+                                                <DiscIcon className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                                                 <span>{client['Наличие дисков'] === 'Да' ? 'С дисками' : 'Без дисков'}</span>
                                             </span>
                                         </div>
@@ -831,7 +884,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                         <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-700/70 text-xs">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">Услуги:</span>
                                             {client['Услуга: Мойка'] && (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 font-semibold text-[11px] whitespace-nowrap">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold text-[11px] whitespace-nowrap">
                                                     🚿 Мойка шин
                                                 </span>
                                             )}
@@ -855,7 +908,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 {/* BLOCK 3: CUSTOMER PROFILE & CONTACTS */}
                                 <SectionBlock 
                                     title="Данные и контакты клиента" 
-                                    icon={<UserIcon className="w-4 h-4 text-blue-600" />}
+                                    icon={<UserIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />}
                                     badge={
                                         <RussianCarPlateBadge plate={client['Номер Авто']} />
                                     }
