@@ -8,6 +8,7 @@ import { PhotoGallery } from './ui/PhotoGallery';
 import { Lightbox } from './ui/Lightbox';
 import { OrderHistory } from './ui/Timeline';
 import { PaymentModal } from './ui/PaymentModal';
+import { SeasonalSwapModal } from './ui/SeasonalSwapModal';
 
 // --- CANONICAL ICONS ---
 import { 
@@ -364,7 +365,13 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [selectedLightboxUrl, setSelectedLightboxUrl] = useState<string | null>(null);
+
+    const handleSwapComplete = (updatedClient: Client) => {
+        setClient(updatedClient);
+        refreshData();
+    };
 
     useEffect(() => {
         if (!id) return;
@@ -820,18 +827,15 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                                     Разноширокие ({groups.length})
                                                 </span>
                                             )}
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${
-                                                client['Сезон'] === 'Лето'
-                                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                                    : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
-                                            }`}>
-                                                {client['Сезон'] === 'Лето' ? '☀️ Лето' : '❄️ Зима'}
-                                            </span>
-
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                                <DiscIcon className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-                                                <span>{client['Наличие дисков'] === 'Да' ? 'С дисками' : 'Без дисков'}</span>
-                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsSwapModalOpen(true)}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-50 dark:bg-primary-950/50 hover:bg-primary-100 dark:hover:bg-primary-900/50 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800 text-xs font-bold transition-all shadow-2xs"
+                                                title="Оформить сезонную замену шин"
+                                            >
+                                                <span>🔄</span>
+                                                <span>Смена сезона</span>
+                                            </button>
                                         </div>
                                     }
                                 >
@@ -1135,6 +1139,17 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 <Button 
                                     size="sm" 
                                     variant="secondary" 
+                                    onClick={() => setIsSwapModalOpen(true)} 
+                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-primary-50 !text-primary-700 hover:!bg-primary-100 dark:!bg-primary-950/40 dark:!text-primary-300 !rounded-lg" 
+                                    title="Оформить сезонную замену шин"
+                                >
+                                    <span className="mr-1">🔄</span>
+                                    <span>Смена сезона</span>
+                                </Button>
+
+                                <Button 
+                                    size="sm" 
+                                    variant="secondary" 
                                     onClick={handleNewOrder} 
                                     className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-emerald-50 !text-emerald-700 hover:!bg-emerald-100 dark:!bg-emerald-950/40 dark:!text-emerald-300 !rounded-lg" 
                                     title="Добавить еще один комплект шин"
@@ -1189,7 +1204,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 Отмена
                             </Button>
                             <Button 
-                                size="sm"
+                                size="sm" 
                                 onClick={handleSendMessage} 
                                 disabled={isSubmitting || (messageTarget === 'client' && !client?.['Chat ID'])} 
                                 className="flex-1 !rounded-xl"
@@ -1208,6 +1223,17 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     onClose={() => setIsPaymentModalOpen(false)}
                     client={client}
                     onPaymentSuccess={handlePaymentSuccess}
+                    showToast={showToast}
+                />
+            )}
+
+            {/* Seasonal Swap Modal */}
+            {client && (
+                <SeasonalSwapModal
+                    isOpen={isSwapModalOpen}
+                    onClose={() => setIsSwapModalOpen(false)}
+                    client={client}
+                    onSwapComplete={handleSwapComplete}
                     showToast={showToast}
                 />
             )}

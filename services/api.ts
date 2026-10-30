@@ -276,20 +276,35 @@ export function executeLocalAction(action: string, payload: any = {}, user: stri
             const oldId = payload.oldClientId;
             const freshData = { ...payload.client };
             if (!freshData.id) {
-                freshData.id = `c_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                freshData.id = oldId || `c_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             }
 
             const oldClient = clients.find(c => c.id === oldId);
             if (oldClient) {
-                const archivedOld = { ...oldClient, is_archived: true, 'Статус сделки': 'Завершено' };
+                const archivedOld = { 
+                    ...oldClient, 
+                    id: `${oldId}_arch_${Date.now()}`, 
+                    is_archived: true, 
+                    'Статус сделки': 'Завершено' 
+                };
                 LocalCRMStorage.saveClients([freshData, ...clients.filter(c => c.id !== oldId)]);
                 LocalCRMStorage.saveArchive([archivedOld, ...archive]);
-                LocalCRMStorage.logHistory(oldId, user, 'Заказ архивирован', 'Перенос в архив');
+                LocalCRMStorage.logHistory(
+                    oldId, 
+                    user, 
+                    payload.archiveAction || 'Комплект выдан', 
+                    payload.archiveDetails || 'Выдан со склада при сезонной замене'
+                );
             } else {
                 LocalCRMStorage.saveClients([freshData, ...clients]);
             }
 
-            LocalCRMStorage.logHistory(freshData.id, user, 'Новый заказ создан', 'Повторный заказ');
+            LocalCRMStorage.logHistory(
+                freshData.id, 
+                user, 
+                payload.newAction || 'Комплект принят', 
+                payload.newDetails || 'Принят на сезонное хранение'
+            );
             return { status: 'success', newId: freshData.id };
         }
 
@@ -302,7 +317,22 @@ export function executeLocalAction(action: string, payload: any = {}, user: stri
 
         case 'getarchived': {
             const { clientId } = payload;
-            const orders = clientId ? archive.filter(c => c.id === clientId) : archive;
+            const current = clients.find(c => c.id === clientId) || archive.find(c => c.id === clientId);
+            const orders = clientId ? archive.filter(c => {
+                if (c.id === clientId) return true;
+                if (current) {
+                    const p1 = current['Телефон'] ? String(current['Телефон']).replace(/\D/g, '') : '';
+                    const p2 = c['Телефон'] ? String(c['Телефон']).replace(/\D/g, '') : '';
+                    if (p1 && p2 && p1 === p2) return true;
+
+                    const a1 = current['Номер Авто'] ? String(current['Номер Авто']).trim().toUpperCase() : '';
+                    const a2 = c['Номер Авто'] ? String(c['Номер Авто']).trim().toUpperCase() : '';
+                    if (a1 && a2 && a1 === a2) return true;
+
+                    if (current['Chat ID'] && c['Chat ID'] && String(current['Chat ID']) === String(c['Chat ID'])) return true;
+                }
+                return false;
+            }) : archive;
             return { status: 'success', orders };
         }
 
@@ -617,6 +647,36 @@ export const api = {
     return {
       ...newClientData,
       id: result?.newId || newClientData.id,
+    } as Client;
+  },
+
+  seasonalSwap: async (
+    oldClientId: string, 
+    newClientData: Partial<Client>,
+    swapMeta?: {
+      archiveAction?: string;
+      archiveDetails?: string;
+      newAction?: string;
+      newDetails?: string;
+    }
+  ): Promise<Client> => {
+    const clientForSheet = {
+      ...newClientData,
+      photoUrls: Array.isArray(newClientData.photoUrls) ? newClientData.photoUrls.join(',') : (newClientData.photoUrls || ''),
+    };
+    
+    const result = await requestAPI('reorder', {
+        oldClientId: oldClientId,
+        client: clientForSheet,
+        archiveAction: swapMeta?.archiveAction,
+        archiveDetails: swapMeta?.archiveDetails,
+        newAction: swapMeta?.newAction,
+        newDetails: swapMeta?.newDetails
+    });
+    
+    return {
+      ...newClientData,
+      id: result?.newId || newClientData.id || oldClientId,
     } as Client;
   },
 
