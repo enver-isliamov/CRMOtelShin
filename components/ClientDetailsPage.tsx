@@ -106,6 +106,151 @@ const getRemainingDaysInfo = (endDateString?: string) => {
     };
 };
 
+// Authentic Tire DOT Badge with high mobile legibility (Anti-Wrap & Duplicate Grouping)
+const TireDotBadge: React.FC<{ rawDot?: string }> = ({ rawDot }) => {
+    if (!rawDot || !rawDot.trim()) {
+        return (
+            <span className="text-[11px] text-gray-400 font-mono italic">
+                не указан
+            </span>
+        );
+    }
+
+    // Split by slash, comma, or semicolon and clean up
+    const tokens = rawDot
+        .split(/[/,;]+/)
+        .map(t => t.trim().replace(/^DOT\s*[:.-]?\s*/i, ''))
+        .filter(Boolean);
+
+    if (tokens.length === 0) {
+        return (
+            <span className="text-[11px] text-gray-400 font-mono italic">
+                не указан
+            </span>
+        );
+    }
+
+    // Group identical DOT codes (e.g. "2422 / 2422" -> "2422 ×2")
+    const grouped = new Map<string, number>();
+    for (const token of tokens) {
+        grouped.set(token, (grouped.get(token) || 0) + 1);
+    }
+
+    return (
+        <div className="flex items-center gap-1.5 flex-wrap">
+            {Array.from(grouped.entries()).map(([code, count], idx) => (
+                <span 
+                    key={idx} 
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 font-mono text-xs font-bold tracking-wider select-all whitespace-nowrap tabular-nums shadow-2xs"
+                    title={`DOT код шины: ${code}`}
+                >
+                    <span className="text-[9px] font-sans font-black text-amber-600 dark:text-amber-400 tracking-normal uppercase">
+                        DOT
+                    </span>
+                    <span>{code}</span>
+                    {count > 1 && (
+                        <span className="text-[10px] font-sans font-semibold text-gray-500 dark:text-gray-400 ml-0.5 bg-black/5 dark:bg-white/10 px-1 rounded">
+                            ×{count}
+                        </span>
+                    )}
+                </span>
+            ))}
+        </div>
+    );
+};
+
+// Helper to determine DOT for a specific group/pair (falls back gracefully to split client DOT)
+const getGroupDot = (group: TireGroup, idx: number, allGroups: TireGroup[], clientDot?: string): string => {
+    if (group.dot && group.dot.trim()) {
+        return group.dot.trim();
+    }
+    if (!clientDot || !clientDot.trim()) return '';
+    const parts = clientDot.split(/[/,;]+/).map(s => s.trim()).filter(Boolean);
+    if (parts.length === allGroups.length && parts[idx]) {
+        return parts[idx];
+    }
+    if (idx === 0 && parts.length > 0) {
+        return parts[0];
+    }
+    return '';
+};
+
+// Unified Tire Set Card: identical sleek style for single sets and multi/staggered axle pairs
+const TireSetCard: React.FC<{
+    badgeLabel?: string;
+    brandModel: string;
+    size: string;
+    count: number;
+    season?: string;
+    hasRims?: string;
+    dot?: string;
+    isStaggered?: boolean;
+}> = ({ badgeLabel, brandModel, size, count, season, hasRims, dot, isStaggered }) => {
+    return (
+        <div className="p-3 sm:p-3.5 rounded-xl bg-gray-50/90 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700/80 shadow-2xs space-y-2.5">
+            {/* Top Row: Index Badge, Brand & Model, Tire Size Monospace Pill */}
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5 min-w-0">
+                    {badgeLabel && (
+                        <span className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-mono shadow-2xs">
+                            {badgeLabel}
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <h5 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">
+                            {brandModel || 'Марка не указана'}
+                        </h5>
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                {count} шт.
+                            </span>
+                            {season && (
+                                <>
+                                    <span>·</span>
+                                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                                        {season === 'Лето' ? '☀️ Лето' : '❄️ Зима'}
+                                    </span>
+                                </>
+                            )}
+                            {hasRims && (
+                                <>
+                                    <span>·</span>
+                                    <span className="whitespace-nowrap">
+                                        {hasRims === 'Да' ? 'С дисками' : 'Без дисков'}
+                                    </span>
+                                </>
+                            )}
+                            {isStaggered && (
+                                <>
+                                    <span>·</span>
+                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                        {badgeLabel === '#1' ? 'Передняя ось' : badgeLabel === '#2' ? 'Задняя ось' : 'Ось/партия'}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tire Size Pill with Monospace Font */}
+                <span className="px-2.5 py-1 rounded-lg font-mono text-xs sm:text-sm font-black bg-primary-600 text-white shadow-2xs shrink-0 whitespace-nowrap tracking-wide">
+                    {size || 'Размер —'}
+                </span>
+            </div>
+
+            {/* Dedicated DOT Code Row: highly legible, responsive, anti-wrap */}
+            <div className="pt-2 border-t border-gray-200/60 dark:border-gray-800/80 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        DOT код:
+                    </span>
+                    <TireDotBadge rawDot={dot} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Section Container with clean header
 const SectionBlock: React.FC<{
     title: string;
@@ -620,6 +765,11 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                     icon={<TireIcon className="w-4 h-4 text-indigo-600" />}
                                     badge={
                                         <div className="flex items-center gap-1.5">
+                                            {groups.length > 1 && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                                                    Разноширокие ({groups.length})
+                                                </span>
+                                            )}
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${
                                                 client['Сезон'] === 'Лето'
                                                     ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
@@ -636,61 +786,45 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                     }
                                 >
                                     <div className="space-y-3">
-                                        {/* Main Tire Model & Size Highlight */}
-                                        <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 gap-2">
-                                            <div className="min-w-0">
-                                                <span className="text-[10px] font-bold uppercase text-gray-400 block tracking-wider">Марка и модель шин</span>
-                                                <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white truncate mt-0.5">
-                                                    {client['Бренд_Модель'] || (groups.length > 0 ? `${groups[0].brand || ''} ${groups[0].model || ''}`.trim() : '') || 'Марка не указана'}
-                                                </p>
-                                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                                                    <span>{client['Кол-во шин'] || (groups.length > 0 ? groups.reduce((acc, g) => acc + (g.count || 0), 0) : 4)} шт.</span>
-                                                    {client['DOT-код'] && (
-                                                        <>
-                                                            <span>·</span>
-                                                            <span className="font-mono">DOT: {client['DOT-код']}</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <span className="px-3 py-1.5 rounded-xl font-mono text-xs sm:text-sm font-black bg-primary-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
-                                                {client['Размер шин'] || (groups.length > 0 ? `${groups[0].width}/${groups[0].profile} R${groups[0].diameter}` : '') || 'Размер —'}
-                                            </span>
-                                        </div>
-
-                                        {/* Multi-set Groups: displayed ONLY when there are multiple sets or staggered wheelsets (e.g. front/rear axles) */}
-                                        {groups.length > 1 && (
-                                            <div className="space-y-1.5 pt-1">
+                                        {/* Multi-set Groups (e.g. Staggered Front & Rear Axles) with individual DOT codes */}
+                                        {groups.length > 1 ? (
+                                            <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                                                         Разноширокие / Составные комплекты ({groups.length}):
                                                     </p>
-                                                    <span className="text-[10px] text-gray-400 font-medium">Разбивка по осям/партиям</span>
+                                                    <span className="text-[10px] text-gray-400 font-medium">Разбивка по осям с отдельным DOT</span>
                                                 </div>
-                                                <div className="space-y-1.5">
-                                                    {groups.map((g: TireGroup, idx: number) => (
-                                                        <div 
-                                                            key={idx} 
-                                                            className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/70 text-xs"
-                                                        >
-                                                            <div className="flex items-center gap-2 min-w-0">
-                                                                <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-[10px] flex items-center justify-center shrink-0">
-                                                                    #{idx + 1}
-                                                                </span>
-                                                                <div className="truncate">
-                                                                    <span className="font-bold text-gray-900 dark:text-white mr-1.5">{g.brand} {g.model}</span>
-                                                                    <span className="text-gray-500 dark:text-gray-400">{g.count} шт. · {g.season === 'Лето' ? '☀️' : '❄️'}</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <span className="shrink-0 font-mono font-bold bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-300 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 whitespace-nowrap">
-                                                                {g.width}/{g.profile} R{g.diameter}
-                                                            </span>
-                                                        </div>
-                                                    ))}
+                                                <div className="space-y-2.5">
+                                                    {groups.map((g: TireGroup, idx: number) => {
+                                                        const groupDot = getGroupDot(g, idx, groups, client['DOT-код']);
+                                                        return (
+                                                            <TireSetCard 
+                                                                key={idx}
+                                                                badgeLabel={`#${idx + 1}`}
+                                                                brandModel={`${g.brand || ''} ${g.model || ''}`.trim() || client['Бренд_Модель'] || 'Марка не указана'}
+                                                                size={`${g.width}/${g.profile} R${g.diameter}`}
+                                                                count={g.count || 2}
+                                                                season={g.season || client['Сезон']}
+                                                                hasRims={g.hasRims || client['Наличие дисков']}
+                                                                dot={groupDot}
+                                                                isStaggered={true}
+                                                            />
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
+                                        ) : (
+                                            /* Single Standard Tire Set with identical sleek aesthetic & mobile-optimized DOT */
+                                            <TireSetCard 
+                                                badgeLabel="#1"
+                                                brandModel={client['Бренд_Модель'] || (groups[0] ? `${groups[0].brand} ${groups[0].model}`.trim() : '') || 'Марка не указана'}
+                                                size={client['Размер шин'] || (groups[0] ? `${groups[0].width}/${groups[0].profile} R${groups[0].diameter}` : '') || 'Размер —'}
+                                                count={client['Кол-во шин'] || groups[0]?.count || 4}
+                                                season={client['Сезон'] || groups[0]?.season}
+                                                hasRims={client['Наличие дисков'] || groups[0]?.hasRims}
+                                                dot={client['DOT-код'] || groups[0]?.dot}
+                                            />
                                         )}
 
                                         {/* Minimalist Extra Services Strip */}
