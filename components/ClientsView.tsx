@@ -8,8 +8,9 @@ import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
 
 // --- CANONICAL ICONS ---
-import { SearchIcon, BookmarkIcon, XMarkIcon, FilterIcon, ArrowDownTrayIcon } from './icons/Icons';
+import { SearchIcon, BookmarkIcon, XMarkIcon, FilterIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from './icons/Icons';
 import { ExportClientsModal } from './ui/ExportClientsModal';
+import { ImportClientsModal } from './ui/ImportClientsModal';
 
 const getFieldType = (fieldName: string) => {
     const name = fieldName.toLowerCase();
@@ -57,6 +58,7 @@ export const ClientsView: React.FC<{
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [filters, setFilters] = useState({
     status: 'all',
     warehouse: 'all',
@@ -241,6 +243,15 @@ export const ClientsView: React.FC<{
                 <ArrowDownTrayIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 <span className="hidden sm:inline">Экспорт CSV</span>
             </button>
+
+            <button 
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center justify-center gap-1.5 px-3 h-[42px] rounded-md border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 focus:ring-2 focus:ring-emerald-500 font-medium text-sm transition-all whitespace-nowrap shadow-sm active:scale-95"
+                title="Импорт клиентов и заказов из Google Таблиц / Excel / CSV"
+            >
+                <ArrowUpTrayIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden sm:inline">Импорт</span>
+            </button>
           </div>
 
           {/* Collapsible Filter Panel */}
@@ -393,6 +404,16 @@ export const ClientsView: React.FC<{
         isFilteredActive={Boolean(isFiltersActive || searchTerm.trim())}
         onSuccess={(result) => {
           showToast(`Экспортировано ${result.rowCount} клиентов в файл "${result.filename}"`, 'success');
+        }}
+      />
+
+      {/* Google Sheets / Excel / CSV Import Modal */}
+      <ImportClientsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={(count, message) => {
+          showToast(message, 'success');
+          refreshData();
         }}
       />
     </div>

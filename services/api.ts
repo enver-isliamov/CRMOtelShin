@@ -415,12 +415,55 @@ export function executeLocalAction(action: string, payload: any = {}, user: stri
             return { status: 'success', photoUrls };
         }
 
-        case 'import':
-            if (payload.clients) LocalCRMStorage.saveClients(payload.clients);
-            if (payload.archive) LocalCRMStorage.saveArchive(payload.archive);
+        case 'import': {
+            const mode = payload.mode || 'merge';
+            if (mode === 'replace') {
+                if (payload.clients) LocalCRMStorage.saveClients(payload.clients);
+                if (payload.archive) LocalCRMStorage.saveArchive(payload.archive);
+            } else {
+                if (payload.clients && Array.isArray(payload.clients)) {
+                    const currentClients = LocalCRMStorage.getClients();
+                    const mergedClients = [...currentClients];
+                    for (const inc of payload.clients) {
+                        const incId = inc.id || `c_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+                        const incClean = { ...inc, id: incId };
+                        const idx = mergedClients.findIndex(c => 
+                            (c.id && incClean.id && c.id === incClean.id) ||
+                            (c['Договор'] && incClean['Договор'] && String(c['Договор']).trim() === String(incClean['Договор']).trim()) ||
+                            (c['Телефон'] && incClean['Телефон'] && String(c['Телефон']).replace(/\D/g, '') === String(incClean['Телефон']).replace(/\D/g, '') && String(c['Телефон']).replace(/\D/g, '').length >= 10)
+                        );
+                        if (idx > -1) {
+                            mergedClients[idx] = { ...mergedClients[idx], ...incClean };
+                        } else {
+                            mergedClients.push(incClean);
+                        }
+                    }
+                    LocalCRMStorage.saveClients(mergedClients);
+                }
+
+                if (payload.archive && Array.isArray(payload.archive)) {
+                    const currentArchive = LocalCRMStorage.getArchive();
+                    const mergedArchive = [...currentArchive];
+                    for (const inc of payload.archive) {
+                        const incId = inc.id || `arc_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+                        const incClean = { ...inc, id: incId, is_archived: true };
+                        const idx = mergedArchive.findIndex(c => 
+                            (c.id && incClean.id && c.id === incClean.id) ||
+                            (c['Договор'] && incClean['Договор'] && String(c['Договор']).trim() === String(incClean['Договор']).trim())
+                        );
+                        if (idx > -1) {
+                            mergedArchive[idx] = { ...mergedArchive[idx], ...incClean };
+                        } else {
+                            mergedArchive.push(incClean);
+                        }
+                    }
+                    LocalCRMStorage.saveArchive(mergedArchive);
+                }
+            }
             if (payload.masters) LocalCRMStorage.saveMasters(payload.masters);
             if (payload.templates) LocalCRMStorage.saveTemplates(payload.templates);
             return { status: 'success', count: (payload.clients?.length || 0) + (payload.archive?.length || 0) };
+        }
 
         case 'reset_db':
             LocalCRMStorage.saveClients([...INITIAL_CLIENTS]);
@@ -895,6 +938,10 @@ export const api = {
 
   importDataToVercel: async (clients: any[], archive: any[], masters?: any[], templates?: any[]): Promise<any> => {
       return await requestAPI('import', { clients, archive, masters, templates }, undefined, 'VERCEL');
+  },
+
+  importClientsBatch: async (clients: Partial<Client>[], archive: Partial<Client>[], mode: 'merge' | 'replace' = 'merge'): Promise<{ count: number; status: string }> => {
+      return await requestAPI('import', { clients, archive, mode });
   },
   
   clearDatabase: async (): Promise<void> => {
