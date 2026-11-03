@@ -87,9 +87,10 @@ export const LocalCRMStorage = {
             const data = localStorage.getItem('crm_archive');
             if (data) {
                 const parsed: Client[] = JSON.parse(data);
-                // Auto-sync real imported archive database if not yet present in localStorage
-                if (!parsed.some(c => c['Имя клиента'] === 'Enrike Tomas' || c.id === 'arc_real_1')) {
-                    const combined = [...INITIAL_ARCHIVE, ...parsed.filter(c => !c.id.startsWith('c_171060004'))];
+                // Auto-sync real imported archive database from Google Sheet Archive tab (16 orders: Денис Грошев, Борис Кейдун, etc.)
+                if (!parsed.some(c => c['Имя клиента'] === 'Денис Грошев' || c.id === 'arc_1')) {
+                    const customUserItems = parsed.filter(c => !c.id.startsWith('arc_real_') && !c.id.startsWith('c_171060004'));
+                    const combined = [...INITIAL_ARCHIVE, ...customUserItems.filter(u => !INITIAL_ARCHIVE.some(a => a.id === u.id || (a['Договор'] && a['Договор'] === u['Договор'])))];
                     localStorage.setItem('crm_archive', JSON.stringify(combined));
                     return combined;
                 }
@@ -111,7 +112,14 @@ export const LocalCRMStorage = {
     getTemplates(): MessageTemplate[] {
         try {
             const data = localStorage.getItem('crm_templates');
-            if (data) return JSON.parse(data);
+            if (data) {
+                const parsed: MessageTemplate[] = JSON.parse(data);
+                if (!parsed.some(t => t['Название шаблона'] === 'Отзыв в Авито')) {
+                    localStorage.setItem('crm_templates', JSON.stringify(INITIAL_TEMPLATES));
+                    return [...INITIAL_TEMPLATES];
+                }
+                return parsed;
+            }
             localStorage.setItem('crm_templates', JSON.stringify(INITIAL_TEMPLATES));
             return [...INITIAL_TEMPLATES];
         } catch (e) {
@@ -128,7 +136,14 @@ export const LocalCRMStorage = {
     getMasters(): Master[] {
         try {
             const data = localStorage.getItem('crm_masters');
-            if (data) return JSON.parse(data);
+            if (data) {
+                const parsed: Master[] = JSON.parse(data);
+                if (!parsed.some(m => m['Имя'] === 'Спиридон')) {
+                    localStorage.setItem('crm_masters', JSON.stringify(INITIAL_MASTERS));
+                    return [...INITIAL_MASTERS];
+                }
+                return parsed;
+            }
             localStorage.setItem('crm_masters', JSON.stringify(INITIAL_MASTERS));
             return [...INITIAL_MASTERS];
         } catch (e) {
