@@ -27,6 +27,7 @@ const TARGET_FIELDS: { key: keyof Client; label: string; prioritySynonyms: strin
   { key: 'Номер Авто', label: 'Госномер авто', prioritySynonyms: ['авто', 'госномер', 'номер авто', 'машина', 'гос. номер', 'автомобиль', 'car', 'plate', 'номер машины'] },
   { key: 'Бренд_Модель', label: 'Марка и модель шин', prioritySynonyms: ['бренд_модель', 'марка', 'модель', 'бренд', 'шины', 'колеса', 'резина', 'brand', 'model', 'марка/модель', 'марка и модель'] },
   { key: 'Размер шин', label: 'Размер шин', prioritySynonyms: ['размер шин', 'размер', 'типоразмер', 'size', 'r', 'радиус', 'параметры шин'] },
+  { key: 'Кол-во шин', label: 'Кол-во шин (шт)', prioritySynonyms: ['кол-во шин', 'кол-во', 'количество', 'count', 'кол во', 'шт', 'кол-во колес'] },
   { key: 'Сезон', label: 'Сезон (Лето / Зима)', prioritySynonyms: ['сезон', 'сезонность', 'season', 'зима/лето', 'лето/зима'] },
   { key: 'Наличие дисков', label: 'Диски (Да / Нет)', prioritySynonyms: ['наличие дисков', 'диски', 'с дисками', 'диски (да/нет)', 'rims', 'wheels', 'диск'] },
   { key: 'DOT-код', label: 'DOT-код (год шин)', prioritySynonyms: ['dot-код', 'dot', 'дот', 'год', 'год выпуска', 'dot код', 'дата выпуска'] },
@@ -34,12 +35,17 @@ const TARGET_FIELDS: { key: keyof Client; label: string; prioritySynonyms: strin
   { key: 'Ячейка', label: 'Ячейка / Место', prioritySynonyms: ['ячейка', 'место', 'полка', 'стеллаж', 'cell', 'ряд', 'ячейка хранения'] },
   { key: 'Начало', label: 'Дата приёма (Начало)', prioritySynonyms: ['начало', 'дата', 'дата приёма', 'дата приема', 'дата сдачи', 'start', 'date', 'принят', 'от'] },
   { key: 'Срок', label: 'Срок (месяцев)', prioritySynonyms: ['срок', 'месяцев', 'срок хранения', 'duration', 'мес', 'период'] },
+  { key: 'Напомнить', label: 'Дата напоминания', prioritySynonyms: ['напомнить', 'дата напоминания', 'напоминание', 'remind', 'оповещение'] },
   { key: 'Окончание', label: 'Дата окончания', prioritySynonyms: ['окончание', 'до', 'дата окончания', 'срок до', 'конец', 'end', 'выдача'] },
   { key: 'Общая сумма', label: 'Общая сумма (₽)', prioritySynonyms: ['общая сумма', 'сумма', 'цена', 'стоимость', 'итого', 'total', 'price', 'сумма заказа', 'всего'] },
+  { key: 'Цена за месяц', label: 'Цена за месяц (₽/мес)', prioritySynonyms: ['цена за месяц', 'в месяц', 'тариф', 'цена/мес', 'месячный тариф'] },
   { key: 'Долг', label: 'Остаток долга (₽)', prioritySynonyms: ['долг', 'остаток', 'задолженность', 'debt', 'не оплачено', 'к доплате'] },
   { key: 'Договор', label: 'Номер договора / Акта', prioritySynonyms: ['договор', 'номер договора', 'акт', '№', 'номер заказа', 'order', 'contract', 'id заказа'] },
   { key: 'Адрес клиента', label: 'Адрес клиента', prioritySynonyms: ['адрес клиента', 'адрес', 'город', 'место проживания', 'address'] },
   { key: 'Статус сделки', label: 'Статус сделки', prioritySynonyms: ['статус сделки', 'статус', 'состояние', 'status'] },
+  { key: 'Источник трафика', label: 'Источник клиента', prioritySynonyms: ['источник трафика', 'источник', 'откуда', 'source', 'канал'] },
+  { key: 'Заказ - QR', label: 'Заказ / Описание шин / QR', prioritySynonyms: ['заказ - qr', 'заказ-qr', 'qr', 'описание', 'примечание', 'заказ'] },
+  { key: 'metadata', label: 'Метаданные (JSON)', prioritySynonyms: ['metadata', 'метаданные', 'json'] },
   { key: 'Chat ID', label: 'Telegram Chat ID', prioritySynonyms: ['chat id', 'telegram', 'чат id', 'телеграм'] },
 ];
 
@@ -54,43 +60,78 @@ const detectTargetField = (rawHeader: string): keyof Client | '' => {
   return '';
 };
 
-// Parse pasted or file content (supports TSV from Google Sheets copy-paste, semicolon CSV, comma CSV)
+// Parse pasted or file content (supports TSV from Google Sheets copy-paste, semicolon CSV, comma CSV, multiline cells, escaped quotes "")
 const parseTableText = (text: string): { headers: string[]; rows: string[][] } => {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return { headers: [], rows: [] };
+  if (!text || !text.trim()) return { headers: [], rows: [] };
 
-  // Detect delimiter: tab (\t), semicolon (;), comma (,)
-  const firstLine = lines[0];
-  let delimiter = '\t';
-  const tabCount = (firstLine.match(/\t/g) || []).length;
-  const semiCount = (firstLine.match(/;/g) || []).length;
-  const commaCount = (firstLine.match(/,/g) || []).length;
+  // Detect delimiter from the first 2000 characters
+  const sample = text.slice(0, 2000);
+  let delimiter = ',';
+  const tabCount = (sample.match(/\t/g) || []).length;
+  const commaCount = (sample.match(/,/g) || []).length;
+  const semiCount = (sample.match(/;/g) || []).length;
 
-  if (tabCount >= 1) {
+  if (tabCount > commaCount && tabCount > semiCount) {
     delimiter = '\t';
-  } else if (semiCount >= commaCount && semiCount > 0) {
+  } else if (semiCount > commaCount) {
     delimiter = ';';
-  } else if (commaCount > 0) {
+  } else {
     delimiter = ',';
   }
 
-  // Parse lines with quotes support
-  const parseLine = (line: string): string[] => {
-    if (delimiter === '\t') {
-      return line.split('\t').map(c => c.trim().replace(/^["']|["']$/g, ''));
-    }
-    // CSV with quotes
-    const regex = new RegExp(`(?:^|${delimiter})(?:"([^"]*)"|([^${delimiter}]*))`, 'g');
-    const row: string[] = [];
-    let match;
-    while ((match = regex.exec(line)) !== null) {
-      row.push((match[1] !== undefined ? match[1] : match[2] || '').trim());
-    }
-    return row;
-  };
+  const rawRows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = '';
+  let inQuotes = false;
 
-  const rawHeaders = parseLine(lines[0]);
-  const rows = lines.slice(1).map(parseLine).filter(r => r.some(c => c.length > 0));
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized[i];
+    const nextChar = normalized[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && nextChar === '"') {
+        currentCell += '"';
+        i++; // skip escaped quote
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        currentCell += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === delimiter) {
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+      } else if (char === '\n') {
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(c => c.length > 0)) {
+          rawRows.push(currentRow);
+        }
+        currentRow = [];
+        currentCell = '';
+      } else {
+        currentCell += char;
+      }
+    }
+  }
+
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    if (currentRow.some(c => c.length > 0)) {
+      rawRows.push(currentRow);
+    }
+  }
+
+  if (rawRows.length === 0) return { headers: [], rows: [] };
+
+  const rawHeaders = rawRows[0];
+  // Filter out empty rows or empty trailing lines with no meaningful client/phone/car
+  const rows = rawRows.slice(1).filter(r => {
+    return r.some(c => c.length > 0) && r.filter(c => c.length > 0).length >= 2;
+  });
 
   return { headers: rawHeaders, rows };
 };
@@ -241,6 +282,26 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
     reader.readAsText(file, 'utf-8');
   };
 
+  // Load attached Tire_CRM file from workspace directly
+  const handleLoadAttachedFile = async () => {
+    setIsLoadingUrl(true);
+    setErrorMsg('');
+    try {
+      const resp = await fetch('/assets/aistudio/Tire_CRM_7513e879');
+      if (!resp.ok) {
+        throw new Error('Не удалось прочитать прикрепленный файл');
+      }
+      const text = await resp.text();
+      setFileName('Tire_CRM.csv');
+      setRawText(text);
+      handleParseAndContinue(text);
+    } catch (err: any) {
+      setErrorMsg(`Ошибка загрузки прикрепленного файла: ${err?.message || err}`);
+    } finally {
+      setIsLoadingUrl(false);
+    }
+  };
+
   // Preview generated client objects
   const previewClients = useMemo(() => {
     const sampleRows = parsedRows.slice(0, 5);
@@ -335,12 +396,13 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
         } else if (targetDestination === 'active') {
           isArchive = false;
         } else {
-          // Auto mode: check endDate or status
-          const endDate = clientObj['Окончание'] || '';
+          // Auto mode: check status first, then endDate
           const status = clientObj['Статус сделки'] || '';
           if (/завершен|выдан|архив|закрыт/i.test(status)) {
             isArchive = true;
-          } else if (endDate && endDate < todayStr) {
+          } else if (/на складе|у клиента|в работе|оплачено|частичная оплата|ожидает/i.test(status)) {
+            isArchive = false;
+          } else if (clientObj['Окончание'] && clientObj['Окончание'] < todayStr) {
             isArchive = true;
           } else {
             isArchive = false;
@@ -471,6 +533,34 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
         {/* --- STEP 1: INPUT --- */}
         {step === 'input' && (
           <div className="space-y-4">
+            {/* Quick 1-Click Load from User's Attached Tire_CRM File */}
+            <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl sm:text-2xl flex-shrink-0">📊</span>
+                <div>
+                  <div className="font-bold text-xs sm:text-sm text-emerald-900 dark:text-emerald-100 flex items-center gap-1.5 flex-wrap">
+                    <span>База из вашего файла (Tire_CRM — 11 клиентов)</span>
+                    <span className="px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 rounded text-[10px] font-semibold">
+                      В 1 клик
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                    Enrike Tomas, Велиев Изет, Кузьмина Кристина, Сияр, Ивакина, Шкиль, Виткин, Энвер и др.
+                  </div>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleLoadAttachedFile}
+                disabled={isLoadingUrl}
+                className="whitespace-nowrap flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <ArrowUpTrayIcon className="w-3.5 h-3.5" />
+                <span>Загрузить эти 11 записей</span>
+              </Button>
+            </div>
+
             {/* Input Navigation Tabs */}
             <div className="flex border-b border-gray-200 dark:border-gray-700 gap-2 sm:gap-4 text-xs font-semibold overflow-x-auto pb-1">
               <button

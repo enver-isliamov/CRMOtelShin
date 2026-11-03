@@ -49,7 +49,16 @@ export const LocalCRMStorage = {
     getClients(): Client[] {
         try {
             const data = localStorage.getItem('crm_clients');
-            if (data) return JSON.parse(data);
+            if (data) {
+                const parsed: Client[] = JSON.parse(data);
+                // Auto-sync real imported database if not yet present in localStorage
+                if (!parsed.some(c => c['Имя клиента'] === 'Enrike Tomas' || c.id === 'c_real_1')) {
+                    const combined = [...INITIAL_CLIENTS, ...parsed.filter(c => !c.id.startsWith('c_171060000'))];
+                    localStorage.setItem('crm_clients', JSON.stringify(combined));
+                    return combined;
+                }
+                return parsed;
+            }
             localStorage.setItem('crm_clients', JSON.stringify(INITIAL_CLIENTS));
             return [...INITIAL_CLIENTS];
         } catch (e) {
