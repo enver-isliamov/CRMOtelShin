@@ -964,10 +964,14 @@ export const api = {
               })
           });
 
-          if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (res.ok && contentType.includes('application/json')) {
               const data = await res.json();
               if (data.status === 'success' && typeof data.csv === 'string' && data.csv.trim().length > 0) {
-                  return { success: true, csv: data.csv };
+                  // Ensure payload is not an HTML error
+                  if (!data.csv.includes('<html') && !data.csv.includes('<!DOCTYPE') && !data.csv.includes('404 NOT_FOUND')) {
+                      return { success: true, csv: data.csv };
+                  }
               }
               if (data.status === 'error') {
                   return { success: false, error: data.message, code: data.code };
@@ -982,7 +986,7 @@ export const api = {
           const directResp = await fetch(parsed.exportUrl);
           if (directResp.ok) {
               const text = await directResp.text();
-              if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+              if (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('404 NOT_FOUND') || text.includes('accounts.google.com')) {
                   return {
                       success: false,
                       code: 'PRIVATE_SHEET',
@@ -990,6 +994,11 @@ export const api = {
                   };
               }
               return { success: true, csv: text };
+          } else if (directResp.status === 404) {
+              return {
+                  success: false,
+                  error: 'Таблица Google не найдена по указанной ссылке (ошибка 404). Проверьте правильность ссылки или используйте соседнюю вкладку «Вставить строки (Ctrl+V)».'
+              };
           }
       } catch (directErr: any) {
           // Browser CORS blocked
@@ -997,7 +1006,7 @@ export const api = {
 
       return { 
           success: false, 
-          error: 'Не удалось загрузить данные таблицы. Убедитесь, что в Google Таблице открыт доступ: «Поделиться» ➔ «Все, у кого есть ссылка: Читатель».' 
+          error: 'Не удалось загрузить данные по ссылке. Рекомендуем открыть вкладку «Вставить строки (Ctrl+V)», выделить строки в таблице Google, нажать Ctrl+C и вставить сюда за 2 секунды.' 
       };
   },
   

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Client, MessageTemplate, SavedView, formatDateForDisplay } from '../types';
+import { Client, MessageTemplate, SavedView, formatDateForDisplay, checkStorageExpiry } from '../types';
 import { api } from '../services/api';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -63,10 +63,19 @@ export const ClientsView: React.FC<{
     status: 'all',
     warehouse: 'all',
     debt: searchParams.get('filter') === 'debt',
+    expiring: searchParams.get('filter') === 'expiring',
   });
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'ascending' | 'descending' } | null>({ key: 'Начало', direction: 'descending' });
   const [newViewName, setNewViewName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Count clients whose storage ends within <= 7 days or is overdue
+  const urgentCount = useMemo(() => {
+    return clients.filter(c => {
+      const exp = checkStorageExpiry(c['Окончание']);
+      return exp?.isUrgent === true;
+    }).length;
+  }, [clients]);
   
   const filterOptions = useMemo(() => {
     const statuses = new Set(clients.map(c => c['Статус сделки']).filter(Boolean));
@@ -82,6 +91,12 @@ export const ClientsView: React.FC<{
 
     if (filters.debt) {
         clientsToFilter = clientsToFilter.filter(client => (client['Долг'] || 0) > 0);
+    }
+    if (filters.expiring) {
+        clientsToFilter = clientsToFilter.filter(client => {
+            const exp = checkStorageExpiry(client['Окончание']);
+            return exp?.isUrgent === true;
+        });
     }
     if (filters.status !== 'all') {
       clientsToFilter = clientsToFilter.filter(c => c['Статус сделки'] === filters.status);
@@ -129,6 +144,10 @@ export const ClientsView: React.FC<{
     if(debtFilter) {
         setFilters(prev => ({...prev, debt: true}));
     }
+    const expiringFilter = searchParams.get('filter') === 'expiring';
+    if(expiringFilter) {
+        setFilters(prev => ({...prev, expiring: true}));
+    }
   }, [searchParams]);
 
   const handleFilterChange = (type: 'status' | 'warehouse', value: string) => {
@@ -136,8 +155,8 @@ export const ClientsView: React.FC<{
   };
 
   const removeFilter = (type: keyof typeof filters) => {
-    if (type === 'debt') {
-      setFilters(prev => ({...prev, debt: false}));
+    if (type === 'debt' || type === 'expiring') {
+      setFilters(prev => ({...prev, [type]: false}));
       setSearchParams(params => {
         params.delete('filter');
         return params;
@@ -145,7 +164,7 @@ export const ClientsView: React.FC<{
     } else {
       setFilters(prev => ({ ...prev, [type]: 'all' }));
     }
-  }
+  };
 
   const handleSortChange = (key: string) => {
       setSortConfig(prev => {
@@ -197,7 +216,7 @@ export const ClientsView: React.FC<{
     showToast('Представление удалено', 'success');
   };
   
-  const isFiltersActive = filters.status !== 'all' || filters.warehouse !== 'all' || filters.debt;
+  const isFiltersActive = filters.status !== 'all' || filters.warehouse !== 'all' || filters.debt || filters.expiring;
 
   // Check for duplicate IDs to warn user
   const hasDuplicates = useMemo(() => {
@@ -213,8 +232,8 @@ export const ClientsView: React.FC<{
       <Card className="!p-3 sm:!p-4">
         <div className="flex flex-col gap-3">
           {/* Top Row: Search + Actions */}
-          <div className="flex gap-2 w-full">
-            <div className="relative flex-grow">
+          <div className="flex gap-2 w-full flex-wrap sm:flex-nowrap">
+            <div className="relative flex-grow min-w-[200px]">
                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                   <SearchIcon className="h-5 w-5"/>
                </div>
@@ -229,11 +248,30 @@ export const ClientsView: React.FC<{
             
             <button 
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center justify-center w-[42px] h-[42px] rounded-md border ${isFiltersActive ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300 dark:border-primary-500' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'} focus:ring-2 focus:ring-primary-500 transition-all`}
+                className={`flex items-center justify-center w-[42px] h-[42px] rounded-md border shrink-0 ${isFiltersActive ? 'border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300 dark:border-primary-500' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'} focus:ring-2 focus:ring-primary-500 transition-all`}
                 title="Фильтры и Сортировка"
             >
                 <FilterIcon className="w-5 h-5"/>
             </button>
+
+            {urgentCount > 0 && (
+                <button 
+                    type="button"
+                    onClick={() => setFilters(prev => ({ ...prev, expiring: !prev.expiring }))}
+                    className={`flex items-center justify-center gap-1.5 px-3 h-[42px] rounded-md border font-bold text-xs sm:text-sm transition-all whitespace-nowrap shadow-xs active:scale-95 shrink-0 ${
+                        filters.expiring
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm ring-2 ring-rose-400/50'
+                            : 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                    }`}
+                    title="Показать только клиентов с окончанием хранения менее чем через 7 дней"
+                >
+                    <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                    </span>
+                    <span className="hidden sm:inline">Истекают</span> <span>≤ 7 дн. ({urgentCount})</span>
+                </button>
+            )}
 
             <button 
                 onClick={() => setShowExportModal(true)}
@@ -302,6 +340,7 @@ export const ClientsView: React.FC<{
           {(isFiltersActive || savedViews.length > 0) && (
              <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
                 {/* Active Filter Chips */}
+                {filters.expiring && <FilterBadge text={`Истекают ≤ 7 дн. (${urgentCount})`} onRemove={() => removeFilter('expiring')} />}
                 {filters.debt && <FilterBadge text="С долгом" onRemove={() => removeFilter('debt')} />}
                 {filters.status !== 'all' && <FilterBadge text={filters.status} onRemove={() => removeFilter('status')} />}
                 {filters.warehouse !== 'all' && <FilterBadge text={filters.warehouse} onRemove={() => removeFilter('warehouse')} />}
@@ -336,19 +375,37 @@ export const ClientsView: React.FC<{
       {/* Client List */}
       <Card className="!p-0 overflow-hidden">
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {sortedClients.map((client, index) => (
+            {sortedClients.map((client, index) => {
+                const expiry = checkStorageExpiry(client['Окончание']);
+                const isUrgentExpiry = expiry?.isUrgent === true;
+
+                return (
                 <div 
                     key={`${client.id}_${index}`} 
                     onClick={(e) => handleRowClick(client, e)} 
-                    className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                    className={`flex items-center justify-between p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors ${
+                        isUrgentExpiry ? 'border-l-4 border-l-rose-500 bg-rose-50/20 dark:bg-rose-950/15 hover:bg-rose-50/40 dark:hover:bg-rose-950/30' : ''
+                    }`}
                 >
                     <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                              <span className="font-semibold text-gray-900 dark:text-white text-base truncate">
                                 {client['Имя клиента']}
                              </span>
                              {(client['Долг'] || 0) > 0 && (
                                 <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm ring-1 ring-red-400/50" title="Есть задолженность"></span>
+                             )}
+                             {isUrgentExpiry && (
+                                <span 
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-200 border border-rose-300/80 dark:border-rose-800 shadow-2xs whitespace-nowrap"
+                                    title={expiry.statusText}
+                                >
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                                    </span>
+                                    <span>{expiry.isExpired ? 'Срок истёк!' : `Истекает: ${expiry.shortText}`}</span>
+                                </span>
                              )}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -371,8 +428,17 @@ export const ClientsView: React.FC<{
                     </div>
 
                     <div className="text-right flex flex-col gap-1 flex-shrink-0">
-                         <span className="text-sm text-gray-600 dark:text-gray-300">
-                             {formatDateForDisplay(client['Окончание'])}
+                         <span className={`text-sm flex items-center justify-end gap-1.5 ${
+                             isUrgentExpiry 
+                                 ? 'font-bold text-rose-600 dark:text-rose-400' 
+                                 : 'text-gray-600 dark:text-gray-300'
+                         }`}>
+                             <span>{formatDateForDisplay(client['Окончание'])}</span>
+                             {isUrgentExpiry && (
+                                 <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-2xs">
+                                     ≤ 7 дн.
+                                 </span>
+                             )}
                          </span>
                          <span className={`font-bold text-sm ${
                              (client['Долг'] || 0) > 0 
@@ -383,7 +449,8 @@ export const ClientsView: React.FC<{
                          </span>
                     </div>
                 </div>
-            ))}
+                );
+            })}
         </div>
         {sortedClients.length === 0 && (
             <div className="text-center py-16 text-gray-500 dark:text-gray-400">

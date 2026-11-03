@@ -266,3 +266,89 @@ export const formatDateForDisplay = (dateString: string | undefined | null): str
   // Fallback: return the original string if all parsing fails.
   return dateString;
 };
+
+export interface StorageExpiryStatus {
+  daysLeft: number;
+  isUrgent: boolean;     // <= 7 days left (including today and expired)
+  isExpired: boolean;    // < 0 days left
+  isToday: boolean;      // 0 days left
+  isTomorrow: boolean;   // 1 day left
+  statusText: string;    // e.g. "Истекает через 3 дня", "Срок истёк 2 дня назад", "Истекает сегодня!"
+  shortText: string;     // e.g. "3 дн.", "Сегодня!", "Истёк 2 дн."
+  severity: 'danger' | 'warning' | 'normal';
+}
+
+function pluralizeDays(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs > 10 && abs < 20) return 'дней';
+  if (last > 1 && last < 5) return 'дня';
+  if (last === 1) return 'день';
+  return 'дней';
+}
+
+/**
+ * Checks tire storage expiration date against current date.
+ * Highlights clients expiring in less than 7 days (or already overdue).
+ */
+export const checkStorageExpiry = (endDateString?: string | null): StorageExpiryStatus | null => {
+  if (!endDateString) return null;
+  const endDate = parseDate(endDateString);
+  if (!endDate) return null;
+
+  const now = new Date();
+  // Midnight comparison in local time
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const endMidnight = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
+  
+  const diffMs = endMidnight - todayMidnight;
+  const daysLeft = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  const isExpired = daysLeft < 0;
+  const isToday = daysLeft === 0;
+  const isTomorrow = daysLeft === 1;
+  const isUrgent = daysLeft <= 7; // Less than or equal to 7 days, or overdue
+
+  let statusText = '';
+  let shortText = '';
+  let severity: 'danger' | 'warning' | 'normal' = 'normal';
+
+  if (isExpired) {
+    const abs = Math.abs(daysLeft);
+    statusText = `Срок истёк ${abs} ${pluralizeDays(abs)} назад`;
+    shortText = `Истёк ${abs} дн.`;
+    severity = 'danger';
+  } else if (isToday) {
+    statusText = 'Срок хранения истекает сегодня!';
+    shortText = 'Сегодня!';
+    severity = 'danger';
+  } else if (isTomorrow) {
+    statusText = 'Срок хранения истекает завтра!';
+    shortText = 'Завтра';
+    severity = 'danger';
+  } else if (daysLeft <= 7) {
+    statusText = `Истекает через ${daysLeft} ${pluralizeDays(daysLeft)}`;
+    shortText = `${daysLeft} дн.`;
+    severity = 'danger';
+  } else if (daysLeft <= 14) {
+    statusText = `Осталось ${daysLeft} ${pluralizeDays(daysLeft)}`;
+    shortText = `${daysLeft} дн.`;
+    severity = 'warning';
+  } else {
+    statusText = `Осталось ${daysLeft} ${pluralizeDays(daysLeft)}`;
+    shortText = `${daysLeft} дн.`;
+    severity = 'normal';
+  }
+
+  return {
+    daysLeft,
+    isUrgent,
+    isExpired,
+    isToday,
+    isTomorrow,
+    statusText,
+    shortText,
+    severity
+  };
+};
+

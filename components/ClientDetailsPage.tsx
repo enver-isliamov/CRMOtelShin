@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Client, MessageTemplate, TireGroup, formatDateForDisplay, parseDate, Settings } from '../types';
+import { Client, MessageTemplate, TireGroup, formatDateForDisplay, parseDate, Settings, checkStorageExpiry } from '../types';
 import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
@@ -124,41 +124,19 @@ const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = (
     );
 };
 
-// Expiry Days Calculator and Badge
+// Expiry Days Calculator and Badge using unified checkStorageExpiry
 const getRemainingDaysInfo = (endDateString?: string) => {
-    if (!endDateString) return null;
-    const endDate = parseDate(endDateString);
-    if (!endDate) return null;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const diffMs = endDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const expiry = checkStorageExpiry(endDateString);
+    if (!expiry) return null;
     
-    if (diffDays < 0) {
-        return { 
-            text: `Просрочен ${Math.abs(diffDays)} дн.`, 
-            isExpired: true, 
-            badgeClass: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900' 
-        };
-    }
-    if (diffDays === 0) {
-        return { 
-            text: 'Истекает сегодня!', 
-            isExpired: false, 
-            badgeClass: 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 font-bold' 
-        };
-    }
-    if (diffDays <= 7) {
-        return { 
-            text: `${diffDays} дн. осталось`, 
-            isExpired: false, 
-            badgeClass: 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 font-bold' 
-        };
-    }
-    return { 
-        text: `${diffDays} дн. осталось`, 
-        isExpired: false, 
-        badgeClass: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900' 
+    return {
+        ...expiry,
+        text: expiry.statusText,
+        badgeClass: expiry.isUrgent
+            ? 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900 font-bold'
+            : expiry.severity === 'warning'
+                ? 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 font-bold'
+                : 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900'
     };
 };
 
@@ -730,6 +708,31 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                         {activeTab === 'details' && (
                             <div className="space-y-3.5 animate-in fade-in duration-150">
                                 
+                                {/* Urgent Expiry Red Alert Banner (<= 7 days or overdue) */}
+                                {expiryInfo?.isUrgent && (
+                                    <div className="p-3 sm:p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/80 text-rose-900 dark:text-rose-200 shadow-xs flex items-start gap-3">
+                                        <div className="p-2 rounded-xl bg-rose-600 text-white shrink-0 mt-0.5 shadow-xs">
+                                            <span className="relative flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-300 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h4 className="font-extrabold text-xs sm:text-sm text-rose-800 dark:text-rose-200">
+                                                    {expiryInfo.isExpired ? 'Срок хранения истёк!' : 'Срок хранения истекает менее чем через 7 дней!'}
+                                                </h4>
+                                                <span className="px-2 py-0.5 rounded-full text-[11px] font-black uppercase bg-rose-200/80 dark:bg-rose-900 text-rose-900 dark:text-rose-100">
+                                                    {expiryInfo.shortText}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-rose-700/90 dark:text-rose-300/90 mt-0.5 leading-relaxed">
+                                                {expiryInfo.statusText} (дата окончания: {formatDateForDisplay(client['Окончание'])}). Свяжитесь с клиентом для продления хранения или выдачи шин.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* BLOCK 1: ORDER & STORAGE OVERVIEW (Active Contract, Dates, Location, Finances) */}
                                 <SectionBlock 
                                     title="Текущий заказ и хранение" 
@@ -773,13 +776,29 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                         </div>
 
                                         {/* 3. Expiration Date & Countdown */}
-                                        <div className="p-2.5 rounded-xl bg-gray-50/90 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Окончание</span>
-                                            <p className="text-base sm:text-lg font-black mt-0.5 text-gray-900 dark:text-white whitespace-nowrap">
+                                        <div className={`p-2.5 rounded-xl border transition-all ${
+                                            expiryInfo?.isUrgent
+                                                ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 ring-1 ring-rose-400/40'
+                                                : 'bg-gray-50/90 dark:bg-gray-900/40 border-gray-200/70 dark:border-gray-700/70'
+                                        }`}>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Окончание</span>
+                                                {expiryInfo?.isUrgent && (
+                                                    <span className="relative flex h-2 w-2">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className={`text-base sm:text-lg font-black mt-0.5 whitespace-nowrap ${
+                                                expiryInfo?.isUrgent ? 'text-rose-600 dark:text-rose-400' : 'text-gray-900 dark:text-white'
+                                            }`}>
                                                 {formatDateForDisplay(client['Окончание'])}
                                             </p>
                                             {expiryInfo ? (
-                                                <span className={`text-[10px] font-bold ${expiryInfo.isExpired ? 'text-rose-500' : 'text-blue-500'} whitespace-nowrap`}>
+                                                <span className={`text-[10px] font-bold ${
+                                                    expiryInfo.isUrgent ? 'text-rose-600 dark:text-rose-400 font-extrabold' : 'text-blue-500'
+                                                } whitespace-nowrap`}>
                                                     {expiryInfo.text}
                                                 </span>
                                             ) : (

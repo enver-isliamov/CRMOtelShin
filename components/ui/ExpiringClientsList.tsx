@@ -112,7 +112,7 @@ export const ExpiringClientsList: React.FC<ExpiringClientsListProps> = ({ client
                 key={client.id} 
                 className={`p-3 rounded-xl border transition-all ${
                   isUrgent 
-                    ? 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50' 
+                    ? 'bg-rose-50/70 border-rose-300 dark:bg-rose-950/25 dark:border-rose-900/60 ring-1 ring-rose-400/30 shadow-xs' 
                     : 'bg-gray-50/80 border-gray-200/80 dark:bg-gray-800/40 dark:border-gray-700'
                 }`}
               >
@@ -138,11 +138,17 @@ export const ExpiringClientsList: React.FC<ExpiringClientsListProps> = ({ client
 
                   <div className="text-right flex-shrink-0">
                     <div className="flex items-center justify-end gap-1">
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1.5 ${
                         isUrgent
-                          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800'
                           : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                       }`}>
+                        {isUrgent && (
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-600"></span>
+                          </span>
+                        )}
                         {daysText}
                       </span>
                     </div>
