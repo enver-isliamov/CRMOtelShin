@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Client, parseCurrency, parseDuration } from '../../types';
-import { api } from '../../services/api';
+import { api, extractGoogleSheetExportUrl } from '../../services/api';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { 
@@ -9,7 +9,9 @@ import {
   XMarkIcon, 
   TireIcon, 
   CalendarDaysIcon,
-  PhoneIcon
+  PhoneIcon,
+  LinkIcon,
+  ArrowPathIcon
 } from '../icons/Icons';
 
 interface ImportClientsModalProps {
@@ -116,7 +118,10 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
   onSuccess
 }) => {
   const [step, setStep] = useState<'input' | 'mapping' | 'importing'>('input');
-  const [inputTab, setInputTab] = useState<'paste' | 'file' | 'googleGuide'>('paste');
+  const [inputTab, setInputTab] = useState<'url' | 'paste' | 'file' | 'googleGuide'>('url');
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('');
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+  const [urlErrorCode, setUrlErrorCode] = useState<'PRIVATE_SHEET' | ''>('');
   const [rawText, setRawText] = useState('');
   const [fileName, setFileName] = useState('');
   
@@ -136,9 +141,17 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [progressMsg, setProgressMsg] = useState('');
 
+  // Info extracted from Google Sheet URL
+  const urlParsedInfo = useMemo(() => {
+    return extractGoogleSheetExportUrl(googleSheetUrl);
+  }, [googleSheetUrl]);
+
   // Reset on open/close
   const handleClose = () => {
     setStep('input');
+    setGoogleSheetUrl('');
+    setIsLoadingUrl(false);
+    setUrlErrorCode('');
     setRawText('');
     setFileName('');
     setParsedHeaders([]);
@@ -147,6 +160,37 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
     setErrorMsg('');
     setProgressMsg('');
     onClose();
+  };
+
+  // Fetch CSV from Google Sheets URL
+  const handleFetchFromUrl = async (overrideUrl?: string) => {
+    const targetUrl = (overrideUrl || googleSheetUrl).trim();
+    if (!targetUrl) {
+      setErrorMsg('Пожалуйста, вставьте ссылку на Google Таблицу.');
+      return;
+    }
+
+    setErrorMsg('');
+    setUrlErrorCode('');
+    setIsLoadingUrl(true);
+
+    try {
+      const res = await api.fetchGoogleSheetCsv(targetUrl);
+      if (!res.success || !res.csv) {
+        setErrorMsg(res.error || 'Не удалось скачать данные таблицы.');
+        if (res.code === 'PRIVATE_SHEET') {
+          setUrlErrorCode('PRIVATE_SHEET');
+        }
+        return;
+      }
+
+      setRawText(res.csv);
+      handleParseAndContinue(res.csv);
+    } catch (err: any) {
+      setErrorMsg(`Ошибка загрузки: ${err?.message || err}`);
+    } finally {
+      setIsLoadingUrl(false);
+    }
   };
 
   // Process raw text and go to mapping step
@@ -371,20 +415,41 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
           ) : step === 'input' ? (
             <>
               <div className="text-xs text-gray-400">
-                Поддерживаются любые Google Таблицы и файлы .csv
+                {inputTab === 'url' ? 'Автоматический экспорт CSV через Google API' : 'Поддерживаются любые Google Таблицы и файлы .csv'}
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={handleClose}>
                   Отмена
                 </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => handleParseAndContinue(rawText)}
-                  disabled={!rawText.trim()}
-                  className="flex items-center gap-2"
-                >
-                  <span>Далее: Сопоставить колонки</span>
-                </Button>
+                {inputTab === 'url' ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => handleFetchFromUrl()}
+                    disabled={!googleSheetUrl.trim() || isLoadingUrl}
+                    className="flex items-center gap-2"
+                  >
+                    {isLoadingUrl ? (
+                      <>
+                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                        <span>Стягиваем данные...</span>
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="w-4 h-4" />
+                        <span>Стянуть данные из таблицы</span>
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={() => handleParseAndContinue(rawText)}
+                    disabled={!rawText.trim()}
+                    className="flex items-center gap-2"
+                  >
+                    <span>Далее: Сопоставить колонки</span>
+                  </Button>
+                )}
               </div>
             </>
           ) : (
@@ -407,41 +472,189 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
         {step === 'input' && (
           <div className="space-y-4">
             {/* Input Navigation Tabs */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 gap-4 text-xs font-semibold">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 gap-2 sm:gap-4 text-xs font-semibold overflow-x-auto pb-1">
               <button
                 type="button"
-                onClick={() => setInputTab('paste')}
-                className={`pb-2 border-b-2 transition-colors ${
+                onClick={() => { setInputTab('url'); setErrorMsg(''); setUrlErrorCode(''); }}
+                className={`pb-2 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                  inputTab === 'url'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
+                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <LinkIcon className="w-3.5 h-3.5" />
+                <span>🔗 По ссылке на Google Таблицу</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setInputTab('paste'); setErrorMsg(''); setUrlErrorCode(''); }}
+                className={`pb-2 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                   inputTab === 'paste'
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                📋 Вставить строки из Google Таблицы (Ctrl+C / Ctrl+V)
+                <span>📋 Вставить строки (Ctrl+V)</span>
               </button>
               <button
                 type="button"
-                onClick={() => setInputTab('file')}
-                className={`pb-2 border-b-2 transition-colors ${
+                onClick={() => { setInputTab('file'); setErrorMsg(''); setUrlErrorCode(''); }}
+                className={`pb-2 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                   inputTab === 'file'
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                📁 Загрузить файл (.csv / .tsv / .txt)
+                <span>📁 Файл (.csv / .tsv)</span>
               </button>
               <button
                 type="button"
-                onClick={() => setInputTab('googleGuide')}
-                className={`pb-2 border-b-2 transition-colors ${
+                onClick={() => { setInputTab('googleGuide'); setErrorMsg(''); setUrlErrorCode(''); }}
+                className={`pb-2 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                   inputTab === 'googleGuide'
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                💡 Как скопировать из Google
+                <span>💡 Инструкция</span>
               </button>
             </div>
+
+            {/* TAB 1: By URL */}
+            {inputTab === 'url' && (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="font-semibold text-gray-700 dark:text-gray-300">
+                      Вставьте ссылку на вашу Google Таблицу:
+                    </label>
+                    {googleSheetUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGoogleSheetUrl('');
+                          setErrorMsg('');
+                          setUrlErrorCode('');
+                        }}
+                        className="text-red-500 hover:underline"
+                      >
+                        Очистить
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <LinkIcon className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="url"
+                        value={googleSheetUrl}
+                        onChange={(e) => {
+                          setGoogleSheetUrl(e.target.value);
+                          setErrorMsg('');
+                          setUrlErrorCode('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleFetchFromUrl();
+                          }
+                        }}
+                        placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0X.../edit#gid=0"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <Button
+                      variant="primary"
+                      onClick={() => handleFetchFromUrl()}
+                      disabled={!googleSheetUrl.trim() || isLoadingUrl}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 whitespace-nowrap shadow-sm"
+                    >
+                      {isLoadingUrl ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                          <span>Загрузка таблицы...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUpTrayIcon className="w-4 h-4" />
+                          <span>Стянуть данные</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Real-time URL Status */}
+                {googleSheetUrl.trim() && (
+                  <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                    urlParsedInfo 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800/60'
+                      : 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60'
+                  }`}>
+                    {urlParsedInfo ? (
+                      <>
+                        <CheckIcon className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                        <div className="truncate">
+                          <b>Таблица распознана:</b> {urlParsedInfo.sheetId ? `ID ${urlParsedInfo.sheetId.slice(0, 16)}...` : 'Прямой CSV-экспорт'}
+                          {urlParsedInfo.gid !== undefined && (
+                            <span className="ml-2 font-mono bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] text-emerald-900 dark:text-emerald-100">
+                              Вкладка листа: gid={urlParsedInfo.gid}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-bold flex-shrink-0">ℹ️</span>
+                        <span>Ссылка должна содержать адрес Google Таблицы вида <code>docs.google.com/spreadsheets/d/...</code></span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Private sheet alert box */}
+                {urlErrorCode === 'PRIVATE_SHEET' && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-xs text-amber-900 dark:text-amber-200 space-y-2.5">
+                    <div className="flex items-center gap-2 font-bold text-sm text-amber-800 dark:text-amber-300">
+                      <span>🔒</span>
+                      <span>Таблица закрыта настройками приватности Google</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      Google не даёт скачать данные напрямую, потому что доступ по ссылке отключен. Чтобы стянуть данные за 5 секунд:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1.5 pl-1 font-medium">
+                      <li>В вашей Google Таблице нажмите кнопку <b>«Поделиться»</b> (вверху справа).</li>
+                      <li>В блоке «Общий доступ» выберите: <b>«Все, у кого есть ссылка»</b> (роль: Читатель).</li>
+                      <li>Вернитесь сюда и нажмите <b>«Повторить загрузку»</b>.</li>
+                    </ol>
+                    <div className="pt-1 flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="primary" onClick={() => handleFetchFromUrl()}>
+                        Повторить загрузку
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setInputTab('paste')}>
+                        Или скопировать строки через Ctrl+V
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Guidance box */}
+                <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 space-y-2">
+                  <div className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>Как это работает:</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Вы просто вставляете ссылку на вашу таблицу из браузера и нажимаете кнопку <b>«Стянуть данные»</b>. Сервис автоматически преобразует ссылку в защищённый экспорт, прочитает заголовки колонок и строки с клиентами.
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    На шаге 2 система автоматически распознает ФИО, телефон, авто, бренд/модель шин, размер, сезон, ячейку, дату и сумму, а вы сможете скорректировать привязку или выбрать склад.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {inputTab === 'paste' && (
               <div className="space-y-2">
@@ -497,18 +710,27 @@ export const ImportClientsModal: React.FC<ImportClientsModalProps> = ({
 
             {inputTab === 'googleGuide' && (
               <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 space-y-3 text-xs text-blue-900 dark:text-blue-200">
-                <h4 className="font-bold text-sm">3 простых способа перенести данные из Google Таблицы:</h4>
-                <ol className="list-decimal list-inside space-y-2 leading-relaxed">
+                <h4 className="font-bold text-sm">3 способа перенести данные из вашей Google Таблицы в CRM:</h4>
+                <ol className="list-decimal list-inside space-y-2.5 leading-relaxed">
                   <li>
-                    <b>Быстрее всего (Копировать-Вставить):</b> Откройте вашу Google Таблицу, выделите диапазон нужных строк вместе с шапкой (заголовками) и нажмите <b>Ctrl + C</b>. Затем откройте вкладку <i>«Вставить строки»</i> выше и нажмите <b>Ctrl + V</b>.
+                    <b>По ссылке (самый удобный):</b> Вставьте обычную ссылку на таблицу (из браузера) на вкладке <i>«🔗 По ссылке на Google Таблицу»</i> и нажмите «Стянуть данные». 
+                    <div className="pl-4 pt-1 text-[11px] text-blue-800/80 dark:text-blue-300/80">
+                      • Обязательно откройте доступ к таблице для чтения: в Google Таблице нажмите <b>«Поделиться»</b> ➔ в блоке «Общий доступ» выберите <b>«Все, у кого есть ссылка»</b> (Читатель).
+                    </div>
                   </li>
                   <li>
-                    <b>Через файл:</b> В Google Таблице выберите <i>Файл ➔ Скачать ➔ CSV-файл (.csv)</i> и загрузите полученный файл на вкладке <i>«Загрузить файл»</i>.
+                    <b>Копировать-Вставить (без изменения прав доступа):</b> Откройте вашу Google Таблицу, выделите диапазон нужных строк вместе с первой строкой-заголовком (например: ФИО, Телефон, Номер Авто...) и нажмите <b>Ctrl + C</b>. Затем перейдите на вкладку <i>«📋 Вставить строки»</i> и нажмите <b>Ctrl + V</b>.
                   </li>
                   <li>
-                    <b>Постоянное живое подключение:</b> Если вы хотите, чтобы сайт читал и писал прямо в вашу Google Таблицу онлайн, откройте в верхнем меню <b>«Опции» ➔ «Настройка GAS»</b>. Встроенный скрипт подключается к таблице в 1 клик.
+                    <b>Через файл CSV:</b> В Google Таблице выберите меню <i>Файл ➔ Скачать ➔ CSV-файл (.csv)</i> и перетащите файл на вкладку <i>«📁 Файл»</i>.
                   </li>
                 </ol>
+                <div className="pt-2 border-t border-blue-200/60 dark:border-blue-800/60 flex items-center justify-between">
+                  <span>Готовы перенести базу?</span>
+                  <Button size="sm" variant="primary" onClick={() => setInputTab('url')}>
+                    Вставить ссылку на таблицу
+                  </Button>
+                </div>
               </div>
             )}
           </div>

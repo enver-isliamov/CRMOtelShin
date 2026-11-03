@@ -101,13 +101,6 @@ async function syncToGas(googleSheetId: string | undefined, action: string, payl
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
-  
-  let pool;
-  try {
-    pool = getDbPool();
-  } catch (e: any) {
-    return res.status(500).json({ status: 'error', message: "Configuration Error: " + e.message });
-  }
 
   // ROBUST BODY PARSING
   let payload = req.body;
@@ -124,6 +117,59 @@ export default async function handler(req: any, res: any) {
   }
 
   const action = payload.action;
+
+  // SPECIAL ACTION: Proxy Google Sheet CSV (no DB required)
+  if (action === 'fetch_google_sheet_csv') {
+    const targetUrl = payload.url;
+    if (!targetUrl || typeof targetUrl !== 'string') {
+      return res.status(400).json({ status: 'error', message: 'Не указан URL таблицы Google' });
+    }
+
+    try {
+      const resp = await fetch(targetUrl, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+
+      if (!resp.ok) {
+        return res.status(200).json({
+          status: 'error',
+          message: `Ошибка загрузки таблицы (код ${resp.status}: ${resp.statusText}). Проверьте правильность ссылки.`
+        });
+      }
+
+      const text = await resp.text();
+
+      // Check if Google redirected to a login or private view HTML page
+      if (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('accounts.google.com') || text.includes('ServiceLogin')) {
+        return res.status(200).json({
+          status: 'error',
+          code: 'PRIVATE_SHEET',
+          message: 'Таблица закрыта настройками приватности Google. Откройте к ней доступ: в таблице нажмите «Настройки доступа» (или «Поделиться») ➔ выберите «Все, у кого есть ссылка» (Читатель).'
+        });
+      }
+
+      return res.status(200).json({
+        status: 'success',
+        csv: text
+      });
+    } catch (fetchErr: any) {
+      return res.status(200).json({
+        status: 'error',
+        message: `Ошибка при скачивании таблицы: ${fetchErr?.message || fetchErr}`
+      });
+    }
+  }
+  
+  let pool;
+  try {
+    pool = getDbPool();
+  } catch (e: any) {
+    return res.status(500).json({ status: 'error', message: "Configuration Error: " + e.message });
+  }
+
   const user = payload.user || 'System';
   
   let result: any = { status: 'success' };

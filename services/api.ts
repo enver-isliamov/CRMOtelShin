@@ -943,6 +943,63 @@ export const api = {
   importClientsBatch: async (clients: Partial<Client>[], archive: Partial<Client>[], mode: 'merge' | 'replace' = 'merge'): Promise<{ count: number; status: string }> => {
       return await requestAPI('import', { clients, archive, mode });
   },
+
+  fetchGoogleSheetCsv: async (urlOrId: string): Promise<{ success: boolean; csv?: string; error?: string; code?: string }> => {
+      const parsed = extractGoogleSheetExportUrl(urlOrId);
+      if (!parsed) {
+          return { 
+              success: false, 
+              error: 'Некорректная ссылка на Google Таблицу. Пример правильной ссылки: https://docs.google.com/spreadsheets/d/1BxiMVs0X.../edit#gid=0' 
+          };
+      }
+
+      try {
+          // 1. Call server-side proxy (bypasses browser CORS)
+          const res = await fetch('/api/crm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  action: 'fetch_google_sheet_csv',
+                  url: parsed.exportUrl
+              })
+          });
+
+          if (res.ok) {
+              const data = await res.json();
+              if (data.status === 'success' && typeof data.csv === 'string' && data.csv.trim().length > 0) {
+                  return { success: true, csv: data.csv };
+              }
+              if (data.status === 'error') {
+                  return { success: false, error: data.message, code: data.code };
+              }
+          }
+      } catch (e: any) {
+          console.warn("Server proxy failed, trying direct browser fetch fallback:", e);
+      }
+
+      // 2. Direct browser fetch fallback (works if sheet is published to web or CORS permitted)
+      try {
+          const directResp = await fetch(parsed.exportUrl);
+          if (directResp.ok) {
+              const text = await directResp.text();
+              if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+                  return {
+                      success: false,
+                      code: 'PRIVATE_SHEET',
+                      error: 'Таблица закрыта настройками приватности Google. Откройте доступ по ссылке: в таблице нажмите «Поделиться» ➔ «Все, у кого есть ссылка: Читатель».'
+                  };
+              }
+              return { success: true, csv: text };
+          }
+      } catch (directErr: any) {
+          // Browser CORS blocked
+      }
+
+      return { 
+          success: false, 
+          error: 'Не удалось загрузить данные таблицы. Убедитесь, что в Google Таблице открыт доступ: «Поделиться» ➔ «Все, у кого есть ссылка: Читатель».' 
+      };
+  },
   
   clearDatabase: async (): Promise<void> => {
       return await requestAPI('reset_db', {}, undefined, 'VERCEL');
@@ -957,3 +1014,52 @@ export const api = {
       await requestAPI('update_setting', { key, value });
   }
 };
+
+// Helper function to extract CSV export URL from any Google Sheets link format
+export function extractGoogleSheetExportUrl(rawUrl: string): { exportUrl: string; sheetId?: string; gid?: string } | null {
+  const clean = (rawUrl || '').trim();
+  if (!clean) return null;
+
+  // Direct export URL or CSV published link
+  if (clean.includes('export?format=csv') || clean.includes('/pub?output=csv')) {
+    const gidMatch = clean.match(/[?&#]gid=([0-9]+)/);
+    return { exportUrl: clean, gid: gidMatch ? gidMatch[1] : undefined };
+  }
+
+  // Published to web format: https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml...
+  const pubMatch = clean.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
+  if (pubMatch) {
+    const pubId = pubMatch[1];
+    const gidMatch = clean.match(/[?&#]gid=([0-9]+)/);
+    const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '';
+    return {
+      exportUrl: `https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv${gidParam}`,
+      gid: gidMatch ? gidMatch[1] : undefined
+    };
+  }
+
+  // Standard Google Sheet URL: https://docs.google.com/spreadsheets/d/{ID}/...
+  const match = clean.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) {
+    const sheetId = match[1];
+    const gidMatch = clean.match(/[?&#]gid=([0-9]+)/);
+    const gid = gidMatch ? gidMatch[1] : undefined;
+    const gidParam = gid ? `&gid=${gid}` : '';
+    return {
+      exportUrl: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidParam}`,
+      sheetId,
+      gid
+    };
+  }
+
+  // Direct plain ID entered (44 chars base64-like)
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(clean)) {
+    return {
+      exportUrl: `https://docs.google.com/spreadsheets/d/${clean}/export?format=csv`,
+      sheetId: clean
+    };
+  }
+
+  return null;
+}
+

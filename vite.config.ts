@@ -12,6 +12,56 @@ function crmApiDevPlugin() {
           let body = '';
           req.on('data', (chunk: any) => { body += chunk; });
           req.on('end', async () => {
+            let parsed: any = {};
+            try { parsed = JSON.parse(body); } catch (_) {}
+
+            // Google Sheets CSV proxy does not require Postgres
+            if (parsed && parsed.action === 'fetch_google_sheet_csv' && parsed.url) {
+              try {
+                const resp = await fetch(parsed.url, {
+                  redirect: 'follow',
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                  }
+                });
+                if (!resp.ok) {
+                  res.statusCode = 200;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({
+                    status: 'error',
+                    message: `Ошибка загрузки таблицы Google (HTTP ${resp.status}: ${resp.statusText})`
+                  }));
+                  return;
+                }
+                const text = await resp.text();
+                if (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('accounts.google.com') || text.includes('ServiceLogin')) {
+                  res.statusCode = 200;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({
+                    status: 'error',
+                    code: 'PRIVATE_SHEET',
+                    message: 'Таблица закрыта настройками приватности Google. Откройте доступ по ссылке: в таблице нажмите «Поделиться» ➔ выберите «Все, у кого есть ссылка: Читатель».'
+                  }));
+                  return;
+                }
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({
+                  status: 'success',
+                  csv: text
+                }));
+                return;
+              } catch (err: any) {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({
+                  status: 'error',
+                  message: `Сетевая ошибка при загрузке таблицы: ${err?.message || err}`
+                }));
+                return;
+              }
+            }
+
             const hasPostgres = Boolean(
               process.env.POSTGRES_URL || 
               process.env.STOREGE_POSTGRES_URL || 
