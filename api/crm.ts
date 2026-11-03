@@ -81,22 +81,10 @@ async function crmSendMessage(chatId: string | number, message: string) {
   }
 }
 
-// Sync data to Google Apps Script
-async function syncToGas(googleSheetId: string | undefined, action: string, payload: any) {
-  if (!googleSheetId) return;
-  try {
-    const response = await fetch(googleSheetId, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, ...payload }),
-      redirect: 'follow'
-    });
-    if (!response.ok) {
-      console.error(`Failed to sync ${action} to GAS:`, response.statusText);
-    }
-  } catch (e) {
-    console.error(`Error syncing ${action} to GAS:`, e);
-  }
+// Legacy GAS sync neutralized to ensure full independence from Google Apps Script
+async function syncToGas(_googleSheetId: string | undefined, _action: string, _payload: any) {
+  // No-op: CRM operates independently without Google Apps Script
+  return;
 }
 
 export default async function handler(req: any, res: any) {

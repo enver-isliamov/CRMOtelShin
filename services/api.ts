@@ -11,16 +11,12 @@ import {
 const getSettingsFromStorage = (): Settings => {
     try {
         const data = localStorage.getItem('crm_settings');
-        // Default to VERCEL for native postgres integration
+        // Independent PostgreSQL / Local engine mode (no Google Apps Script)
         const defaults: Settings = { adminIds: '', managerIds: '', googleSheetId: '', sheetName: 'WebBase', apiMode: 'VERCEL' };
         
         if (data) {
             const parsed = JSON.parse(data);
-            // Smart fallback: If GAS is selected but no URL is present (migration case), force VERCEL to avoid "URL not set" error.
-            if (parsed.apiMode === 'GAS' && !parsed.googleSheetId) {
-                parsed.apiMode = 'VERCEL';
-            }
-            return { ...defaults, ...parsed };
+            return { ...defaults, ...parsed, apiMode: 'VERCEL' };
         }
         return defaults;
     } catch (e) {

@@ -217,75 +217,39 @@ const GeneralSettingsTab: React.FC<{
                 </div>
             </div>
 
-            {/* API MODE SWITCHER */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Источник данных (Backend)</h4>
-                <div className="flex gap-4">
-                    <label className={`flex-1 relative flex items-center justify-center p-4 cursor-pointer rounded-lg border-2 transition-all ${settings.apiMode === 'GAS' ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
-                        <input type="radio" name="apiMode" value="GAS" checked={settings.apiMode === 'GAS'} onChange={() => onChange('apiMode', 'GAS')} className="sr-only" />
-                        <div className="text-center">
-                            <CloudIcon />
-                            <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">Google Sheets</div>
-                            <div className="text-xs text-gray-500">Классика (GAS)</div>
-                        </div>
-                    </label>
-                    <label className={`flex-1 relative flex items-center justify-center p-4 cursor-pointer rounded-lg border-2 transition-all ${settings.apiMode === 'VERCEL' ? 'border-black dark:border-white bg-gray-100 dark:bg-gray-700' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
-                        <input type="radio" name="apiMode" value="VERCEL" checked={settings.apiMode === 'VERCEL'} onChange={() => onChange('apiMode', 'VERCEL')} className="sr-only" />
-                        <div className="text-center">
-                            <ServerIcon />
-                            <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">Vercel Postgres</div>
-                            <div className="text-xs text-gray-500">Быстро (SQL)</div>
-                        </div>
-                    </label>
+            {/* DATABASE STATUS */}
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">База данных и сервер (PostgreSQL / Автономно)</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Независимая архитектура без Google Таблиц. Все операции выполняются мгновенно без внешних скриптов.
+                        </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        Автономно / SQL Ready
+                    </span>
+                </div>
+                <div className="flex flex-wrap gap-3 pt-1">
+                    <Button 
+                        variant="outline" 
+                        onClick={handleTestConnection} 
+                        disabled={isTesting}
+                        className="w-full sm:w-auto"
+                    >
+                        {isTesting ? 'Проверка...' : 'Проверить состояние базы'}
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        onClick={handleUpdateSchema} 
+                        disabled={isTesting}
+                        className="w-full sm:w-auto"
+                    >
+                        {isTesting ? 'Обновление...' : 'Обновить схему SQL'}
+                    </Button>
                 </div>
             </div>
-
-            {settings.apiMode === 'GAS' ? (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                        <div className="w-full sm:flex-grow">
-                             <Input 
-                                label="URL скрипта Google Apps" 
-                                value={settings.googleSheetId} 
-                                onChange={e => onChange('googleSheetId', e.target.value)}
-                                helperText="URL веб-приложения, полученный после развертывания."
-                            />
-                        </div>
-                        <Button 
-                            variant="outline" 
-                            onClick={handleTestConnection} 
-                            disabled={isTesting || !settings.googleSheetId}
-                            className="w-full sm:w-auto h-[46px] flex-shrink-0"
-                        >
-                            {isTesting ? 'Проверка...' : 'Проверить Google'}
-                        </Button>
-                    </div>
-                </div>
-            ) : (
-                <div className="animate-in fade-in slide-in-from-top-2 space-y-4">
-                    <div className="p-4 bg-black/5 dark:bg-white/5 rounded-lg">
-                        <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                            Используется база данных <b>Vercel Postgres</b>. Конфигурация через переменные окружения.
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                            <Button 
-                                variant="outline" 
-                                onClick={handleTestConnection} 
-                                disabled={isTesting}
-                                className="w-full sm:w-auto"
-                            >
-                                {isTesting ? 'Проверка...' : 'Проверить соединение с БД'}
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                onClick={handleUpdateSchema} 
-                                disabled={isTesting}
-                                className="w-full sm:w-auto"
-                            >
-                                {isTesting ? 'Обновление...' : 'Обновить схему БД'}
-                            </Button>
-                        </div>
-                    </div>
 
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Время отправки уведомлений</h4>
@@ -329,14 +293,12 @@ const GeneralSettingsTab: React.FC<{
                             </Button>
                         </div>
                     </div>
-                </div>
-            )}
 
             <hr className="dark:border-gray-700"/>
 
             <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-md">
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <b>Токен Telegram бота</b> {settings.apiMode === 'GAS' ? 'настраивается в свойствах скрипта Google.' : 'должен быть в переменных окружения Vercel (TELEGRAM_BOT_TOKEN).'}
+                    <b>Токен Telegram бота</b> задаётся в переменных окружения (<code>TELEGRAM_BOT_TOKEN</code>).
                 </p>
             </div>
             <Input 
@@ -709,48 +671,100 @@ const SyncTab: React.FC<{ showToast: (message: string, type: 'success' | 'error'
 
     return (
         <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Двусторонняя синхронизация (Google Sheets &harr; Vercel Postgres)</h3>
-            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 text-indigo-800 dark:text-indigo-200 rounded-md">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">База данных и резервное копирование (Backup)</h3>
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border-l-4 border-emerald-500 text-emerald-800 dark:text-emerald-200 rounded-md">
                 <p className="text-sm">
-                    Синхронизация работает автоматически: при изменении данных в CRM они сразу отправляются в Google Sheets.
+                    CRM полностью автономна и независима от Google Таблиц. Все данные хранятся на вашем устройстве или в серверной базе PostgreSQL.
                     <br/>
-                    Если вы внесли изменения напрямую в Google Sheets, используйте этот инструмент для загрузки свежих данных в Vercel Postgres.
-                    <br/>
-                    <b>Внимание:</b> Данные объединяются (UPSERT). Существующие записи будут обновлены, новые — добавлены. Удаления из Google Sheets не приведут к удалению из Vercel.
+                    Вы можете в любой момент выгрузить полную резервную копию всех договоров, архива, шаблонов и мастеров в один клик.
                 </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center">
-                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4 font-bold text-xl">1</div>
-                    <h4 className="font-bold text-lg mb-2">Скачать из Google Sheets</h4>
-                    <p className="text-sm text-gray-500 mb-4">Получить свежие данные из таблицы.</p>
-                    <Button onClick={handleFetchFromGAS} disabled={isLoading} variant="outline" className="w-full justify-center">
-                        {isLoading && !fetchedData ? 'Загрузка...' : 'Получить данные'}
+                {/* 1. Full Database Snapshot Backup */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center shadow-2xs">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-300 mb-4 font-bold text-xl">
+                        📦
+                    </div>
+                    <h4 className="font-bold text-lg mb-2 text-gray-900 dark:text-white">Полный бэкап базы данных</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Скачать единый архивный JSON-файл со всеми 27 клиентами, архивом, шаблонами и мастерами.
+                    </p>
+                    <Button 
+                        onClick={() => {
+                            try {
+                                const clients = JSON.parse(localStorage.getItem('crm_clients') || '[]');
+                                const archive = JSON.parse(localStorage.getItem('crm_archive') || '[]');
+                                const templates = JSON.parse(localStorage.getItem('crm_templates') || '[]');
+                                const masters = JSON.parse(localStorage.getItem('crm_masters') || '[]');
+                                const backup = {
+                                    version: '2.0',
+                                    exportDate: new Date().toISOString(),
+                                    clientsCount: clients.length,
+                                    archiveCount: archive.length,
+                                    clients,
+                                    archive,
+                                    templates,
+                                    masters
+                                };
+                                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `tire_crm_backup_${new Date().toISOString().split('T')[0]}.json`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                showToast(`Резервная копия успешно скачана (${clients.length + archive.length} заказов)!`, 'success');
+                            } catch (e: any) {
+                                showToast(`Ошибка создания бэкапа: ${e.message}`, 'error');
+                            }
+                        }} 
+                        className="w-full justify-center !bg-emerald-600 hover:!bg-emerald-700 text-white"
+                    >
+                        Скачать полный бэкап (JSON)
                     </Button>
-                    {fetchedData && (
-                        <div className="mt-4 text-left w-full bg-gray-50 dark:bg-gray-700/50 p-3 rounded text-sm space-y-1">
-                            <p>✅ Клиентов: <b>{fetchedData.clients.length}</b></p>
-                            <p>✅ Архив: <b>{fetchedData.archive.length}</b></p>
-                            <p>✅ Мастеров: <b>{fetchedData.masters.length}</b></p>
-                            <p>✅ Шаблонов: <b>{fetchedData.templates.length}</b></p>
-                        </div>
-                    )}
                 </div>
 
-                <div className={`border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center transition-opacity ${!fetchedData ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4 font-bold text-xl">2</div>
-                    <h4 className="font-bold text-lg mb-2">Обновить Vercel Postgres</h4>
-                    <p className="text-sm text-gray-500 mb-4">Синхронизировать загруженные данные с базой.</p>
+                {/* 2. Sync to Cloud PostgreSQL */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-white dark:bg-gray-800 flex flex-col items-center text-center shadow-2xs">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300 mb-4 font-bold text-xl">
+                        ⚡
+                    </div>
+                    <h4 className="font-bold text-lg mb-2 text-gray-900 dark:text-white">Синхронизация в PostgreSQL</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Загрузить локальную базу данных на облачный сервер Vercel / Neon при подключении.
+                    </p>
                     
                     <div className="w-full space-y-3">
-                        <Button onClick={handleImportToVercel} disabled={isLoading} className="w-full justify-center">
-                            {isLoading && fetchedData ? 'Синхронизация...' : 'Начать синхронизацию'}
+                        <Button 
+                            onClick={async () => {
+                                setIsLoading(true);
+                                setImportStatus('Отправка данных в PostgreSQL...');
+                                try {
+                                    const clients = JSON.parse(localStorage.getItem('crm_clients') || '[]');
+                                    const archive = JSON.parse(localStorage.getItem('crm_archive') || '[]');
+                                    const templates = JSON.parse(localStorage.getItem('crm_templates') || '[]');
+                                    const masters = JSON.parse(localStorage.getItem('crm_masters') || '[]');
+                                    await api.importDataToVercel(clients, archive, masters, templates);
+                                    showToast('База данных успешно синхронизирована с PostgreSQL!', 'success');
+                                    setImportStatus('Синхронизация завершена успешно.');
+                                } catch (e: any) {
+                                    showToast(`Сообщение: ${e.message}`, 'error');
+                                    setImportStatus('Статус: локальное автономное хранилище активно.');
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }} 
+                            disabled={isLoading} 
+                            variant="outline"
+                            className="w-full justify-center"
+                        >
+                            {isLoading ? 'Синхронизация...' : 'Синхронизировать в PostgreSQL'}
                         </Button>
                     </div>
 
                     {importStatus && (
-                        <div className="mt-4 text-xs font-mono text-gray-600 dark:text-gray-300 w-full text-center animate-pulse">
+                        <div className="mt-4 text-xs font-mono text-gray-600 dark:text-gray-300 w-full text-center">
                             {importStatus}
                         </div>
                     )}
@@ -978,17 +992,8 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
         },
         { 
             id: 'migration', 
-            label: 'Синхронизация', 
+            label: 'База данных и бэкап', 
             icon: <ArrowPathIcon /> 
-        },
-        { 
-            id: 'gas', 
-            label: 'Настройка GAS', 
-            icon: (
-                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
-                </svg>
-            ) 
         },
         { 
             id: 'about', 
@@ -1019,7 +1024,6 @@ export const Settings: React.FC<SettingsProps> = ({ initialSettings, initialTemp
         {activeTab === 'general' && <GeneralSettingsTab settings={settings} onChange={handleSettingsChange} showToast={addLocalToast} />}
         {activeTab === 'templates' && <TemplatesTab templates={templates} setTemplates={setTemplates} showToast={addLocalToast}/>}
         {activeTab === 'migration' && <SyncTab showToast={addLocalToast} />}
-        {activeTab === 'gas' && <GasSetupTab onCopy={handleCopyToClipboard} />}
         {activeTab === 'logs' && <LogsTab showToast={addLocalToast} />}
         {activeTab === 'about' && <AboutTab onCopy={handleCopyToClipboard} />}
       </Card>
