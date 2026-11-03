@@ -85,7 +85,16 @@ export const LocalCRMStorage = {
     getArchive(): Client[] {
         try {
             const data = localStorage.getItem('crm_archive');
-            if (data) return JSON.parse(data);
+            if (data) {
+                const parsed: Client[] = JSON.parse(data);
+                // Auto-sync real imported archive database if not yet present in localStorage
+                if (!parsed.some(c => c['Имя клиента'] === 'Enrike Tomas' || c.id === 'arc_real_1')) {
+                    const combined = [...INITIAL_ARCHIVE, ...parsed.filter(c => !c.id.startsWith('c_171060004'))];
+                    localStorage.setItem('crm_archive', JSON.stringify(combined));
+                    return combined;
+                }
+                return parsed;
+            }
             localStorage.setItem('crm_archive', JSON.stringify(INITIAL_ARCHIVE));
             return [...INITIAL_ARCHIVE];
         } catch (e) {

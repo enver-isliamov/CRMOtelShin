@@ -47,14 +47,18 @@ const FilterBadge: React.FC<{text: string; onRemove: () => void}> = ({ text, onR
 
 export const ClientsView: React.FC<{
     clients: Client[];
+    archive?: Client[];
     headers: string[];
     templates: MessageTemplate[];
     savedViews: SavedView[];
     onSaveViews: (views: SavedView[]) => void;
     refreshData: () => Promise<void>;
-}> = ({ clients, headers = [], savedViews, onSaveViews, refreshData }) => {
+}> = ({ clients, archive = [], headers = [], savedViews, onSaveViews, refreshData }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [viewTab, setViewTab] = useState<'active' | 'archive'>(
+    searchParams.get('tab') === 'archive' ? 'archive' : 'active'
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -69,7 +73,21 @@ export const ClientsView: React.FC<{
   const [newViewName, setNewViewName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Count clients whose storage ends within <= 7 days or is overdue
+  // Sync tab from URL params if present
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'archive' && viewTab !== 'archive') {
+      setViewTab('archive');
+    } else if (!tabParam && viewTab !== 'active') {
+      setViewTab('active');
+    }
+  }, [searchParams]);
+
+  const currentBaseList = useMemo(() => {
+    return viewTab === 'archive' ? archive : clients;
+  }, [viewTab, clients, archive]);
+
+  // Count clients whose storage ends within <= 7 days or is overdue (active only)
   const urgentCount = useMemo(() => {
     return clients.filter(c => {
       const exp = checkStorageExpiry(c['Окончание']);
@@ -78,21 +96,21 @@ export const ClientsView: React.FC<{
   }, [clients]);
   
   const filterOptions = useMemo(() => {
-    const statuses = new Set(clients.map(c => c['Статус сделки']).filter(Boolean));
-    const warehouses = new Set(clients.map(c => c['Склад хранения']).filter(Boolean));
+    const statuses = new Set(currentBaseList.map(c => c['Статус сделки']).filter(Boolean));
+    const warehouses = new Set(currentBaseList.map(c => c['Склад хранения']).filter(Boolean));
     return {
       statuses: Array.from(statuses),
       warehouses: Array.from(warehouses),
     };
-  }, [clients]);
+  }, [currentBaseList]);
   
   const sortedClients = useMemo(() => {
-    let clientsToFilter = [...clients];
+    let clientsToFilter = [...currentBaseList];
 
     if (filters.debt) {
         clientsToFilter = clientsToFilter.filter(client => (client['Долг'] || 0) > 0);
     }
-    if (filters.expiring) {
+    if (filters.expiring && viewTab === 'active') {
         clientsToFilter = clientsToFilter.filter(client => {
             const exp = checkStorageExpiry(client['Окончание']);
             return exp?.isUrgent === true;
@@ -231,6 +249,44 @@ export const ClientsView: React.FC<{
       {/* COMPACT HEADER / FILTER BAR */}
       <Card className="!p-3 sm:!p-4">
         <div className="flex flex-col gap-3">
+          {/* Active vs Archive Segment Switcher */}
+          <div className="flex items-center gap-1.5 sm:gap-2 border-b border-gray-200 dark:border-gray-700/80 pb-2.5 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setViewTab('active');
+                setSearchParams(p => { p.delete('tab'); return p; });
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap active:scale-95 ${
+                viewTab === 'active'
+                  ? 'bg-primary-600 text-white shadow-xs'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              <span>📦 Активные на складе</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${viewTab === 'active' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+                {clients.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewTab('archive');
+                setSearchParams(p => { p.set('tab', 'archive'); return p; });
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap active:scale-95 ${
+                viewTab === 'archive'
+                  ? 'bg-primary-600 text-white shadow-xs'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              <span>🗄️ Архив заказов</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${viewTab === 'archive' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+                {archive.length}
+              </span>
+            </button>
+          </div>
+
           {/* Top Row: Search + Actions */}
           <div className="flex gap-2 w-full flex-wrap sm:flex-nowrap">
             <div className="relative flex-grow min-w-[200px]">

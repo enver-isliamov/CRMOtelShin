@@ -323,13 +323,14 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; children: Reac
 
 interface ClientDetailsPageProps {
     clients: Client[];
+    archive?: Client[];
     headers: string[];
     templates: MessageTemplate[];
     refreshData: () => Promise<void>;
     settings: Settings;
 }
 
-export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, templates, refreshData, settings }) => {
+export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, archive = [], templates, refreshData, settings }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -353,13 +354,13 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, t
 
     useEffect(() => {
         if (!id) return;
-        const foundClient = clients.find(c => String(c.id) === String(id));
+        const foundClient = clients.find(c => String(c.id) === String(id)) || archive.find(c => String(c.id) === String(id));
         if (foundClient) {
             setClient(foundClient);
         } else if (location.state?.client) {
             setClient(location.state.client);
         }
-    }, [id, clients, location.state]);
+    }, [id, clients, archive, location.state]);
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });

@@ -138,8 +138,8 @@ export default function App() {
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Dashboard clients={clients} archive={archive} templates={templates} />} />
-            <Route path="/clients" element={<ClientsView clients={clients} headers={headers} templates={templates} savedViews={savedViews} onSaveViews={handleSaveViews} refreshData={fetchData} />} />
-            <Route path="/clients/:id" element={<ClientDetailsPage clients={clients} headers={headers} templates={templates} refreshData={fetchData} settings={settings} />} />
+            <Route path="/clients" element={<ClientsView clients={clients} archive={archive} headers={headers} templates={templates} savedViews={savedViews} onSaveViews={handleSaveViews} refreshData={fetchData} />} />
+            <Route path="/clients/:id" element={<ClientDetailsPage clients={clients} archive={archive} headers={headers} templates={templates} refreshData={fetchData} settings={settings} />} />
             <Route path="/chat" element={<Chat clients={clients} />} />
             <Route path="/add-client" element={
               <ErrorBoundary fallbackTitle="Ошибка формы добавления заказа">
