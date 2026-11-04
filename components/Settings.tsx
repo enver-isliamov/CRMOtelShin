@@ -8,6 +8,8 @@ import { VisualEditor } from './ui/VisualEditor';
 import { ToastContainer } from './ui/Toast';
 import { ThemeSwitcher } from './ui/ThemeSwitcher';
 import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
+import { offlineStorage } from '../services/offlineStorage';
+import { syncManager } from '../services/syncManager';
 
 // --- Icons ---
 const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
@@ -79,6 +81,49 @@ const GeneralSettingsTab: React.FC<{
 }> = ({ settings, onChange, showToast }) => {
     const [isTesting, setIsTesting] = useState(false);
     const [isUpdatingWebhook, setIsUpdatingWebhook] = useState(false);
+    const [isCopyingSql, setIsCopyingSql] = useState(false);
+    const [isManualSyncing, setIsManualSyncing] = useState(false);
+    const [showSupabaseGuide, setShowSupabaseGuide] = useState(true);
+    const [syncQueueCount, setSyncQueueCount] = useState(0);
+
+    useEffect(() => {
+        offlineStorage.getPendingActions().then(items => setSyncQueueCount(items.length)).catch(() => {});
+        const unsub = syncManager.subscribe(status => {
+            setSyncQueueCount(status.pendingCount);
+        });
+        return unsub;
+    }, []);
+
+    const handleCopySql = async () => {
+        setIsCopyingSql(true);
+        try {
+            const res = await fetch('/schema.sql');
+            if (!res.ok) throw new Error('Не удалось загрузить schema.sql');
+            const sqlText = await res.text();
+            await navigator.clipboard.writeText(sqlText);
+            showToast('SQL-схема скопирована в буфер обмена! Вставьте её в SQL Editor в Supabase.', 'success');
+        } catch (e: any) {
+            showToast(`Ошибка копирования: ${e.message}`, 'error');
+        } finally {
+            setIsCopyingSql(false);
+        }
+    };
+
+    const handleForceSync = async () => {
+        setIsManualSyncing(true);
+        try {
+            const res = await syncManager.retrySync();
+            if (res.syncedCount > 0) {
+                showToast(`Успешно отправлено ${res.syncedCount} отложенных действий!`, 'success');
+            } else if (res.remainingCount === 0) {
+                showToast('Все изменения уже синхронизированы с базой.', 'success');
+            } else {
+                showToast(`Не удалось синхронизировать ${res.remainingCount} действий. Проверьте интернет и POSTGRES_URL.`, 'error');
+            }
+        } finally {
+            setIsManualSyncing(false);
+        }
+    };
 
     const handleTestConnection = async () => {
         if (settings.apiMode === 'VERCEL') {
@@ -217,37 +262,155 @@ const GeneralSettingsTab: React.FC<{
                 </div>
             </div>
 
-            {/* DATABASE STATUS */}
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xs space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">База данных и сервер (PostgreSQL / Автономно)</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Независимая архитектура без Google Таблиц. Все операции выполняются мгновенно без внешних скриптов.
-                        </p>
+            {/* DATABASE STATUS & OFFLINE SYNC */}
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-5 rounded-2xl border border-gray-200/90 dark:border-gray-700/80 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
+                            <ServerIcon />
+                        </div>
+                        <div>
+                            <h4 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">База данных и Офлайн-синхронизация</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                Подключение к Supabase (PostgreSQL) + локальный кэш IndexedDB и PWA Service Worker
+                            </p>
+                        </div>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        Автономно / SQL Ready
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${
+                            syncQueueCount > 0
+                                ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200 border-amber-300 dark:border-amber-800'
+                                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        }`}>
+                            <span className={`w-2 h-2 rounded-full ${syncQueueCount > 0 ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
+                            <span>{syncQueueCount > 0 ? `В очереди: ${syncQueueCount}` : 'Синхронизировано'}</span>
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-wrap gap-3 pt-1">
+
+                {/* Status metrics grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 text-xs">
+                    <div>
+                        <span className="text-gray-400 uppercase text-[10px] font-bold tracking-wider block">Офлайн-база</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">IndexedDB (TireCRM_Offline_DB)</span>
+                    </div>
+                    <div>
+                        <span className="text-gray-400 uppercase text-[10px] font-bold tracking-wider block">Service Worker</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">PWA Активен (Кэш v3)</span>
+                    </div>
+                    <div>
+                        <span className="text-gray-400 uppercase text-[10px] font-bold tracking-wider block">Очередь отложенных действий</span>
+                        <span className={`font-semibold ${syncQueueCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-800 dark:text-gray-200'}`}>
+                            {syncQueueCount} {syncQueueCount === 1 ? 'действие' : 'действий'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Quick actions row */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Button 
+                        variant="primary" 
+                        onClick={handleForceSync} 
+                        disabled={isManualSyncing}
+                        className="text-xs !py-2 !px-3 font-bold"
+                    >
+                        {isManualSyncing ? 'Отправка...' : 'Синхронизировать сейчас (Retry)'}
+                    </Button>
                     <Button 
                         variant="outline" 
                         onClick={handleTestConnection} 
                         disabled={isTesting}
-                        className="w-full sm:w-auto"
+                        className="text-xs !py-2 !px-3"
                     >
                         {isTesting ? 'Проверка...' : 'Проверить состояние базы'}
                     </Button>
                     <Button 
                         variant="outline" 
+                        onClick={handleCopySql} 
+                        disabled={isCopyingSql}
+                        className="text-xs !py-2 !px-3 font-bold !text-indigo-600 dark:!text-indigo-400 !border-indigo-300 dark:!border-indigo-800"
+                    >
+                        {isCopyingSql ? 'Копирование...' : '📋 Скопировать SQL-схему для Supabase'}
+                    </Button>
+                    <Button 
+                        variant="outline" 
                         onClick={handleUpdateSchema} 
                         disabled={isTesting}
-                        className="w-full sm:w-auto"
+                        className="text-xs !py-2 !px-3"
                     >
                         {isTesting ? 'Обновление...' : 'Обновить схему SQL'}
                     </Button>
+                </div>
+
+                {/* STEP-BY-STEP SUPABASE VISUAL GUIDE */}
+                <div className="mt-4 rounded-xl border border-indigo-200/80 dark:border-indigo-900/50 bg-gradient-to-br from-indigo-50/50 via-white to-gray-50/80 dark:from-indigo-950/20 dark:via-gray-900 dark:to-gray-900/60 p-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center">⚡️</span>
+                            <h5 className="font-bold text-sm text-gray-900 dark:text-white">
+                                Понятная инструкция: как подключить базу в Supabase
+                            </h5>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowSupabaseGuide(!showSupabaseGuide)}
+                            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                            {showSupabaseGuide ? 'Свернуть' : 'Развернуть инструкцию'}
+                        </button>
+                    </div>
+
+                    {showSupabaseGuide && (
+                        <div className="space-y-3 text-xs leading-relaxed text-gray-700 dark:text-gray-300 pt-1">
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1">
+                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 1. Откройте проект в Supabase</div>
+                                <p className="text-gray-600 dark:text-gray-300">
+                                    Перейдите на <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 font-bold underline">supabase.com/dashboard</a>. Нажмите <b>New Project</b> (или выберите существующий). Придумайте пароль базы данных (Database Password) и обязательно сохраните его.
+                                </p>
+                            </div>
+
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2">
+                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 2. Запустите SQL-схему (создание таблиц)</div>
+                                <p className="text-gray-600 dark:text-gray-300">
+                                    1. В левой колонке Supabase нажмите на иконку <b>SQL Editor</b> (значок терминала <code>&gt;_</code>).<br/>
+                                    2. Нажмите зелёную кнопку <b>+ New query</b> вверху.<br/>
+                                    3. Нажмите кнопку ниже, чтобы скопировать готовую SQL-схему, и вставьте её (Ctrl+V) в поле ввода Supabase:
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handleCopySql}
+                                    disabled={isCopyingSql}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors"
+                                >
+                                    📋 Скопировать готовую SQL-схему в буфер
+                                </button>
+                                <p className="text-gray-500 text-[11px]">
+                                    4. Нажмите кнопку <b>Run</b> в правом нижнем углу Supabase (или <code>Ctrl + Enter</code>). Таблицы <code>clients</code>, <code>storage_orders</code>, <code>masters</code> и индексы будут созданы.
+                                </p>
+                            </div>
+
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1.5">
+                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 3. Скопируйте строку подключения (URI)</div>
+                                <p className="text-gray-600 dark:text-gray-300">
+                                    1. В левом меню в самом низу нажмите <b>Project Settings (шестерёнка)</b>.<br/>
+                                    2. Перейдите в пункт <b>Database</b>.<br/>
+                                    3. Прокрутите страницу вниз до блока <b>Connection string</b> ➔ выберите вкладку <b>URI</b>.<br/>
+                                    4. Скопируйте строку, например:<br/>
+                                    <code className="p-1 rounded bg-gray-100 dark:bg-gray-900 text-indigo-700 dark:text-indigo-300 font-mono block mt-1 select-all break-all text-[11px]">
+                                        postgresql://postgres.xxx:[YOUR-PASSWORD]@aws-0-...pooler.supabase.com:6543/postgres
+                                    </code>
+                                    5. Замените <code>[YOUR-PASSWORD]</code> на ваш реальный пароль от базы данных (без скобок <code>[ ]</code>).
+                                </p>
+                            </div>
+
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1">
+                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 4. Подключение к сайту в Vercel</div>
+                                <p className="text-gray-600 dark:text-gray-300">
+                                    В панели вашего проекта на Vercel откройте <b>Settings ➔ Environment Variables</b> ➔ добавьте переменную <code>POSTGRES_URL</code> и вставьте туда вашу готовую строку. Нажмите кнопку <b>«Проверить состояние базы»</b> выше, чтобы убедиться в подключении.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
