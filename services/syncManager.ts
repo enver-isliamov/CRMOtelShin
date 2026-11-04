@@ -4,6 +4,7 @@
  * and automatic retries for pending Postgres mutations.
  */
 import { offlineStorage, SyncAction } from './offlineStorage';
+import { isSupabaseConfigured, supabaseService } from './supabaseClient';
 
 export interface SyncStatus {
   isOnline: boolean;
@@ -114,6 +115,22 @@ class SyncManager {
 
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+          // Direct Supabase sync if configured (Passwordless Mode)
+          if (isSupabaseConfigured()) {
+            try {
+              if (item.action === 'add' || item.action === 'edit' || item.action === 'record_payment' || item.action === 'reorder' || item.action === 'seasonal_swap' || item.action === 'archive') {
+                const clientData = item.payload.client || item.payload.updatedClient;
+                if (clientData) {
+                  await supabaseService.upsertClient(clientData);
+                }
+              } else if (item.action === 'delete') {
+                await supabaseService.deleteClient(item.payload.clientId);
+              }
+            } catch (supaErr) {
+              console.warn('[SyncManager] Supabase direct sync error:', supaErr);
+            }
+          }
 
           const response = await fetch('/api/crm', {
             method: 'POST',

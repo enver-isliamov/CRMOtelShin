@@ -2,6 +2,7 @@ import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCu
 import { photoStorage } from '../utils/photoStorage';
 import { offlineStorage } from './offlineStorage';
 import { syncManager } from './syncManager';
+import { isSupabaseConfigured, supabaseService } from './supabaseClient';
 import { 
   INITIAL_CLIENTS, 
   INITIAL_ARCHIVE, 
@@ -658,7 +659,6 @@ export class PostgresCRMProvider implements ICRMProvider {
 
     async getClients(): Promise<{ headers: string[]; clients: Client[]; archive: Client[] }> {
         const headers = getClientHeaders();
-        const result = await this.executeQuery('getclients');
 
         const processClients = async (data: any[]): Promise<Client[]> => {
             const list: Client[] = (data || []).map((c: any) => ({
@@ -681,6 +681,25 @@ export class PostgresCRMProvider implements ICRMProvider {
             return list;
         };
 
+        // Способ 2: Прямое чтение из Supabase через Project URL и API Key (без пароля)
+        if (isSupabaseConfigured() && (typeof navigator === 'undefined' || navigator.onLine)) {
+            try {
+                const supaData = await supabaseService.fetchClients();
+                if (supaData && (supaData.clients.length > 0 || supaData.archive.length > 0)) {
+                    const clients = await processClients(supaData.clients);
+                    const archive = await processClients(supaData.archive);
+                    offlineStorage.cacheClients(clients).catch(() => {});
+                    offlineStorage.cacheArchive(archive).catch(() => {});
+                    LocalCRMStorage.saveClients(clients);
+                    LocalCRMStorage.saveArchive(archive);
+                    return { headers, clients, archive };
+                }
+            } catch (err) {
+                console.warn('[PostgresCRMProvider] Supabase direct fetch error, falling back:', err);
+            }
+        }
+
+        const result = await this.executeQuery('getclients');
         const clients = await processClients(result.clients);
         const archive = await processClients(result.archive);
 
@@ -697,10 +716,16 @@ export class PostgresCRMProvider implements ICRMProvider {
             photoUrls: (clientData.photoUrls || []).join(','),
         };
         const result = await this.executeQuery('add', { client: payloadClient });
-        return {
+        const newClient = {
             ...clientData,
             id: result?.newId || clientData.id,
         } as Client;
+
+        if (isSupabaseConfigured()) {
+            supabaseService.upsertClient(newClient).catch(e => console.warn('[Supabase] addClient mirror error:', e));
+        }
+
+        return newClient;
     }
 
     async updateClient(updatedClient: Partial<Client>): Promise<Client> {
@@ -720,11 +745,19 @@ export class PostgresCRMProvider implements ICRMProvider {
         }
 
         await this.executeQuery('update', { client: clientToSend });
+
+        if (isSupabaseConfigured()) {
+            supabaseService.upsertClient(updatedClient as Client).catch(e => console.warn('[Supabase] updateClient mirror error:', e));
+        }
+
         return updatedClient as Client;
     }
 
     async deleteClient(clientId: string): Promise<void> {
         await this.executeQuery('delete', { clientId });
+        if (isSupabaseConfigured()) {
+            supabaseService.deleteClient(clientId).catch(e => console.warn('[Supabase] deleteClient mirror error:', e));
+        }
     }
 
     async archiveClient(clientId: string): Promise<void> {

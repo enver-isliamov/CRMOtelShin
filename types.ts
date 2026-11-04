@@ -112,11 +112,13 @@ export const DEFAULT_PRICE = 500;
 
 export interface Settings {
   adminIds: string;
-  managerIds:string;
+  managerIds: string;
   googleSheetId: string;
   sheetName: string;
-  apiMode: 'GAS' | 'VERCEL'; // New field: Backend switcher
-  cronTime?: string; // New field: Notification time
+  apiMode: 'GAS' | 'VERCEL'; // Backend switcher
+  cronTime?: string; // Notification time
+  supabaseUrl?: string; // Supabase Project URL (e.g. https://xyz.supabase.co)
+  supabaseKey?: string; // Supabase Anon/Service-Role API Key (no DB password needed)
 }
 
 export interface MessageTemplate {

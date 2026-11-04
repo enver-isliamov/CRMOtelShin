@@ -10,6 +10,7 @@ import { ThemeSwitcher } from './ui/ThemeSwitcher';
 import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
 import { offlineStorage } from '../services/offlineStorage';
 import { syncManager } from '../services/syncManager';
+import { testSupabaseConnection, supabaseService } from '../services/supabaseClient';
 
 // --- Icons ---
 const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
@@ -122,6 +123,47 @@ const GeneralSettingsTab: React.FC<{
             }
         } finally {
             setIsManualSyncing(false);
+        }
+    };
+
+    const [isTestingSupabaseDirect, setIsTestingSupabaseDirect] = useState(false);
+    const [isImportingDirect, setIsImportingDirect] = useState(false);
+
+    const handleTestSupabaseDirect = async () => {
+        if (!settings.supabaseUrl || !settings.supabaseKey) {
+            showToast('Укажите Project URL и API Key для проверки подключения', 'error');
+            return;
+        }
+        setIsTestingSupabaseDirect(true);
+        try {
+            const result = await testSupabaseConnection(settings.supabaseUrl, settings.supabaseKey);
+            if (result.success) {
+                showToast(result.message, 'success');
+            } else {
+                showToast(result.message, 'error');
+            }
+        } finally {
+            setIsTestingSupabaseDirect(false);
+        }
+    };
+
+    const handleImportToSupabaseDirect = async () => {
+        if (!settings.supabaseUrl || !settings.supabaseKey) {
+            showToast('Сначала заполните Project URL и API Key и сохраните их', 'error');
+            return;
+        }
+        setIsImportingDirect(true);
+        try {
+            const res = await supabaseService.importLocalData();
+            if (res.success) {
+                showToast(res.message, 'success');
+            } else {
+                showToast(res.message, 'error');
+            }
+        } catch (e: any) {
+            showToast(`Ошибка загрузки: ${e?.message || e}`, 'error');
+        } finally {
+            setIsImportingDirect(false);
         }
     };
 
@@ -340,6 +382,64 @@ const GeneralSettingsTab: React.FC<{
                     >
                         {isTesting ? 'Обновление...' : 'Обновить схему SQL'}
                     </Button>
+                </div>
+
+                {/* DIRECT SUPABASE INPUTS (METHOD 2: URL + API KEY WITHOUT PASSWORD) */}
+                <div className="p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-indigo-600 text-white font-extrabold text-[10px] uppercase tracking-wider">
+                                Способ 2 (Без пароля)
+                            </span>
+                            <h5 className="font-bold text-sm text-gray-900 dark:text-white">
+                                Подключение через Supabase URL и API Key
+                            </h5>
+                        </div>
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                            Пароль от БД не нужен!
+                        </span>
+                    </div>
+
+                    <p className="text-xs text-gray-600 dark:text-gray-300">
+                        Скопируйте эти два значения из Supabase (<b>Project Settings ➔ API</b>) и вставьте их сюда. Они сохраняются в памяти CRM и работают сразу:
+                    </p>
+
+                    <div className="space-y-3">
+                        <Input 
+                            label="Project URL" 
+                            value={settings.supabaseUrl || ''} 
+                            onChange={e => onChange('supabaseUrl', e.target.value)}
+                            placeholder="https://xxxxxxxxxxxxxxxx.supabase.co"
+                            helperText="Раздел Project Settings ➔ API ➔ Project URL"
+                        />
+                        <Input 
+                            label="Project API Key (anon / public или service_role)" 
+                            type="password"
+                            value={settings.supabaseKey || ''} 
+                            onChange={e => onChange('supabaseKey', e.target.value)}
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            helperText="Раздел Project Settings ➔ API ➔ Project API keys (anon public)"
+                        />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Button
+                            variant="primary"
+                            onClick={handleTestSupabaseDirect}
+                            disabled={isTestingSupabaseDirect}
+                            className="text-xs !py-2 !px-3 font-bold !bg-indigo-600 hover:!bg-indigo-700"
+                        >
+                            {isTestingSupabaseDirect ? 'Проверка...' : '⚡️ Проверить подключение (Способ 2)'}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={handleImportToSupabaseDirect}
+                            disabled={isImportingDirect}
+                            className="text-xs !py-2 !px-3 font-bold !text-emerald-700 dark:!text-emerald-300 !border-emerald-300 dark:!border-emerald-800"
+                        >
+                            {isImportingDirect ? 'Перенос...' : '🚀 Загрузить 27 клиентов в Supabase в 1 клик'}
+                        </Button>
+                    </div>
                 </div>
 
                 {/* STEP-BY-STEP SUPABASE VISUAL GUIDE */}
