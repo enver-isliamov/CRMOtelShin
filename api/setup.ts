@@ -51,6 +51,55 @@ export default async function handler(req: any, res: any) {
       );
     `);
 
+    // 1.1 Таблица Заказов хранения со ссылкой на clients
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS storage_orders (
+        id VARCHAR(64) PRIMARY KEY,
+        client_id VARCHAR(255) NOT NULL,
+        contract VARCHAR(100) UNIQUE,
+        qr_code VARCHAR(100),
+        start_date DATE,
+        duration_months INTEGER DEFAULT 6,
+        reminder_date DATE,
+        expiry_date DATE,
+        warehouse VARCHAR(100) DEFAULT 'Основной',
+        cell VARCHAR(50),
+        price_per_month NUMERIC(10, 2) DEFAULT 0.00,
+        total_price NUMERIC(10, 2) DEFAULT 0.00,
+        debt NUMERIC(10, 2) DEFAULT 0.00,
+        status VARCHAR(50) DEFAULT 'Новая',
+        service_pickup BOOLEAN DEFAULT FALSE,
+        service_wash BOOLEAN DEFAULT FALSE,
+        service_pack BOOLEAN DEFAULT FALSE,
+        is_archived BOOLEAN DEFAULT FALSE,
+        photo_urls TEXT[] DEFAULT ARRAY[]::TEXT[],
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_storage_orders_client FOREIGN KEY (client_id) REFERENCES clients(id) ON UPDATE CASCADE ON DELETE RESTRICT
+      );
+    `);
+
+    // 1.2 Таблица Комплектов шин со ссылкой на storage_orders
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tire_groups (
+        id VARCHAR(64) PRIMARY KEY,
+        order_id VARCHAR(64) NOT NULL,
+        brand VARCHAR(100),
+        model VARCHAR(100),
+        width VARCHAR(20),
+        profile VARCHAR(20),
+        diameter VARCHAR(20),
+        count INTEGER DEFAULT 4,
+        season VARCHAR(20),
+        has_rims VARCHAR(10) DEFAULT 'Нет',
+        dot_code VARCHAR(50),
+        price_per_month NUMERIC(10, 2) DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_tire_groups_order FOREIGN KEY (order_id) REFERENCES storage_orders(id) ON UPDATE CASCADE ON DELETE CASCADE
+      );
+    `);
+
     // 2. Таблица Истории
     await pool.query(`
       CREATE TABLE IF NOT EXISTS history (
