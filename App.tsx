@@ -16,6 +16,7 @@ import { Chat } from './components/Chat';
 import TelegramLK from './components/TelegramLK';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { NetworkStatusIndicator } from './components/ui/NetworkStatusIndicator';
 
 // Icons
 import { 
@@ -46,16 +47,17 @@ function Layout({ children, isLoading, onRefresh }: { children?: React.ReactNode
             </nav>
 
             <div className="flex-1 overflow-y-auto flex flex-col">
-                <header className="flex bg-white dark:bg-gray-900 h-16 border-b border-gray-200 dark:border-gray-800 items-center justify-between px-4 md:px-8 shrink-0">
-                    <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white uppercase tracking-tight truncate mr-2">Crm-OtelShun.ru</h2>
-                    <div className="flex items-center gap-2 md:gap-4">
+                <header className="flex bg-white dark:bg-gray-900 h-16 border-b border-gray-200 dark:border-gray-800 items-center justify-between px-3 sm:px-4 md:px-8 shrink-0">
+                    <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 dark:text-white uppercase tracking-tight truncate mr-2">Crm-OtelShun.ru</h2>
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <NetworkStatusIndicator onManualSync={onRefresh} />
                         <button 
                             onClick={onRefresh}
                             disabled={isLoading}
-                            className="flex items-center justify-center w-10 h-10 md:w-auto md:px-3 md:py-1.5 md:gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 md:w-auto md:px-3 md:py-1.5 md:gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                             title="Обновить данные"
                         >
-                            <svg className={`w-5 h-5 md:w-4 md:h-4 ${isLoading ? 'animate-spin text-primary-600 dark:text-primary-400' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className={`w-4 h-4 ${isLoading ? 'animate-spin text-primary-600 dark:text-primary-400' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             <span className="hidden md:inline">{isLoading ? 'Обновление...' : 'Обновить'}</span>

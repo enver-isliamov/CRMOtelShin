@@ -47,7 +47,8 @@ const getTireGroups = (client: Client): TireGroup[] => {
         } catch(e) {}
     }
     if (groups.length === 0 && client['Заказ - QR']) {
-        const jsonMatch = client['Заказ - QR'].match(/\|\|JSON:(.*)$/);
+        const qrStr = String(client['Заказ - QR'] || '');
+        const jsonMatch = qrStr.match(/\|\|JSON:(.*)$/);
         if (jsonMatch) {
             try {
                 const parsed = JSON.parse(jsonMatch[1]);
@@ -79,8 +80,9 @@ const getRemainingDaysInfo = (endDateString?: string) => {
 };
 
 // Authentic Tire DOT Badge with high mobile legibility (Anti-Wrap & Duplicate Grouping)
-const TireDotBadge: React.FC<{ rawDot?: string }> = ({ rawDot }) => {
-    if (!rawDot || !rawDot.trim()) {
+const TireDotBadge: React.FC<{ rawDot?: string | number }> = ({ rawDot }) => {
+    const strDot = String(rawDot || '').trim();
+    if (!strDot) {
         return (
             <span className="text-[11px] text-gray-400 font-mono italic">
                 не указан
@@ -89,9 +91,9 @@ const TireDotBadge: React.FC<{ rawDot?: string }> = ({ rawDot }) => {
     }
 
     // Split by slash, comma, or semicolon and clean up
-    const tokens = rawDot
+    const tokens = strDot
         .split(/[/,;]+/)
-        .map(t => t.trim().replace(/^DOT\s*[:.-]?\s*/i, ''))
+        .map(t => String(t || '').trim().replace(/^DOT\s*[:.-]?\s*/i, ''))
         .filter(Boolean);
 
     if (tokens.length === 0) {
@@ -132,12 +134,14 @@ const TireDotBadge: React.FC<{ rawDot?: string }> = ({ rawDot }) => {
 };
 
 // Helper to determine DOT for a specific group/pair (falls back gracefully to split client DOT)
-const getGroupDot = (group: TireGroup, idx: number, allGroups: TireGroup[], clientDot?: string): string => {
-    if (group.dot && group.dot.trim()) {
-        return group.dot.trim();
+const getGroupDot = (group: TireGroup, idx: number, allGroups: TireGroup[], clientDot?: string | number): string => {
+    const groupDot = String(group?.dot || '').trim();
+    if (groupDot) {
+        return groupDot;
     }
-    if (!clientDot || !clientDot.trim()) return '';
-    const parts = clientDot.split(/[/,;]+/).map(s => s.trim()).filter(Boolean);
+    const strClientDot = String(clientDot || '').trim();
+    if (!strClientDot) return '';
+    const parts = strClientDot.split(/[/,;]+/).map(s => String(s || '').trim()).filter(Boolean);
     if (parts.length === allGroups.length && parts[idx]) {
         return parts[idx];
     }
@@ -510,14 +514,14 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         : (typeof (rawPhotos as unknown) === 'string' && (rawPhotos as unknown as string).trim().length > 0
             ? (rawPhotos as unknown as string).split(',').map(s => s.trim()).filter(Boolean)
             : []);
-    const descClean = (client?.['Заказ - QR'] || '').split('||JSON:')[0]?.trim();
+    const descClean = String(client?.['Заказ - QR'] || '').split('||JSON:')[0]?.trim();
     const isTiresOut = client?.hasActiveStorage === false || client?.['Склад хранения'] === 'У Клиента' || client?.['Статус сделки'] === 'Шины у клиента';
     const expiryInfo = isTiresOut ? null : getRemainingDaysInfo(client['Окончание']);
     const groups = getTireGroups(client);
     const ordersCount = client?.ordersCount || client?.orders?.length || 1;
 
     // Initials for avatar
-    const initials = (client['Имя клиента'] || 'К')
+    const initials = String(client['Имя клиента'] || 'К')
         .split(' ')
         .map(n => n[0])
         .join('')

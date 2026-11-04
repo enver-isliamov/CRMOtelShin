@@ -91,7 +91,7 @@ export const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
   className = '',
   showCell = true,
 }) => {
-  const normStatus = (status || '').toLowerCase().trim();
+  const normStatus = String(status || '').toLowerCase().trim();
   const isDelivered = isArchived || warehouse === 'У Клиента' || normStatus.includes('выдан') || normStatus.includes('закрыт') || normStatus === 'у клиента';
   const isInProgress = normStatus.includes('работ') || normStatus.includes('монтаж') || normStatus.includes('приемк') || normStatus.includes('новый');
   
@@ -323,8 +323,8 @@ export const OrderHistory: React.FC<{ client: Client }> = ({ client }) => {
 
     // 2. Convert Audit Events & System Logs
     historyEvents.forEach((evt) => {
-      const actLower = (evt.action || '').toLowerCase();
-      const detLower = (evt.details || '').toLowerCase();
+      const actLower = String(evt.action || '').toLowerCase();
+      const detLower = String(evt.details || '').toLowerCase();
       const ms = getTimestamp(evt.timestamp);
 
       let category: UnifiedTimelineEvent['category'] = 'system';
@@ -742,7 +742,7 @@ export const OrderHistory: React.FC<{ client: Client }> = ({ client }) => {
           {/* 2. CARD VIEW OPTIMIZED FOR MOBILE SCREENS (<768px) */}
           <div className="block md:hidden space-y-3">
             {ordersList.map((order, orderIdx) => {
-              const cleanDetails = (order.qrCode || '').split('||JSON:')[0]?.trim();
+              const cleanDetails = String(order.qrCode || '').split('||JSON:')[0]?.trim() || '';
               const isSeasonWinter = order.season === 'Зима';
               const isTiresOnWarehouse = !order.isArchived && order.warehouse !== 'У Клиента' && order.status !== 'Выдано' && order.status !== 'Закрыта';
               const hasRims = String(order.hasRims).toLowerCase() === 'да' || cleanDetails.toLowerCase().includes('с дисками');

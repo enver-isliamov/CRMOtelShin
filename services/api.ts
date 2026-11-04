@@ -1,5 +1,7 @@
 import { Client, Settings, MessageTemplate, Master, ClientEvent, AppLog, parseCurrency, parseDuration } from '../types';
 import { photoStorage } from '../utils/photoStorage';
+import { offlineStorage } from './offlineStorage';
+import { syncManager } from './syncManager';
 import { 
   INITIAL_CLIENTS, 
   INITIAL_ARCHIVE, 
@@ -567,9 +569,10 @@ export class PostgresCRMProvider implements ICRMProvider {
 
     /**
      * Выполняет типовой запрос к PostgreSQL серверу через /api/crm
+     * с поддержкой фоновой очереди синхронизации (Offline Outbox)
      */
     async executeQuery<T = any>(action: string, payload: any = {}): Promise<T> {
-        const userJson = sessionStorage.getItem('user');
+        const userJson = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('user') : null;
         const user = userJson ? JSON.parse(userJson) : { username: 'Admin' };
         const settings = getSettingsFromStorage();
 
@@ -579,6 +582,27 @@ export class PostgresCRMProvider implements ICRMProvider {
             user: user.username,
             googleSheetId: settings.googleSheetId
         };
+
+        const isMutation = ['add', 'edit', 'record_payment', 'archive', 'reorder', 'seasonal_swap', 'delete', 'bulk_delete'].includes(action);
+
+        const handleOfflineFallback = async (reason: string) => {
+            console.info(`[PostgresProvider] ${reason}. Применение изменений локально.`);
+            const localResult = executeLocalAction(action, finalPayload, user.username) as T;
+            if (isMutation) {
+                try {
+                    await offlineStorage.enqueueAction(action, payload);
+                    syncManager.notifyQueueChanged();
+                } catch (e) {
+                    console.warn('[PostgresProvider] Не удалось добавить в очередь синхронизации:', e);
+                }
+            }
+            return localResult;
+        };
+
+        // Если устройство явно отключено от интернета, сразу применяем локально без ожидания таймаута
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            return handleOfflineFallback('Устройство в режиме офлайн (нет интернет-соединения)');
+        }
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -593,28 +617,25 @@ export class PostgresCRMProvider implements ICRMProvider {
                     signal: controller.signal
                 });
             } catch (networkErr: any) {
-                console.info(`[PostgresProvider] Сервер недоступен (${networkErr?.message}), переключение на локальное хранилище.`);
-                return executeLocalAction(action, finalPayload, user.username) as T;
+                return handleOfflineFallback(`Сервер недоступен (${networkErr?.message})`);
             } finally {
                 clearTimeout(timeoutId);
             }
 
             const contentType = response.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
-                console.info('[PostgresProvider] Не-JSON ответ, переключение на локальное хранилище.');
-                return executeLocalAction(action, finalPayload, user.username) as T;
+                return handleOfflineFallback('Не-JSON ответ от сервера');
             }
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.info(`[PostgresProvider] Код ошибки ${response.status}: ${errorText.substring(0, 60)}. Fallback на локальное хранилище.`);
-                return executeLocalAction(action, finalPayload, user.username) as T;
+                return handleOfflineFallback(`Код ответа ${response.status}: ${errorText.substring(0, 60)}`);
             }
 
             const result = await response.json();
             if (result.status === 'error') {
                 if (result.code === 'NO_DATABASE_URL' || (result.message && (result.message.includes('POSTGRES_URL') || result.message.includes('Configuration Error')))) {
-                    console.info('[PostgresProvider] POSTGRES_URL не настроен. Используется локальное хранилище.');
+                    // База данных пока не настроена — штатный локальный режим без накопления ошибок
                     return executeLocalAction(action, finalPayload, user.username) as T;
                 }
                 throw new Error(result.message || 'Ошибка PostgreSQL');
@@ -622,8 +643,7 @@ export class PostgresCRMProvider implements ICRMProvider {
 
             return result as T;
         } catch (e: any) {
-            console.warn(`[PostgresProvider] Ошибка вызова action=${action}, fallback:`, e?.message);
-            return executeLocalAction(action, finalPayload, user.username) as T;
+            return handleOfflineFallback(`Ошибка: ${e?.message}`);
         }
     }
 
@@ -663,6 +683,10 @@ export class PostgresCRMProvider implements ICRMProvider {
 
         const clients = await processClients(result.clients);
         const archive = await processClients(result.archive);
+
+        // Кэшируем актуальные данные клиентов в IndexedDB для быстрого офлайн-доступа
+        offlineStorage.cacheClients(clients).catch(() => {});
+        offlineStorage.cacheArchive(archive).catch(() => {});
 
         return { headers: result.headers || headers, clients, archive };
     }

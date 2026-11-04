@@ -87,9 +87,9 @@ export function buildUnifiedClients(
         if (phone && phone.length >= 7) {
             return `p_${phone}`;
         }
-        const name = (item['Имя клиента'] || '').trim().toLowerCase();
+        const name = String(item['Имя клиента'] || '').trim().toLowerCase();
         if (name) {
-            const car = (item['Номер Авто'] || '').trim().toUpperCase().replace(/\s+/g, '');
+            const car = String(item['Номер Авто'] || '').trim().toUpperCase().replace(/\s+/g, '');
             return `n_${name}_${car}`;
         }
         return `id_${item.id}`;

@@ -1,13 +1,8 @@
 
 export function register(config?: any) {
-  if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-    const publicUrl = new URL(window.location.href).origin;
-    if (publicUrl !== window.location.origin) {
-      return;
-    }
-
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL || ''}/sw.js`;
+      const swUrl = '/sw.js';
       registerValidSW(swUrl, config);
     });
   }
