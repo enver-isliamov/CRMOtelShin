@@ -10,7 +10,7 @@ import { Card } from './ui/Card';
 import { MultiTireInput } from './ui/MultiTireInput';
 import { ImageUpload } from './ui/ImageUpload';
 
-import { UserIcon, TireIcon, CreditCardIcon, ArrowLeftIcon, CheckIcon, PhoneIcon, MapPinIcon, ChatIcon } from './icons/Icons';
+import { UserIcon, TireIcon, CreditCardIcon, ArrowLeftIcon, CheckIcon, PhoneIcon, MapPinIcon, ChatIcon, BanknotesIcon, WarehouseIcon, CalendarDaysIcon, CurrencyRubleIcon } from './icons/Icons';
 import { RussianCarPlateBadge } from './ui/CarPlateBadge';
 
 const SpinnerIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
@@ -699,30 +699,55 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
         <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-950">
             {validationToast && <Toast message={validationToast.message} type={validationToast.type} onClose={() => setValidationToast(null)} />}
             
-            {/* Sticky Header with Back Button (Similar to ClientDetailsPage) */}
-            <div className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <button onClick={handleCancel} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300">
-                        <ArrowLeftIcon />
-                    </button>
-                    <div className="flex flex-col min-w-0">
-                        <h1 className="text-lg font-bold leading-tight text-gray-900 dark:text-white truncate">
-                            {pageTitle}
-                        </h1>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {modeDescription}
+            {/* Sticky Header with Back Button (Same refined style as ClientDetailsPage) */}
+            <header className="sticky top-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 py-2.5 shadow-xs">
+                <div className="max-w-5xl mx-auto flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <button 
+                            type="button"
+                            onClick={handleCancel} 
+                            className="p-1.5 -ml-1 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+                            title="Назад"
+                        >
+                            <ArrowLeftIcon className="w-5 h-5" />
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h1 className="text-sm sm:text-base font-black text-gray-900 dark:text-white leading-snug truncate">
+                                    {pageTitle}
+                                </h1>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 border border-primary-200 dark:border-primary-800 whitespace-nowrap shadow-2xs">
+                                    {modeDescription}
+                                </span>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Right side: Car plate badge (if entered) + Save CTA */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {formData['Номер Авто'] && (
+                            <div className="hidden sm:block">
+                                <RussianCarPlateBadge plate={formData['Номер Авто']} />
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => handleSubmit()}
+                            disabled={isSubmitting}
+                            className="inline-flex items-center justify-center gap-1.5 py-2 px-3.5 sm:px-4 rounded-xl bg-primary-600 hover:bg-primary-700 active:scale-98 text-white font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 min-h-[38px]"
+                            title="Сохранить заказ"
+                        >
+                            {isSubmitting ? (
+                                <SpinnerIcon className="w-4 h-4 text-white" />
+                            ) : (
+                                <CheckIcon className="w-4 h-4 text-white" />
+                            )}
+                            <span className="hidden xs:inline">{mode === 'edit' ? 'Сохранить' : 'Создать заказ'}</span>
+                        </button>
+                    </div>
                 </div>
-                
-                <button
-                    onClick={() => handleSubmit()}
-                    className={`p-2 rounded-full transition-colors bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50`}
-                    title="Сохранить"
-                >
-                    <CheckIcon className="w-6 h-6" />
-                </button>
-            </div>
+            </header>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
                 <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-6">
@@ -1013,15 +1038,79 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                         </div>
                     </Card>
 
-                    <Card title="Финансы" actions={<CreditCardIcon className="text-gray-400"/>}>
-                        <div className="space-y-6">
-                            <div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Дата начала" name="Начало" type="date" value={formData['Начало']} onChange={handleInputChange} />
+                    {/* ENHANCED FINANCES, WAREHOUSE & DATES CARD */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/80 dark:border-gray-700/80 overflow-hidden transition-all">
+                        {/* Card Header */}
+                        <div className="px-4 sm:px-6 py-4 bg-gradient-to-r from-emerald-50/60 via-white to-gray-50/80 dark:from-emerald-950/20 dark:via-gray-800 dark:to-gray-800/80 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold shadow-2xs">
+                                    <BanknotesIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
+                                        Финансы, склад и сроки
+                                    </h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        Сроки договора, размещение на складе и расчет стоимости
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Header Live Total Badge */}
+                            <div className="flex items-center gap-2">
+                                <div className="text-right px-3 py-1.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/50 border border-emerald-200/70 dark:border-emerald-800/60 shadow-2xs">
+                                    <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 tracking-wider block">
+                                        Итого к оплате
+                                    </span>
+                                    <span className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 leading-tight">
+                                        {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(formData['Общая сумма'] || 0)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 sm:p-6 space-y-6">
+                            {/* SECTION 1: STORAGE PERIOD & DATES */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                                        <CalendarDaysIcon className="w-4 h-4 text-primary-500" />
+                                        Период и даты хранения
+                                    </span>
+                                    {/* Quick chips for duration */}
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs text-gray-400 hidden sm:inline">Быстрый выбор:</span>
+                                        {[1, 6, 7, 12].map(months => (
+                                            <button
+                                                key={months}
+                                                type="button"
+                                                onClick={() => handleChange({ 'Срок': months })}
+                                                className={`px-2 py-0.5 text-xs font-semibold rounded-md border transition-all ${
+                                                    Number(formData['Срок']) === months
+                                                        ? 'bg-primary-600 text-white border-primary-600 shadow-2xs'
+                                                        : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                                                }`}
+                                            >
+                                                {months} {months === 1 ? 'мес' : months < 5 ? 'мес' : 'мес'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                    <Input 
+                                        label="Дата начала" 
+                                        name="Начало" 
+                                        type="date" 
+                                        value={formData['Начало']} 
+                                        onChange={handleInputChange} 
+                                    />
                                     
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Срок хранения</label>
-                                        <div className="relative h-[46px] flex items-center justify-start px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-primary-500">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Срок хранения
+                                        </label>
+                                        <div className="relative h-[46px] flex items-center justify-start px-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xs transition-all hover:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500">
                                             <SmartDurationSelector 
                                                 value={Number(formData['Срок'])} 
                                                 onChange={(val) => handleChange({ 'Срок': val })} 
@@ -1029,105 +1118,254 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
                                             />
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-2 gap-4 mt-4">
-                                    <Input label="Дата окончания" name="Окончание" type="date" value={formData['Окончание']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
-                                    <Input label="Дата напоминания" name="Напомнить" type="date" value={formData['Напомнить']} readOnly className="bg-gray-100 dark:bg-gray-700/50"/>
-                                </div>
-                            </div>
-                            
-                            <hr className="dark:border-gray-700" />
+                                    <Input 
+                                        label="Дата окончания" 
+                                        name="Окончание" 
+                                        type="date" 
+                                        value={formData['Окончание']} 
+                                        readOnly 
+                                        className="bg-gray-50 dark:bg-gray-800/60 cursor-not-allowed text-gray-600 dark:text-gray-300 font-medium"
+                                        helperText="Рассчитывается автоматически"
+                                    />
 
-                            <div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Склад хранения" name="Склад хранения" value={formData['Склад хранения']} onChange={handleInputChange} placeholder="AYU-46" />
-                                    <Input label="Ячейка" name="Ячейка" value={formData['Ячейка']} onChange={handleInputChange} placeholder="E-43" helperText="назначается на складе"/>
-                                </div>
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Статус сделки</label>
-                                    <select name="Статус сделки" value={formData['Статус сделки']} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
-                                        <option>На складе</option>
-                                        <option>Без оплаты</option>
-                                        <option>Частичная оплата</option>
-                                        <option>Оплачено</option>
-                                        <option>Завершено</option>
-                                    </select>
+                                    <Input 
+                                        label="Дата напоминания" 
+                                        name="Напомнить" 
+                                        type="date" 
+                                        value={formData['Напомнить']} 
+                                        readOnly 
+                                        className="bg-gray-50 dark:bg-gray-800/60 cursor-not-allowed text-gray-600 dark:text-gray-300 font-medium"
+                                        helperText="За 7 дней до окончания"
+                                    />
                                 </div>
                             </div>
 
-                            <hr className="dark:border-gray-700" />
+                            <hr className="border-gray-100 dark:border-gray-700/80" />
 
-                            <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-lg space-y-3 border border-gray-200 dark:border-gray-700">
-                                <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200">Расчет стоимости</h4>
+                            {/* SECTION 2: WAREHOUSE PLACEMENT & DEAL STATUS */}
+                            <div className="space-y-3">
+                                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                                    <WarehouseIcon className="w-4 h-4 text-primary-500" />
+                                    Размещение на складе и статус
+                                </span>
 
-                                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                                    <div className="flex justify-between">
-                                        <span>Хранение ({formData['Срок']} мес.)</span>
-                                        <span>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                    <div>
+                                        <Input 
+                                            label="Склад хранения" 
+                                            name="Склад хранения" 
+                                            value={formData['Склад хранения']} 
+                                            onChange={handleInputChange} 
+                                            placeholder="AYU-46" 
+                                        />
+                                        {/* Quick warehouse chips */}
+                                        <div className="flex items-center gap-1.5 mt-1.5">
+                                            <span className="text-[11px] text-gray-400">Частые:</span>
+                                            {['AYU-46', 'Основной', 'Склад-2'].map(wh => (
+                                                <button
+                                                    key={wh}
+                                                    type="button"
+                                                    onClick={() => handleChange({ 'Склад хранения': wh })}
+                                                    className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 hover:text-primary-600 transition-colors"
+                                                >
+                                                    {wh}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <Input 
+                                            label="Складская ячейка" 
+                                            name="Ячейка" 
+                                            value={formData['Ячейка']} 
+                                            onChange={handleInputChange} 
+                                            placeholder="E-43" 
+                                            helperText="Назначается мастером склада"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Статус сделки
+                                        </label>
+                                        <select 
+                                            name="Статус сделки" 
+                                            value={formData['Статус сделки']} 
+                                            onChange={handleInputChange} 
+                                            className="block w-full rounded-md border-gray-300 shadow-xs focus:border-primary-500 focus:ring-primary-500 py-2.5 px-3 dark:bg-gray-800 dark:border-gray-600 dark:text-white font-medium transition-colors"
+                                        >
+                                            <option>На складе</option>
+                                            <option>Без оплаты</option>
+                                            <option>Частичная оплата</option>
+                                            <option>Оплачено</option>
+                                            <option>Завершено</option>
+                                        </select>
+
+                                        {/* Status quick switch buttons */}
+                                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                                            {[
+                                                { label: 'Оплачено', status: 'Оплачено', dot: 'bg-emerald-500' },
+                                                { label: 'В долг', status: 'Без оплаты', dot: 'bg-amber-500' },
+                                                { label: 'На складе', status: 'На складе', dot: 'bg-blue-500' },
+                                            ].map(item => (
+                                                <button
+                                                    key={item.status}
+                                                    type="button"
+                                                    onClick={() => handleChange({ 'Статус сделки': item.status })}
+                                                    className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border transition-colors ${
+                                                        formData['Статус сделки'] === item.status
+                                                            ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-bold'
+                                                            : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${item.dot}`}></span>
+                                                    <span>{item.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr className="border-gray-100 dark:border-gray-700/80" />
+
+                            {/* SECTION 3: ITEMIZED BREAKDOWN & PRICING */}
+                            <div className="bg-gradient-to-br from-gray-50/90 via-emerald-50/20 to-gray-50/80 dark:from-gray-900/50 dark:via-emerald-950/10 dark:to-gray-900/50 rounded-xl p-4 sm:p-5 border border-emerald-100/70 dark:border-emerald-900/30 space-y-4">
+                                <div className="flex items-center justify-between border-b border-gray-200/60 dark:border-gray-700/60 pb-3">
+                                    <div className="flex items-center gap-2">
+                                        <CurrencyRubleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                        <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                                            Расчёт стоимости и смета
+                                        </h4>
+                                    </div>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {formData['Срок']} мес. хранения
+                                    </span>
+                                </div>
+
+                                {/* Line items */}
+                                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <div className="flex justify-between items-center py-1 border-b border-gray-100/80 dark:border-gray-800/80">
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            <span>Хранение ({formData['Срок']} мес. × {formData['Цена за месяц'] || 0} ₽)</span>
+                                        </span>
+                                        <span className="font-semibold text-gray-900 dark:text-white">
                                             {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(
                                                 (Number(formData['Цена за месяц']) || 0) * (Number(formData['Срок']) || 0)
                                             )}
                                         </span>
                                     </div>
-                                    {formData['Услуга: Вывоз'] && (
-                                        <div className="flex justify-between">
-                                            <span>Вывоз шин</span>
-                                            <span className="font-bold text-green-600 dark:text-green-400">0 ₽</span>
-                                        </div>
-                                    )}
+
                                     {formData['Наличие дисков'] === 'Да' && (
-                                        <div className="flex justify-between text-xs text-gray-500">
-                                            <span>(Включена наценка за диски)</span>
+                                        <div className="flex justify-between items-center py-1 border-b border-gray-100/80 dark:border-gray-800/80 text-xs text-gray-500 dark:text-gray-400">
+                                            <span className="pl-3">↳ Колёса в сборе с дисками</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">включено в тариф (+25 ₽/мес за колесо)</span>
                                         </div>
                                     )}
+
+                                    {formData['Услуга: Вывоз'] && (
+                                        <div className="flex justify-between items-center py-1 border-b border-gray-100/80 dark:border-gray-800/80">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                <span>Вывоз шин курьером</span>
+                                            </span>
+                                            <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded text-xs border border-emerald-200 dark:border-emerald-800">
+                                                0 ₽ (Бесплатно)
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {formData['Услуга: Мойка'] && (
-                                        <div className="flex justify-between">
-                                            <span>Мойка колёс</span>
-                                            <span>+ 200 ₽</span>
+                                        <div className="flex justify-between items-center py-1 border-b border-gray-100/80 dark:border-gray-800/80">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                <span>Мойка комплекта колёс</span>
+                                            </span>
+                                            <span className="font-semibold text-gray-900 dark:text-white">+ 200 ₽</span>
                                         </div>
                                     )}
+
                                     {formData['Услуга: Упаковка'] && (
-                                        <div className="flex justify-between">
-                                            <span>Упаковка в пакеты</span>
-                                            <span>+ 350 ₽</span>
+                                        <div className="flex justify-between items-center py-1 border-b border-gray-100/80 dark:border-gray-800/80">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                <span>Упаковка шин в пакеты</span>
+                                            </span>
+                                            <span className="font-semibold text-gray-900 dark:text-white">+ 350 ₽</span>
                                         </div>
                                     )}
                                 </div>
 
-                                <hr className="dark:border-gray-600" />
-                            
-                                <div className="flex justify-between items-center text-lg">
-                                <span className="font-bold text-gray-800 dark:text-gray-100">Итого к оплате:</span>
-                                <span className="font-bold text-primary-600 dark:text-primary-300 text-2xl">
-                                    {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(formData['Общая сумма'] || 0)}
-                                </span>
+                                {/* Big Total Banner */}
+                                <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-gray-800 border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <span className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 block tracking-wider">
+                                            Итоговая сумма договора
+                                        </span>
+                                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                                            Включает весь срок хранения и выбранные услуги
+                                        </span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(formData['Общая сумма'] || 0)}
+                                        </span>
+                                    </div>
                                 </div>
-                                
+
+                                {/* Price Adjustments & Debt Controls */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                                    <Input 
-                                        label="Цена за месяц, ₽" 
-                                        name="Цена за месяц" 
-                                        type="number" 
-                                        inputMode="numeric" 
-                                        value={formData['Цена за месяц']} 
-                                        onChange={handleInputChange}
-                                        className="!bg-green-50/50 dark:!bg-green-900/20 !border-green-300 dark:!border-green-800 focus:!ring-green-500 text-green-800 dark:text-green-200 font-semibold"
-                                        helperText="Авторасчет (можно править)"
-                                    />
-                                    <Input 
-                                        label="Долг, ₽" 
-                                        name="Долг" 
-                                        type="number" 
-                                        inputMode="numeric" 
-                                        value={formData['Долг']} 
-                                        onChange={handleInputChange}
-                                        className="!bg-red-50/50 dark:!bg-red-900/20 !border-red-300 dark:!border-red-800 focus:!ring-red-500 text-red-800 dark:text-red-200 font-semibold"
-                                    />
+                                    <div>
+                                        <Input 
+                                            label="Цена за месяц, ₽" 
+                                            name="Цена за месяц" 
+                                            type="number" 
+                                            inputMode="numeric" 
+                                            value={formData['Цена за месяц']} 
+                                            onChange={handleInputChange}
+                                            className="!bg-emerald-50/50 dark:!bg-emerald-950/20 !border-emerald-300 dark:!border-emerald-800 focus:!ring-emerald-500 text-emerald-800 dark:text-emerald-200 font-bold text-base"
+                                            helperText="Авторасчет (можно скорректировать вручную)"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Input 
+                                            label="Текущий долг, ₽" 
+                                            name="Долг" 
+                                            type="number" 
+                                            inputMode="numeric" 
+                                            value={formData['Долг']} 
+                                            onChange={handleInputChange}
+                                            className={Number(formData['Долг']) > 0 
+                                                ? "!bg-red-50/60 dark:!bg-red-950/20 !border-red-300 dark:!border-red-800 focus:!ring-red-500 text-red-700 dark:text-red-300 font-bold text-base"
+                                                : "!bg-gray-50/50 dark:!bg-gray-800/40 font-semibold text-base"
+                                            }
+                                        />
+                                        {/* Quick Debt Action Buttons */}
+                                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleChange({ 'Долг': 0, 'Статус сделки': 'Оплачено' })}
+                                                className="text-xs px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold hover:bg-emerald-100 transition-colors shadow-2xs"
+                                            >
+                                                Оплачено (долг 0 ₽)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleChange({ 'Долг': formData['Общая сумма'] || 0, 'Статус сделки': 'Без оплаты' })}
+                                                className="text-xs px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-semibold hover:bg-amber-100 transition-colors shadow-2xs"
+                                            >
+                                                В долг (вся сумма)
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
+                            </div>
                         </div>
-                        </div>
-                    </Card>
+                    </div>
 
                     {/* Bottom Action Bar for Mobile & Desktop */}
                     <div className="pt-2 pb-6 flex flex-col sm:flex-row gap-3">
