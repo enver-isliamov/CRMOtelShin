@@ -150,6 +150,16 @@ export default async function handler(req: any, res: any) {
       });
     }
   }
+
+  // ACTION: Return public Supabase configuration if defined in Vercel Environment Variables
+  if (action === 'get_public_config') {
+    return res.status(200).json({
+      status: 'success',
+      supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      supabaseKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      hasPostgresUrl: !!(process.env.POSTGRES_URL || process.env.STOREGE_POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL)
+    });
+  }
   
   let pool;
   try {

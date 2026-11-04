@@ -16,21 +16,72 @@ export interface SupabaseConfig {
 let cachedClient: SupabaseClient | null = null;
 let currentConfigHash: string = '';
 
+export function saveSupabaseConfig(url: string, key: string) {
+  try {
+    const cleanUrl = (url || '').trim();
+    const cleanKey = (key || '').trim();
+    if (!cleanUrl || !cleanKey) return;
+
+    // 1. Save in dedicated localStorage keys
+    localStorage.setItem('supabase_direct_url', cleanUrl);
+    localStorage.setItem('supabase_direct_key', cleanKey);
+
+    // 2. Also keep crm_settings in sync
+    const raw = localStorage.getItem('crm_settings');
+    const parsed = raw ? JSON.parse(raw) : {};
+    parsed.supabaseUrl = cleanUrl;
+    parsed.supabaseKey = cleanKey;
+    localStorage.setItem('crm_settings', JSON.stringify(parsed));
+  } catch (e) {
+    console.warn('[Supabase] Failed to persist config to localStorage:', e);
+  }
+}
+
+export async function fetchServerPublicConfig(): Promise<{ supabaseUrl?: string; supabaseKey?: string; hasPostgres?: boolean }> {
+  try {
+    const res = await fetch('/api/crm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get_public_config' }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === 'success') {
+        if (data.supabaseUrl && data.supabaseKey) {
+          saveSupabaseConfig(data.supabaseUrl, data.supabaseKey);
+        }
+        return data;
+      }
+    }
+  } catch {}
+  return {};
+}
+
 export function getSupabaseConfig(): SupabaseConfig {
   let url = '';
   let key = '';
 
-  // 1. Try localStorage settings first
+  // 1. Try dedicated localStorage keys first
   try {
-    const raw = localStorage.getItem('crm_settings');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.supabaseUrl) url = parsed.supabaseUrl.trim();
-      if (parsed.supabaseKey) key = parsed.supabaseKey.trim();
-    }
+    const directUrl = localStorage.getItem('supabase_direct_url');
+    const directKey = localStorage.getItem('supabase_direct_key');
+    if (directUrl) url = directUrl.trim();
+    if (directKey) key = directKey.trim();
   } catch {}
 
-  // 2. Fallback to Vite env variables
+  // 2. Try crm_settings
+  if (!url || !key) {
+    try {
+      const raw = localStorage.getItem('crm_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.supabaseUrl && !url) url = parsed.supabaseUrl.trim();
+        if (parsed.supabaseKey && !key) key = parsed.supabaseKey.trim();
+      }
+    } catch {}
+  }
+
+  // 3. Fallback to Vite env variables
   if (!url && typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) {
     url = String(import.meta.env.VITE_SUPABASE_URL).trim();
   }
@@ -108,6 +159,11 @@ export async function testSupabaseConnection(overrideUrl?: string, overrideKey?:
         success: false,
         message: `Ошибка Supabase: ${error.message} (код: ${error.code || error.hint || 'UNKNOWN'})`,
       };
+    }
+
+    // Auto-save configuration on successful connection
+    if (overrideUrl && overrideKey) {
+      saveSupabaseConfig(overrideUrl, overrideKey);
     }
 
     return {
@@ -302,18 +358,31 @@ export const supabaseService = {
   /**
    * Bulk import all local CRM data into Supabase
    */
-  async importLocalData(): Promise<{ success: boolean; count: number; message: string }> {
-    const client = getSupabaseClient();
-    if (!client) {
-      return { success: false, count: 0, message: 'Supabase не настроен' };
+  async importLocalData(overrideUrl?: string, overrideKey?: string): Promise<{ success: boolean; count: number; message: string }> {
+    if (overrideUrl && overrideKey) {
+      saveSupabaseConfig(overrideUrl, overrideKey);
     }
 
-    const active = LocalCRMStorage.getClients();
-    const archive = LocalCRMStorage.getArchive();
+    const client = getSupabaseClient(overrideUrl, overrideKey);
+    if (!client) {
+      return { success: false, count: 0, message: 'Supabase не настроен. Укажите Project URL и API Key в настройках.' };
+    }
+
+    let active = LocalCRMStorage.getClients();
+    let archive = LocalCRMStorage.getArchive();
+
+    // Fallback if local storage was somehow cleared
+    if (!active || active.length === 0) {
+      try {
+        active = await offlineStorage.getClients();
+        archive = await offlineStorage.getArchive();
+      } catch {}
+    }
+
     const all = [...active.map(c => ({ ...c, is_archived: false })), ...archive.map(c => ({ ...c, is_archived: true }))];
 
     if (all.length === 0) {
-      return { success: true, count: 0, message: 'Локальная база пуста' };
+      return { success: true, count: 0, message: 'Локальная база пуста. Нечего переносить.' };
     }
 
     try {
@@ -333,16 +402,20 @@ export const supabaseService = {
         await client.from('storage_orders').upsert(chunk, { onConflict: 'id' }).catch(() => {});
       }
 
+      // Also ensure offline IndexedDB cache is hot
+      await offlineStorage.cacheClients(active, archive).catch(() => {});
+
       return {
         success: true,
         count: all.length,
-        message: `Успешно перенесено ${all.length} договоров (активных: ${active.length}, архивных: ${archive.length}) в Supabase!`,
+        message: `Успешно перенесено ${all.length} договоров (активных: ${active.length}, архивных: ${archive.length}) в облако Supabase!`,
       };
     } catch (err: any) {
+      console.error('[Supabase] importLocalData failed:', err);
       return {
         success: false,
         count: 0,
-        message: `Ошибка импорта в Supabase: ${err?.message || err}`,
+        message: `Ошибка импорта в Supabase: ${err?.message || err}. Проверьте, созданы ли таблицы clients и storage_orders через SQL Editor.`,
       };
     }
   },

@@ -10,7 +10,7 @@ import { ThemeSwitcher } from './ui/ThemeSwitcher';
 import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
 import { offlineStorage } from '../services/offlineStorage';
 import { syncManager } from '../services/syncManager';
-import { testSupabaseConnection, supabaseService } from '../services/supabaseClient';
+import { testSupabaseConnection, supabaseService, saveSupabaseConfig, fetchServerPublicConfig } from '../services/supabaseClient';
 
 // --- Icons ---
 const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
@@ -92,6 +92,19 @@ const GeneralSettingsTab: React.FC<{
         const unsub = syncManager.subscribe(status => {
             setSyncQueueCount(status.pendingCount);
         });
+
+        // Auto-detect public Supabase config if defined in Vercel Environment Variables
+        if (!settings.supabaseUrl || !settings.supabaseKey) {
+            fetchServerPublicConfig().then(cfg => {
+                if (cfg.supabaseUrl && !settings.supabaseUrl) {
+                    onChange('supabaseUrl', cfg.supabaseUrl);
+                }
+                if (cfg.supabaseKey && !settings.supabaseKey) {
+                    onChange('supabaseKey', cfg.supabaseKey);
+                }
+            }).catch(() => {});
+        }
+
         return unsub;
     }, []);
 
@@ -130,13 +143,17 @@ const GeneralSettingsTab: React.FC<{
     const [isImportingDirect, setIsImportingDirect] = useState(false);
 
     const handleTestSupabaseDirect = async () => {
-        if (!settings.supabaseUrl || !settings.supabaseKey) {
+        const url = settings.supabaseUrl?.trim();
+        const key = settings.supabaseKey?.trim();
+        if (!url || !key) {
             showToast('Укажите Project URL и API Key для проверки подключения', 'error');
             return;
         }
+        // Save immediately so subsequent actions and app reloads remember it
+        saveSupabaseConfig(url, key);
         setIsTestingSupabaseDirect(true);
         try {
-            const result = await testSupabaseConnection(settings.supabaseUrl, settings.supabaseKey);
+            const result = await testSupabaseConnection(url, key);
             if (result.success) {
                 showToast(result.message, 'success');
             } else {
@@ -148,13 +165,17 @@ const GeneralSettingsTab: React.FC<{
     };
 
     const handleImportToSupabaseDirect = async () => {
-        if (!settings.supabaseUrl || !settings.supabaseKey) {
-            showToast('Сначала заполните Project URL и API Key и сохраните их', 'error');
+        const url = settings.supabaseUrl?.trim();
+        const key = settings.supabaseKey?.trim();
+        if (!url || !key) {
+            showToast('Сначала заполните Project URL и API Key', 'error');
             return;
         }
+        // Save immediately so subsequent actions remember it
+        saveSupabaseConfig(url, key);
         setIsImportingDirect(true);
         try {
-            const res = await supabaseService.importLocalData();
+            const res = await supabaseService.importLocalData(url, key);
             if (res.success) {
                 showToast(res.message, 'success');
             } else {
