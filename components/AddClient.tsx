@@ -10,7 +10,8 @@ import { Card } from './ui/Card';
 import { MultiTireInput } from './ui/MultiTireInput';
 import { ImageUpload } from './ui/ImageUpload';
 
-import { UserIcon, TireIcon, CreditCardIcon, ArrowLeftIcon, CheckIcon } from './icons/Icons';
+import { UserIcon, TireIcon, CreditCardIcon, ArrowLeftIcon, CheckIcon, PhoneIcon, MapPinIcon, ChatIcon } from './icons/Icons';
+import { RussianCarPlateBadge } from './ui/CarPlateBadge';
 
 const SpinnerIcon: React.FC<{className?: string}> = ({ className="h-6 w-6" }) => <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 
@@ -726,41 +727,213 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>Долг:</b> ${formatCurrency(cli
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
                 <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-6">
                     
-                    <Card title="Контактные данные" actions={<UserIcon className="text-gray-400"/>}>
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <Input label="ФИО" name="Имя клиента" value={formData['Имя клиента']} onChange={handleInputChange} placeholder="Фамилия Имя Отчество" required />
-                                <Input 
-                                    label="Телефон" 
-                                    name="Телефон" 
-                                    value={formData['Телефон']} 
-                                    onChange={handleInputChange} 
-                                    prefix="+7"
-                                    placeholder="(999) 123-45-67" 
-                                    type="tel"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Номер Авто" name="Номер Авто" value={formData['Номер Авто']} onChange={(e) => handleCarNumberChange(e.target.value)} placeholder="A123BC777" />
-                                <Input label="Chat ID" name="Chat ID" value={formData['Chat ID']} onChange={handleInputChange} placeholder="123456789" />
-                            </div>
-
-                            <div className="w-full">
-                            <Input label="Адрес" name="Адрес клиента" value={formData['Адрес клиента']} onChange={handleInputChange} placeholder="Улица, № дома, квартира" helperText="Для услуги 'Вывоз шин'" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 items-end">
-                                <Input label="Источник трафика" name="Источник трафика" value={formData['Источник трафика']} onChange={handleInputChange} placeholder="Авито, Сайт..." />
+                    {/* ENHANCED CONTACT DETAILS CARD */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200/80 dark:border-gray-700/80 overflow-hidden transition-all">
+                        
+                        {/* Header with Contract Number Badge & User Icon */}
+                        <div className="px-4 sm:px-6 py-4 bg-gradient-to-r from-gray-50/80 via-white to-gray-50/80 dark:from-gray-800/80 dark:via-gray-800 dark:to-gray-800/80 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-900 shadow-2xs shrink-0">
+                                    <UserIcon className="w-5 h-5" />
+                                </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Договор №</label>
-                                    <div className="flex items-center h-[46px] px-3 rounded-md bg-gray-100 dark:bg-gray-700/50">
-                                        <span className="font-mono text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 truncate">{formData['Договор']}</span>
-                                    </div>
+                                    <h3 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white leading-tight">
+                                        Контактные данные клиента
+                                    </h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        Основные реквизиты, автомобиль и способы связи
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Pinned Contract Pill */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold uppercase text-gray-400 hidden sm:inline">Договор:</span>
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100/90 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 font-mono shadow-2xs">
+                                    <span className="text-primary-600 dark:text-primary-400 font-black text-xs">#</span>
+                                    <span className="text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 tracking-tight">
+                                        {formData['Договор']}
+                                    </span>
                                 </div>
                             </div>
                         </div>
-                    </Card>
+
+                        {/* Card Content with Grouped Fields */}
+                        <div className="p-4 sm:p-6 space-y-5">
+                            
+                            {/* SECTION 1: ОСНОВНЫЕ РЕКВИЗИТЫ (ФИО + ТЕЛЕФОН) */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                
+                                {/* 1. ФИО КЛИЕНТА (Col span 7 on desktop) */}
+                                <div className="md:col-span-7">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1.5 flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5">
+                                            <span>ФИО Клиента</span>
+                                            <span className="text-rose-500 font-black">*</span>
+                                        </span>
+                                        <span className="text-[10px] font-normal text-gray-400 lowercase">обязательно</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                                            <UserIcon className="w-4 h-4" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            name="Имя клиента"
+                                            value={formData['Имя клиента']}
+                                            onChange={handleInputChange}
+                                            placeholder="Иванов Иван Иванович"
+                                            required
+                                            className="block w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 text-gray-900 dark:text-white py-2.5 pl-10 pr-3.5 text-sm placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all font-medium"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 2. ТЕЛЕФОН (Col span 5 on desktop) */}
+                                <div className="md:col-span-5">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                                        <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                        <span>Телефон</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-200/60 dark:bg-gray-700/60 px-1.5 py-0.5 rounded">
+                                                +7
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            name="Телефон"
+                                            value={formData['Телефон']}
+                                            onChange={handleInputChange}
+                                            placeholder="(999) 000-00-00"
+                                            className="block w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 text-gray-900 dark:text-white py-2.5 pl-12 pr-3.5 text-sm font-mono placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all font-medium"
+                                        />
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* SECTION 2: АВТОМОБИЛЬ И TELEGRAM */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                                
+                                {/* 3. ГОСНОМЕР АВТО С REAL-TIME ПРЕВЬЮ НОМЕРА */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5 min-h-[22px]">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                                            <span>🚗 Госномер Авто</span>
+                                        </label>
+                                        {/* Real-time Russian Plate Preview */}
+                                        {formData['Номер Авто'] && (
+                                            <RussianCarPlateBadge plate={formData['Номер Авто']} />
+                                        )}
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            name="Номер Авто"
+                                            value={formData['Номер Авто']}
+                                            onChange={(e) => handleCarNumberChange(e.target.value)}
+                                            placeholder="А123ВС777"
+                                            maxLength={10}
+                                            className="block w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 text-gray-900 dark:text-white py-2.5 px-3.5 text-sm font-mono font-bold tracking-wider placeholder:text-gray-400 uppercase focus:bg-white dark:focus:bg-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 mt-1 block">
+                                        Буквы (А, В, Е, К, М, Н, О, Р, С, Т, У, Х) и цифры региона
+                                    </span>
+                                </div>
+
+                                {/* 4. TELEGRAM CHAT ID */}
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1.5 flex items-center justify-between min-h-[22px]">
+                                        <span className="flex items-center gap-1.5">
+                                            <ChatIcon className="w-3.5 h-3.5 text-blue-500" />
+                                            <span>Telegram Chat ID</span>
+                                        </span>
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">для чеков и бота</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-blue-500">
+                                            <span className="font-bold text-xs">@</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            name="Chat ID"
+                                            value={formData['Chat ID']}
+                                            onChange={handleInputChange}
+                                            placeholder="123456789 или username"
+                                            className="block w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 text-gray-900 dark:text-white py-2.5 pl-8 pr-3.5 text-sm font-mono placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all font-medium"
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 mt-1 block">
+                                        ID для автоматической отправки уведомлений и чека в Telegram
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            {/* SECTION 3: АДРЕС И ИСТОЧНИК ТРАФИКА */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pt-1">
+                                
+                                {/* 5. АДРЕС КЛИЕНТА (Col span 7 on desktop) */}
+                                <div className="md:col-span-7">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                                        <MapPinIcon className="w-3.5 h-3.5 text-rose-500" />
+                                        <span>Адрес клиента</span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            name="Адрес клиента"
+                                            value={formData['Адрес клиента']}
+                                            onChange={handleInputChange}
+                                            placeholder="Город, улица, дом, квартира / бокс"
+                                            className="block w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 text-gray-900 dark:text-white py-2.5 px-3.5 text-sm placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all font-medium"
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 mt-1 block">
+                                        Используется для курьера и услуги «Вывоз шин»
+                                    </span>
+                                </div>
+
+                                {/* 6. ИСТОЧНИК ТРАФИКА С БЫСТРЫМИ ЧИПАМИ (Col span 5 on desktop) */}
+                                <div className="md:col-span-5">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 mb-1.5 flex items-center justify-between">
+                                        <span>Источник трафика</span>
+                                        <span className="text-[10px] font-normal text-gray-400">откуда клиент</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="Источник трафика"
+                                        value={formData['Источник трафика']}
+                                        onChange={handleInputChange}
+                                        placeholder="Авито, Яндекс, Рекомендация..."
+                                        className="block w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 text-gray-900 dark:text-white py-2.5 px-3.5 text-sm placeholder:text-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all font-medium"
+                                    />
+                                    {/* Fast Chip Suggestions */}
+                                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                        {['Авито', 'Сайт', 'Рекомендация', 'Постоянный', '2ГИС / Карты'].map(tag => (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                onClick={() => handleChange({ 'Источник трафика': tag })}
+                                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
+                                                    formData['Источник трафика'] === tag
+                                                        ? 'bg-primary-50 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-800'
+                                                        : 'bg-gray-100/80 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-transparent hover:border-gray-300 dark:hover:border-gray-700'
+                                                }`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
 
                     <Card 
                         title="Шины и Услуги" 

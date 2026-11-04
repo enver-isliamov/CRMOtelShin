@@ -9,6 +9,7 @@ import { Lightbox } from './ui/Lightbox';
 import { OrderHistory, OrderStatusBadge } from './ui/Timeline';
 import { PaymentModal } from './ui/PaymentModal';
 import { SeasonalSwapModal } from './ui/SeasonalSwapModal';
+import { RussianCarPlateBadge } from './ui/CarPlateBadge';
 
 // --- CANONICAL ICONS ---
 import { 
@@ -29,7 +30,9 @@ import {
     CalendarDaysIcon,
     CheckIcon,
     MapPinIcon,
-    ArrowTopRightOnSquareIcon
+    ArrowTopRightOnSquareIcon,
+    EllipsisHorizontalIcon,
+    XMarkIcon
 } from './icons/Icons';
 
 // Helper to extract JSON tire groups
@@ -57,72 +60,7 @@ const getTireGroups = (client: Client): TireGroup[] => {
     return groups;
 };
 
-// Authentic Russian Car License Plate Badge (Clean style with rounded-lg & subtle matching border)
-const RussianCarPlateBadge: React.FC<{ plate?: string; className?: string }> = ({ plate, className = '' }) => {
-    if (!plate || !plate.trim()) return null;
-    const raw = plate.trim().toUpperCase();
-    const clean = raw.replace(/\s+/g, '');
 
-    // Standard Russian plate format: 1 letter + 3 digits + 2 letters + 2-3 digits region
-    // Russian letters allowed on plates: А, В, Е, К, М, Н, О, Р, С, Т, У, Х (and Latin equivalents)
-    const match = clean.match(/^([АВЕКМНОРСТУХABEKMHOPCTYX])(\d{3})([АВЕКМНОРСТУХABEKMHOPCTYX]{2})(\d{2,3})$/i);
-
-    if (match) {
-        const [, l1, digits, l2, region] = match;
-        return (
-            <div 
-                className={`inline-flex items-center bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono tracking-tight leading-none ${className}`}
-                title={`Госномер: ${l1} ${digits} ${l2} ${region}`}
-            >
-                {/* Main section: Letter Digits Letters */}
-                <div className="flex items-center px-2 py-1 gap-1 text-[13px] font-bold">
-                    <span className="text-[12px]">{l1}</span>
-                    <span className="text-[14px] font-extrabold tracking-wider">{digits}</span>
-                    <span className="text-[12px]">{l2}</span>
-                </div>
-
-                {/* Thin vertical partition matching the border color */}
-                <div className="w-px bg-gray-300 dark:bg-gray-600 self-stretch my-0.5" />
-
-                {/* Region Section without RUS/Flag */}
-                <div className="flex items-center justify-center px-2 py-1 min-w-[24px]">
-                    <span className="text-[12px] font-extrabold tracking-normal">
-                        {region}
-                    </span>
-                </div>
-            </div>
-        );
-    }
-
-    // Secondary match: e.g. "А123ВС 77" or "A 123 BC 777"
-    const generalMatch = raw.match(/^(.*?)[-\s]+(\d{2,3})$/);
-    if (generalMatch) {
-        const [, mainPart, region] = generalMatch;
-        return (
-            <div 
-                className={`inline-flex items-center bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xs select-all whitespace-nowrap shrink-0 overflow-hidden font-mono leading-none ${className}`}
-                title={`Госномер: ${raw}`}
-            >
-                <div className="flex items-center px-2 py-1 text-[13px] font-bold">
-                    {mainPart}
-                </div>
-                <div className="w-px bg-gray-300 dark:bg-gray-600 self-stretch my-0.5" />
-                <div className="flex items-center justify-center px-2 py-1 min-w-[22px]">
-                    <span className="text-[12px] font-extrabold tracking-normal">{region}</span>
-                </div>
-            </div>
-        );
-    }
-
-    // Fallback for custom or special text
-    return (
-        <div 
-            className={`inline-flex items-center px-2.5 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xs select-all whitespace-nowrap shrink-0 font-mono text-xs font-bold tracking-wider leading-none ${className}`}
-        >
-            <span>{raw}</span>
-        </div>
-    );
-};
 
 // Expiry Days Calculator and Badge using unified checkStorageExpiry
 const getRemainingDaysInfo = (endDateString?: string) => {
@@ -346,6 +284,7 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, a
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [selectedLightboxUrl, setSelectedLightboxUrl] = useState<string | null>(null);
+    const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
     const handleSwapComplete = (updatedClient: Client) => {
         setClient(updatedClient);
@@ -1209,119 +1148,77 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                 )}
             </main>
 
-            {/* 3. STICKY BOTTOM ACTIONS TOOLBAR (Mobile-First, Ergonomic) */}
-            <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-2.5 sm:p-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center">
-                    
+            {/* 3. STICKY BOTTOM ACTIONS TOOLBAR (Mobile-First, Ergonomic, Clean Hierarchy) */}
+            <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-2 sm:p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="max-w-4xl mx-auto">
                     {mode === 'view' && (
-                        <>
-                            {/* Primary Payment Action Button */}
-                            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                            
+                            {/* 1. PRIMARY ACTION: PAYMENT (With Debt Highlight) */}
+                            <button 
+                                type="button"
+                                onClick={() => setIsPaymentModalOpen(true)} 
+                                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 py-2.5 px-3.5 sm:px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold shadow-xs transition-all text-xs sm:text-sm min-h-[44px]"
+                                title="Внести оплату или погасить задолженность"
+                            >
+                                <BanknotesIcon className="w-4 h-4 text-white shrink-0" /> 
+                                <span className="whitespace-nowrap truncate font-extrabold">
+                                    {hasDebt 
+                                        ? `Оплатить (${new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)})`
+                                        : 'Внести оплату'
+                                    }
+                                </span>
+                            </button>
+
+                            {/* 2. CORE OPERATIONAL ACTION: SEASON SWAP / ISSUE TIRES */}
+                            <button 
+                                type="button"
+                                onClick={() => setIsSwapModalOpen(true)} 
+                                className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 sm:px-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold active:scale-98 transition-all text-xs min-h-[44px] whitespace-nowrap shadow-2xs"
+                                title="Оформить сезонную смену шин или выдачу"
+                            >
+                                <span>🔄</span>
+                                <span className="hidden xs:inline sm:inline">Смена сезона</span>
+                                <span className="xs:hidden sm:hidden">Сезон</span>
+                            </button>
+
+                            {/* 3. QUICK TOOLS: RECEIPT, TELEGRAM, AND "••• ЕЩЁ" MENU */}
+                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                                {/* RECEIPT / CHECK */}
                                 <button 
                                     type="button"
-                                    onClick={() => setIsPaymentModalOpen(true)} 
-                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs active:scale-98 transition-all text-xs sm:text-sm whitespace-nowrap"
-                                    title="Принять оплату"
-                                >
-                                    <BanknotesIcon className="w-4 h-4 text-white" /> 
-                                    <span>
-                                        {hasDebt 
-                                            ? `Оплатить (${new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)})`
-                                            : 'Внести оплату'
-                                        }
-                                    </span>
-                                </button>
-                            </div>
-                            
-                            {/* Secondary Actions Row */}
-                            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap">
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
-                                    onClick={handleEditClient} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !rounded-lg"
-                                    title="Редактировать заказ"
-                                >
-                                    <EditIcon className="w-3.5 h-3.5 mr-1 text-gray-500" /> 
-                                    <span>Изм.</span>
-                                </Button>
-
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
                                     onClick={handleGenerateReceipt} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-indigo-50 !text-indigo-700 dark:!bg-indigo-950/40 dark:!text-indigo-300 !rounded-lg" 
-                                    title="Сформировать чек и договор"
+                                    className="inline-flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 font-bold text-xs min-h-[44px] min-w-[42px] transition-colors" 
+                                    title="Сформировать электронный чек и договор"
                                 >
-                                    <ReceiptIcon className="w-3.5 h-3.5 mr-1 text-indigo-600 dark:text-indigo-400" /> 
-                                    <span>Чек</span>
-                                </Button>
+                                    <ReceiptIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" /> 
+                                    <span className="hidden sm:inline">Чек</span>
+                                </button>
 
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
+                                {/* TELEGRAM */}
+                                <button 
+                                    type="button"
                                     onClick={handleClientMessage} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !rounded-lg" 
+                                    className="inline-flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 font-bold text-xs min-h-[44px] min-w-[42px] transition-colors" 
                                     title="Написать клиенту в Telegram"
                                 >
-                                    <MessageIcon className="w-3.5 h-3.5 mr-1 text-gray-500" /> 
-                                    <span>TG</span>
-                                </Button>
+                                    <MessageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" /> 
+                                    <span className="hidden sm:inline">TG</span>
+                                </button>
 
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
-                                    onClick={() => setIsSwapModalOpen(true)} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-primary-50 !text-primary-700 hover:!bg-primary-100 dark:!bg-primary-950/40 dark:!text-primary-300 !rounded-lg" 
-                                    title="Оформить сезонную замену шин"
+                                {/* MORE ACTIONS MENU TRIGGER ("••• Ещё") */}
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsMoreMenuOpen(true)}
+                                    className="inline-flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 font-bold text-xs min-h-[44px] min-w-[42px] transition-colors group"
+                                    title="Все действия с клиентом"
                                 >
-                                    <span className="mr-1">🔄</span>
-                                    <span>Смена сезона</span>
-                                </Button>
-
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
-                                    onClick={handleNewOrder} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-emerald-50 !text-emerald-700 hover:!bg-emerald-100 dark:!bg-emerald-950/40 dark:!text-emerald-300 !rounded-lg" 
-                                    title="Добавить еще один комплект шин"
-                                >
-                                    <DocumentPlusIcon className="w-3.5 h-3.5 mr-1 text-emerald-600 dark:text-emerald-400" /> 
-                                    <span>+ Комплект</span>
-                                </Button>
-
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
-                                    onClick={handleAdminMessage} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2.5 text-xs !bg-blue-50 !text-blue-700 dark:!bg-blue-950/30 dark:!text-blue-300 !rounded-lg" 
-                                    title="Сообщение администраторам"
-                                >
-                                    <ShieldCheckIcon className="w-3.5 h-3.5 mr-1 text-blue-600 dark:text-blue-400" /> 
-                                    <span>Админу</span>
-                                </Button>
-
-                                <Button 
-                                    size="sm" 
-                                    variant="secondary" 
-                                    onClick={handleArchive} 
-                                    className="flex-shrink-0 justify-center !py-1.5 !px-2 text-xs !bg-amber-50 !text-amber-800 dark:!bg-amber-950/30 dark:!text-amber-300 !rounded-lg" 
-                                    title="Завершить хранение и в архив"
-                                >
-                                    <span>Архив</span>
-                                </Button>
-
-                                <Button 
-                                    size="sm" 
-                                    variant="danger" 
-                                    onClick={handleDelete} 
-                                    className="flex-shrink-0 justify-center !p-1.5 !rounded-lg" 
-                                    title="Удалить клиента"
-                                >
-                                    <DeleteIcon className="w-3.5 h-3.5" />
-                                </Button>
+                                    <EllipsisHorizontalIcon className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline">Ещё</span>
+                                </button>
                             </div>
-                        </>
+
+                        </div>
                     )}
 
                     {mode === 'message' && (
@@ -1331,7 +1228,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 size="sm"
                                 onClick={() => setMode('view')} 
                                 disabled={isSubmitting} 
-                                className="flex-1 !rounded-xl"
+                                className="flex-1 !rounded-xl !py-2.5 min-h-[44px]"
                             >
                                 Отмена
                             </Button>
@@ -1339,7 +1236,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                 size="sm" 
                                 onClick={handleSendMessage} 
                                 disabled={isSubmitting || (messageTarget === 'client' && !client?.['Chat ID'])} 
-                                className="flex-1 !rounded-xl"
+                                className="flex-1 !rounded-xl !py-2.5 min-h-[44px]"
                             >
                                 {isSubmitting ? 'Отправка...' : 'Отправить в Telegram'}
                             </Button>
@@ -1368,6 +1265,223 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                     onSwapComplete={handleSwapComplete}
                     showToast={showToast}
                 />
+            )}
+
+            {/* 4. MODERN ACTION SHEET MODAL ("••• Ещё действия") */}
+            {isMoreMenuOpen && client && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                    {/* Backdrop */}
+                    <div 
+                        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+                        onClick={() => setIsMoreMenuOpen(false)}
+                    />
+
+                    {/* Sheet Container */}
+                    <div className="relative z-10 w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-250">
+                        {/* Mobile Grab Indicator */}
+                        <div className="pt-3 pb-1 flex justify-center sm:hidden">
+                            <div className="w-12 h-1 bg-gray-300 dark:bg-gray-700 rounded-full" />
+                        </div>
+
+                        {/* Sheet Header */}
+                        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+                            <div className="min-w-0 flex-1 pr-2">
+                                <h3 className="text-base font-extrabold text-gray-900 dark:text-white">
+                                    Действия с клиентом
+                                </h3>
+                                <p className="text-xs text-gray-500 truncate">
+                                    {client['Имя клиента']} • {client['Номер Авто'] || 'Без авто'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsMoreMenuOpen(false)}
+                                className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                            >
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Sheet Body with Organized Categories */}
+                        <div className="p-3 sm:p-4 space-y-4 overflow-y-auto">
+                            
+                            {/* SECTION 1: ЗАКАЗЫ И ХРАНЕНИЕ */}
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 block mb-1">
+                                    Заказы и хранение
+                                </span>
+                                <div className="space-y-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            setIsSwapModalOpen(true);
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/70 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform font-bold">
+                                            🔄
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-gray-900 dark:text-white">Смена сезона / Выдача шин</div>
+                                            <div className="text-[11px] text-gray-500 truncate">Сменить сезон, продлить хранение или выдать комплект</div>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            handleNewOrder();
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/70 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                            <DocumentPlusIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-gray-900 dark:text-white">+ Добавить ещё один комплект шин</div>
+                                            <div className="text-[11px] text-gray-500 truncate">Оформить дополнительный заказ на хранение для клиента</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* SECTION 2: ДОКУМЕНТЫ И СВЯЗЬ */}
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 block mb-1">
+                                    Документы и связь
+                                </span>
+                                <div className="space-y-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            handleGenerateReceipt();
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/70 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                            <ReceiptIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-gray-900 dark:text-white">Сформировать чек и договор</div>
+                                            <div className="text-[11px] text-gray-500 truncate">Подготовить электронный акт с QR-кодом и расчётом</div>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            handleClientMessage();
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/70 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                            <MessageIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-gray-900 dark:text-white">Написать клиенту в Telegram</div>
+                                            <div className="text-[11px] text-gray-500 truncate">Чат ID: {client['Chat ID'] ? client['Chat ID'] : 'Не привязан'}</div>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            handleAdminMessage();
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/70 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                            <ShieldCheckIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-gray-900 dark:text-white">Сообщение администраторам</div>
+                                            <div className="text-[11px] text-gray-500 truncate">Отправить служебное уведомление управляющим</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* SECTION 3: КАРТОЧКА КЛИЕНТА */}
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 block mb-1">
+                                    Карточка клиента
+                                </span>
+                                <div className="space-y-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            handleEditClient();
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/70 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                            <EditIcon className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-gray-900 dark:text-white">Редактировать карточку</div>
+                                            <div className="text-[11px] text-gray-500 truncate">Изменить телефон, госномер авто, склад, ячейку или адрес</div>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsMoreMenuOpen(false);
+                                            handleArchive();
+                                        }}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-amber-50/80 dark:hover:bg-amber-950/40 text-left transition-colors group"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform text-sm">
+                                            📦
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-amber-900 dark:text-amber-200">Завершить хранение (в архив)</div>
+                                            <div className="text-[11px] text-amber-700/80 dark:text-amber-400 truncate">Шины выданы, перевести заказ в архив истории</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* SECTION 4: ОПАСНАЯ ЗОНА */}
+                            <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMoreMenuOpen(false);
+                                        handleDelete();
+                                    }}
+                                    className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-left transition-colors group"
+                                >
+                                    <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                        <DeleteIcon className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-bold text-rose-600 dark:text-rose-400">Удалить клиента</div>
+                                        <div className="text-[11px] text-rose-500/80 dark:text-rose-400/80 truncate">Безвозвратное удаление карточки клиента и заказов</div>
+                                    </div>
+                                </button>
+                            </div>
+
+                        </div>
+
+                        {/* Sheet Footer */}
+                        <div className="p-3 bg-gray-50/80 dark:bg-gray-800/40 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
+                            <button
+                                type="button"
+                                onClick={() => setIsMoreMenuOpen(false)}
+                                className="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-700 dark:text-gray-300 transition-colors shadow-2xs"
+                            >
+                                Закрыть
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
