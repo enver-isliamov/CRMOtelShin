@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { Client, Settings as SettingsType, MessageTemplate, Master, SavedView, UserRole } from './types';
 import { api } from './services/api';
+import { buildUnifiedClients } from './utils/clientGrouping';
 
 // Components
 import { Dashboard } from './components/Dashboard';
@@ -110,8 +111,10 @@ export default function App() {
         api.fetchMasters()
       ]);
       
-      setClients(clientData.clients);
-      setArchive(clientData.archive);
+      // Client-Centric Architecture: unify orders under unique clients (1 client -> N orders)
+      const unified = buildUnifiedClients(clientData.clients, clientData.archive);
+      setClients(unified.activeClients);
+      setArchive(unified.inactiveClients);
       setHeaders(clientData.headers);
       setSettings(settingsData);
       setTemplates(templatesData);

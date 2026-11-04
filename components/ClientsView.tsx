@@ -67,12 +67,15 @@ const FilterBadge: React.FC<{text: string; onRemove: () => void}> = ({ text, onR
 );
 
 // Individual client row component
+// Individual client row component
 const ClientRowItem: React.FC<{
     client: Client;
     onClick: (e: React.MouseEvent) => void;
 }> = ({ client, onClick }) => {
-    const expiry = checkStorageExpiry(client['Окончание']);
+    const isTiresOut = client.hasActiveStorage === false || client['Склад хранения'] === 'У Клиента' || client['Статус сделки'] === 'Шины у клиента';
+    const expiry = isTiresOut ? null : checkStorageExpiry(client['Окончание']);
     const isUrgentExpiry = expiry?.isUrgent === true;
+    const ordersCount = client.ordersCount || client.orders?.length || 1;
 
     return (
         <div 
@@ -86,6 +89,23 @@ const ClientRowItem: React.FC<{
                      <span className="font-semibold text-gray-900 dark:text-white text-base truncate">
                         {client['Имя клиента']}
                      </span>
+
+                     {ordersCount > 1 && (
+                        <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-primary-50 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800 shadow-2xs whitespace-nowrap"
+                            title={`Всего оформлено сезонов/заказов: ${ordersCount}`}
+                        >
+                            <span>📦</span>
+                            <span>{ordersCount} {ordersCount === 2 || ordersCount === 3 || ordersCount === 4 ? 'сезона' : 'сезонов'}</span>
+                        </span>
+                     )}
+
+                     {isTiresOut && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 whitespace-nowrap">
+                            🚗 Шины у клиента
+                        </span>
+                     )}
+
                      {(client['Долг'] || 0) > 0 && (
                         <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm ring-1 ring-red-400/50" title={`Долг: ${client['Долг']} ₽`}></span>
                      )}
@@ -132,25 +152,38 @@ const ClientRowItem: React.FC<{
             </div>
 
             <div className="text-right flex flex-col gap-1 flex-shrink-0">
-                 <span className={`text-sm flex items-center justify-end gap-1.5 ${
-                     isUrgentExpiry 
-                         ? 'font-bold text-rose-600 dark:text-rose-400' 
-                         : 'text-gray-600 dark:text-gray-300'
-                 }`}>
-                     <span>{formatDateForDisplay(client['Окончание'])}</span>
-                     {isUrgentExpiry && (
-                         <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-2xs">
-                             ≤ 7 дн.
+                 {isTiresOut ? (
+                     <>
+                         <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                             {client['Окончание'] ? `Выдан: ${formatDateForDisplay(client['Окончание'])}` : 'Шины на руках'}
                          </span>
-                     )}
-                 </span>
-                 <span className={`font-bold text-sm ${
-                     (client['Долг'] || 0) > 0 
-                     ? 'text-red-600 dark:text-red-400' 
-                     : 'text-gray-900 dark:text-white'
-                 }`}>
-                     {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)}
-                 </span>
+                         <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
+                             {client['Статус сделки'] || 'Сезон завершён'}
+                         </span>
+                     </>
+                 ) : (
+                     <>
+                         <span className={`text-sm flex items-center justify-end gap-1.5 ${
+                             isUrgentExpiry 
+                                 ? 'font-bold text-rose-600 dark:text-rose-400' 
+                                 : 'text-gray-600 dark:text-gray-300'
+                         }`}>
+                             <span>{formatDateForDisplay(client['Окончание'])}</span>
+                             {isUrgentExpiry && (
+                                 <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-2xs">
+                                     ≤ 7 дн.
+                                 </span>
+                             )}
+                         </span>
+                         <span className={`font-bold text-sm ${
+                             (client['Долг'] || 0) > 0 
+                             ? 'text-red-600 dark:text-red-400' 
+                             : 'text-gray-900 dark:text-white'
+                         }`}>
+                             {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client['Долг'] || 0)}
+                         </span>
+                     </>
+                 )}
             </div>
         </div>
     );
@@ -178,8 +211,8 @@ export const ClientsView: React.FC<{
 }> = ({ clients, archive = [], headers = [], savedViews, onSaveViews, refreshData }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [viewTab, setViewTab] = useState<'active' | 'archive'>(
-    searchParams.get('tab') === 'archive' ? 'archive' : 'active'
+  const [viewTab, setViewTab] = useState<'active' | 'archive' | 'all'>(
+    searchParams.get('tab') === 'archive' ? 'archive' : (searchParams.get('tab') === 'all' ? 'all' : 'active')
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -203,12 +236,15 @@ export const ClientsView: React.FC<{
     const tabParam = searchParams.get('tab');
     if (tabParam === 'archive' && viewTab !== 'archive') {
       setViewTab('archive');
+    } else if (tabParam === 'all' && viewTab !== 'all') {
+      setViewTab('all');
     } else if (!tabParam && viewTab !== 'active') {
       setViewTab('active');
     }
   }, [searchParams]);
 
   const currentBaseList = useMemo(() => {
+    if (viewTab === 'all') return [...clients, ...archive];
     return viewTab === 'archive' ? archive : clients;
   }, [viewTab, clients, archive]);
 
@@ -547,7 +583,7 @@ export const ClientsView: React.FC<{
       {/* COMPACT HEADER / FILTER BAR */}
       <Card className="!p-3 sm:!p-4">
         <div className="flex flex-col gap-3">
-          {/* Active vs Archive Segment Switcher */}
+          {/* Active vs Inactive (Tires with Client) vs All Clients Switcher */}
           <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700/80 pb-2.5 overflow-x-auto gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
@@ -562,7 +598,7 @@ export const ClientsView: React.FC<{
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <span>📦 Активные на складе</span>
+                  <span>📦 На складе</span>
                   <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${viewTab === 'active' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                     {clients.length}
                   </span>
@@ -575,19 +611,36 @@ export const ClientsView: React.FC<{
                   }}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap active:scale-95 ${
                     viewTab === 'archive'
-                      ? 'bg-primary-600 text-white shadow-xs'
+                      ? 'bg-amber-600 text-white shadow-xs'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <span>🗄️ Архив заказов</span>
+                  <span>🚗 Шины у клиента</span>
                   <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${viewTab === 'archive' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                     {archive.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewTab('all');
+                    setSearchParams(p => { p.set('tab', 'all'); return p; });
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap active:scale-95 ${
+                    viewTab === 'all'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <span>👥 Все клиенты</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${viewTab === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+                    {clients.length + archive.length}
                   </span>
                 </button>
             </div>
 
             <div className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap hidden md:block">
-               Всего в базе: <span className="font-bold text-gray-800 dark:text-gray-200">{clients.length + archive.length}</span> заказов
+               Клиентская база: <span className="font-bold text-gray-800 dark:text-gray-200">{clients.length + archive.length}</span> уникальных клиентов
             </div>
           </div>
 

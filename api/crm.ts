@@ -274,10 +274,23 @@ export default async function handler(req: any, res: any) {
         break;
 
       case 'getarchived':
-        const clientLookupRes = await pool.query('SELECT data->>\'Телефон\' as phone FROM clients WHERE id = $1', [payload.clientId]);
+        const clientLookupRes = await pool.query('SELECT phone, name, data->>\'Телефон\' as d_phone, data->>\'Имя клиента\' as d_name FROM clients WHERE id = $1', [payload.clientId]);
         if (clientLookupRes.rowCount && clientLookupRes.rowCount > 0) {
-            const phone = clientLookupRes.rows[0].phone;
-            const archRes = await pool.query('SELECT data FROM clients WHERE is_archived = TRUE AND (phone = $1 OR data->>\'Телефон\' = $1)', [phone]);
+            const row = clientLookupRes.rows[0];
+            const phone = row.phone || row.d_phone;
+            const name = row.name || row.d_name;
+            const archRes = await pool.query(
+                `SELECT data FROM clients 
+                 WHERE is_archived = TRUE 
+                   AND (
+                     (phone IS NOT NULL AND phone = $1) OR 
+                     (data->>'Телефон' IS NOT NULL AND data->>'Телефон' = $1) OR
+                     (name IS NOT NULL AND name = $2) OR
+                     (data->>'Имя клиента' IS NOT NULL AND data->>'Имя клиента' = $2)
+                   )
+                 ORDER BY created_at DESC`,
+                [phone, name]
+            );
             result.orders = archRes.rows.map(r => r.data);
         } else {
             result.orders = [];

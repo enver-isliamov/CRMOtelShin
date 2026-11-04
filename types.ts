@@ -1,4 +1,36 @@
 
+export interface StorageOrder {
+  id: string;
+  contract: string;
+  qrCode?: string;
+  startDate: string;
+  durationMonths: number;
+  reminderDate?: string;
+  expiryDate: string;
+  warehouse: string;
+  cell?: string;
+  pricePerMonth: number;
+  totalPrice: number;
+  debt: number;
+  status: string;
+  servicePickup?: boolean;
+  serviceWash?: boolean;
+  servicePack?: boolean;
+  isArchived: boolean;
+  photoUrls?: string[];
+  brandModel?: string;
+  tireSize?: string;
+  dotCode?: string;
+  season?: 'Лето' | 'Зима';
+  tireCount?: number;
+  hasRims?: 'Да' | 'Нет';
+  metadata?: string;
+  clientId?: string;
+  clientName?: string;
+  phone?: string;
+  carNumber?: string;
+}
+
 export interface Client {
   id: string;
   'Дата добавления'?: string;
@@ -31,6 +63,16 @@ export interface Client {
   'Услуга: Упаковка'?: boolean;
   photoUrls?: string[];
   metadata?: string; // New field for JSON data
+  is_archived?: boolean;
+
+  // Client-Centric Order Relations
+  orders?: StorageOrder[];
+  ordersCount?: number;
+  hasActiveStorage?: boolean;
+  totalSpent?: number;
+  activeOrder?: StorageOrder;
+  latestOrder?: StorageOrder;
+
   [key:string]: any;
 }
 

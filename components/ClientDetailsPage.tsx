@@ -354,7 +354,12 @@ export const ClientDetailsPage: React.FC<ClientDetailsPageProps> = ({ clients, a
 
     useEffect(() => {
         if (!id) return;
-        const foundClient = clients.find(c => String(c.id) === String(id)) || archive.find(c => String(c.id) === String(id));
+        let foundClient = clients.find(c => String(c.id) === String(id)) || archive.find(c => String(c.id) === String(id));
+        if (!foundClient) {
+            // Resolve via order id or contract from unified orders list
+            foundClient = clients.find(c => c.orders?.some(o => String(o.id) === String(id) || String(o.contract) === String(id))) ||
+                          archive.find(c => c.orders?.some(o => String(o.id) === String(id) || String(o.contract) === String(id)));
+        }
         if (foundClient) {
             setClient(foundClient);
         } else if (location.state?.client) {
@@ -567,8 +572,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
             ? (rawPhotos as unknown as string).split(',').map(s => s.trim()).filter(Boolean)
             : []);
     const descClean = (client?.['Заказ - QR'] || '').split('||JSON:')[0]?.trim();
-    const expiryInfo = getRemainingDaysInfo(client['Окончание']);
+    const isTiresOut = client?.hasActiveStorage === false || client?.['Склад хранения'] === 'У Клиента' || client?.['Статус сделки'] === 'Шины у клиента';
+    const expiryInfo = isTiresOut ? null : getRemainingDaysInfo(client['Окончание']);
     const groups = getTireGroups(client);
+    const ordersCount = client?.ordersCount || client?.orders?.length || 1;
 
     // Initials for avatar
     const initials = (client['Имя клиента'] || 'К')
@@ -579,9 +586,10 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
         .toUpperCase();
 
     // Deal Status Styling
-    const status = client['Статус сделки'] || 'На складе';
+    const status = isTiresOut ? 'Шины у клиента' : (client['Статус сделки'] || 'На складе');
     const statusStyles = {
         'На складе': 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+        'Шины у клиента': 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
         'Оплачено': 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
         'Частичная оплата': 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
         'Без оплаты': 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800',
@@ -692,7 +700,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                             
                             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
                                 <CalendarDaysIcon className="w-3.5 h-3.5" />
-                                <span>История ({client['Срок'] || 0}м)</span>
+                                <span>Заказы и сезоны ({ordersCount})</span>
                             </TabButton>
                             
                             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>
@@ -708,6 +716,37 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                         {/* 2.2 DETAILS TAB: LOGICALLY SEPARATED BLOCKS */}
                         {activeTab === 'details' && (
                             <div className="space-y-3.5 animate-in fade-in duration-150">
+
+                                {/* Banner when client's tires are currently with them */}
+                                {isTiresOut && (
+                                    <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2.5 rounded-xl bg-amber-500 text-white shrink-0 mt-0.5 shadow-xs">
+                                                <span className="text-xl">🚗</span>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h4 className="font-extrabold text-sm sm:text-base text-amber-900 dark:text-amber-100">
+                                                        Шины сейчас находятся у клиента
+                                                    </h4>
+                                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-100">
+                                                        Всего в истории: {ordersCount} {ordersCount === 1 ? 'заказ' : (ordersCount >= 2 && ordersCount <= 4 ? 'заказа' : 'заказов')}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-amber-800/90 dark:text-amber-300/90 mt-1 leading-relaxed">
+                                                    Активного комплекта на складе сейчас нет (шины выданы клиенту). Последний договор: <span className="font-mono font-bold">#{client['Договор']}</span> ({client['Бренд_Модель'] || client['Размер шин'] || 'Комплект'}).
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            size="sm"
+                                            onClick={() => navigate('/add-client', { state: { clientToReorder: client } })}
+                                            className="w-full sm:w-auto shrink-0 !py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold whitespace-nowrap shadow-xs"
+                                        >
+                                            + Принять на новый сезон
+                                        </Button>
+                                    </div>
+                                )}
                                 
                                 {/* Urgent Expiry Red Alert Banner (<= 7 days or overdue) */}
                                 {expiryInfo?.isUrgent && (
