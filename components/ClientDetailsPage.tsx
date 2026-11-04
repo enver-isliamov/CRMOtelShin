@@ -6,7 +6,7 @@ import { Button } from './ui/Button';
 import { Toast } from './ui/Toast';
 import { PhotoGallery } from './ui/PhotoGallery';
 import { Lightbox } from './ui/Lightbox';
-import { OrderHistory } from './ui/Timeline';
+import { OrderHistory, OrderStatusBadge } from './ui/Timeline';
 import { PaymentModal } from './ui/PaymentModal';
 import { SeasonalSwapModal } from './ui/SeasonalSwapModal';
 
@@ -700,7 +700,7 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                             
                             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
                                 <CalendarDaysIcon className="w-3.5 h-3.5" />
-                                <span>Заказы и сезоны ({ordersCount})</span>
+                                <span>Заказы и хроника ({ordersCount})</span>
                             </TabButton>
                             
                             <TabButton active={activeTab === 'photos'} onClick={() => setActiveTab('photos')}>
@@ -779,9 +779,14 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                     icon={<CalendarDaysIcon className="w-4 h-4 text-primary-600" />}
                                     badge={
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border whitespace-nowrap ${statusStyles}`}>
-                                                {status}
-                                            </span>
+                                            <OrderStatusBadge
+                                                status={client['Статус сделки']}
+                                                isArchived={client.is_archived || isTiresOut}
+                                                warehouse={client['Склад хранения']}
+                                                debt={Number(client['Долг'] || 0)}
+                                                cell={client['Ячейка']}
+                                                showCell={false}
+                                            />
                                             <span className="font-mono text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-lg border border-gray-200 dark:border-gray-700">
                                                 #{client['Договор']}
                                             </span>
@@ -1057,7 +1062,75 @@ ${Number(client['Долг']) > 0 ? `❗️ <b>К оплате (Долг):</b> ${
                                     </div>
                                 </SectionBlock>
 
-                                {/* BLOCK 4: ORDER NOTES & PHOTO QUICK STRIP */}
+                                {/* BLOCK 4: ORDERS & SEASONS HISTORY LIST */}
+                                <SectionBlock 
+                                    title={`История заказов и сезонов (${ordersCount})`}
+                                    icon={<CalendarDaysIcon className="w-4 h-4 text-primary-600" />}
+                                    badge={
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('history')}
+                                            className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+                                        >
+                                            <span>Вся хроника и лог ➔</span>
+                                        </button>
+                                    }
+                                >
+                                    <div className="space-y-2">
+                                        {client.orders && client.orders.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {client.orders.map((ord, oIdx) => (
+                                                    <div 
+                                                        key={ord.id || ord.contract || oIdx}
+                                                        onClick={() => setActiveTab('history')}
+                                                        className="p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/70 dark:border-gray-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer"
+                                                    >
+                                                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                                            <span className="font-mono text-xs font-extrabold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded shrink-0">
+                                                                #{ord.contract}
+                                                            </span>
+                                                            <OrderStatusBadge 
+                                                                status={ord.status}
+                                                                isArchived={ord.isArchived}
+                                                                warehouse={ord.warehouse}
+                                                                debt={ord.debt}
+                                                                cell={ord.cell}
+                                                            />
+                                                            <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
+                                                                {ord.season === 'Зима' ? '❄️ Зима' : '☀️ Лето'} • {ord.brandModel || ord.tireSize || 'Комплект шин'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-gray-500 shrink-0">
+                                                            <span>{formatDateForDisplay(ord.startDate)} — {formatDateForDisplay(ord.expiryDate)}</span>
+                                                            <span className="font-black text-gray-900 dark:text-white">{ord.totalPrice} ₽</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div 
+                                                onClick={() => setActiveTab('history')}
+                                                className="p-3 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 cursor-pointer hover:bg-gray-100/60 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <OrderStatusBadge 
+                                                        status={client['Статус сделки']}
+                                                        isArchived={isTiresOut}
+                                                        warehouse={client['Склад хранения']}
+                                                        debt={Number(client['Долг'] || 0)}
+                                                        cell={client['Ячейка']}
+                                                    />
+                                                    <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                                                        Договор #{client['Договор']} ({client['Сезон'] || 'Сезон'} • {client['Бренд_Модель'] || 'Комплект'})
+                                                    </span>
+                                                </div>
+                                                <span className="text-xs font-bold text-primary-600 dark:text-primary-400 shrink-0">Хронология ➔</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </SectionBlock>
+
+                                {/* BLOCK 5: ORDER NOTES & PHOTO QUICK STRIP */}
                                 {descClean && (
                                     <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl p-3 text-xs">
                                         <p className="font-bold text-amber-800 dark:text-amber-300 uppercase text-[10px] mb-1">Заметки к заказу:</p>
