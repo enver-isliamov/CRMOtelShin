@@ -251,8 +251,19 @@ export function executeLocalAction(action: string, payload: any = {}, user: stri
 
         case 'delete': {
             const clientId = payload.clientId;
-            LocalCRMStorage.saveClients(clients.filter(c => c.id !== clientId));
-            LocalCRMStorage.saveArchive(archive.filter(c => c.id !== clientId));
+            const target = clients.find(c => c.id === clientId) || archive.find(c => c.id === clientId);
+            const targetPhone = target ? normalizePhone(target['Телефон']) : '';
+            const targetContract = target ? String(target['Договор'] || '').trim() : '';
+
+            const shouldRemove = (c: Client) => {
+                if (c.id === clientId) return true;
+                if (targetContract && targetContract !== '0000 00 00' && String(c['Договор'] || '').trim() === targetContract) return true;
+                if (targetPhone && targetPhone.length >= 7 && normalizePhone(c['Телефон']) === targetPhone) return true;
+                return false;
+            };
+
+            LocalCRMStorage.saveClients(clients.filter(c => !shouldRemove(c)));
+            LocalCRMStorage.saveArchive(archive.filter(c => !shouldRemove(c)));
             return { status: 'success' };
         }
 
@@ -749,6 +760,8 @@ export class PostgresCRMProvider implements ICRMProvider {
         if (isSupabaseConfigured()) {
             supabaseService.upsertClient(updatedClient as Client).catch(e => console.warn('[Supabase] updateClient mirror error:', e));
         }
+        offlineStorage.cacheClients(LocalCRMStorage.getClients()).catch(() => {});
+        offlineStorage.cacheArchive(LocalCRMStorage.getArchive()).catch(() => {});
 
         return updatedClient as Client;
     }
@@ -758,6 +771,8 @@ export class PostgresCRMProvider implements ICRMProvider {
         if (isSupabaseConfigured()) {
             supabaseService.deleteClient(clientId).catch(e => console.warn('[Supabase] deleteClient mirror error:', e));
         }
+        offlineStorage.cacheClients(LocalCRMStorage.getClients()).catch(() => {});
+        offlineStorage.cacheArchive(LocalCRMStorage.getArchive()).catch(() => {});
     }
 
     async archiveClient(clientId: string): Promise<void> {

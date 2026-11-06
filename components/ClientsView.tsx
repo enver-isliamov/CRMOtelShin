@@ -25,8 +25,10 @@ import {
 } from './icons/Icons';
 import { ExportClientsModal } from './ui/ExportClientsModal';
 import { ImportClientsModal } from './ui/ImportClientsModal';
+import { BulkMessageModal } from './ui/BulkMessageModal';
 
 export type GroupByOption = 'none' | 'season' | 'expiry' | 'warehouse' | 'status' | 'rims';
+export type StorageStatusFilter = 'all' | 'expiring' | 'expired' | 'in_storage' | 'with_client' | 'debt';
 
 const RU_MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -208,7 +210,7 @@ export const ClientsView: React.FC<{
     savedViews: SavedView[];
     onSaveViews: (views: SavedView[]) => void;
     refreshData: () => Promise<void>;
-}> = ({ clients, archive = [], headers = [], savedViews, onSaveViews, refreshData }) => {
+}> = ({ clients, archive = [], headers = [], templates = [], savedViews, onSaveViews, refreshData }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [viewTab, setViewTab] = useState<'active' | 'archive' | 'all'>(
@@ -221,11 +223,23 @@ export const ClientsView: React.FC<{
   const [groupBy, setGroupBy] = useState<GroupByOption>('none');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const [filters, setFilters] = useState({
+  const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
+  const [filters, setFilters] = useState<{
+    status: string;
+    warehouse: string;
+    debt: boolean;
+    expiring: boolean;
+    storageStatus: StorageStatusFilter;
+  }>({
     status: 'all',
     warehouse: 'all',
     debt: searchParams.get('filter') === 'debt',
     expiring: searchParams.get('filter') === 'expiring',
+    storageStatus: searchParams.get('filter') === 'expiring' 
+      ? 'expiring' 
+      : searchParams.get('filter') === 'debt' 
+      ? 'debt' 
+      : 'all',
   });
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'ascending' | 'descending' } | null>({ key: 'Начало', direction: 'descending' });
   const [newViewName, setNewViewName] = useState('');
@@ -248,13 +262,42 @@ export const ClientsView: React.FC<{
     return viewTab === 'archive' ? archive : clients;
   }, [viewTab, clients, archive]);
 
-  // Count clients whose storage ends within <= 7 days or is overdue (active only)
-  const urgentCount = useMemo(() => {
-    return clients.filter(c => {
+  // Comprehensive storage status metrics across current base list
+  const statusCounts = useMemo(() => {
+    let expiring = 0;
+    let expired = 0;
+    let inStorage = 0;
+    let withClient = 0;
+    let debt = 0;
+
+    currentBaseList.forEach(c => {
       const exp = checkStorageExpiry(c['Окончание']);
-      return exp?.isUrgent === true;
-    }).length;
-  }, [clients]);
+      if (exp?.isUrgent && !exp?.isExpired) expiring++;
+      if (exp?.isExpired) expired++;
+
+      const isOut = c.hasActiveStorage === false || 
+                    c['Склад хранения'] === 'У Клиента' || 
+                    c['Статус сделки'] === 'Шины у клиента' ||
+                    c['Статус сделки'] === 'Выдано' ||
+                    c['Статус сделки'] === 'Закрыта' ||
+                    c['Статус сделки'] === 'Завершено';
+
+      if (isOut) withClient++;
+      else inStorage++;
+
+      if ((c['Долг'] || 0) > 0) debt++;
+    });
+
+    return { 
+      expiring, 
+      expired, 
+      inStorage, 
+      withClient, 
+      debt, 
+      all: currentBaseList.length,
+      urgentTotal: expiring + expired
+    };
+  }, [currentBaseList]);
   
   const filterOptions = useMemo(() => {
     const statuses = new Set(currentBaseList.map(c => c['Статус сделки']).filter(Boolean));
@@ -268,10 +311,43 @@ export const ClientsView: React.FC<{
   const sortedClients = useMemo(() => {
     let clientsToFilter = [...currentBaseList];
 
-    if (filters.debt) {
+    // 1. Storage Status Filter (Filter by storage lifecycle & expiry)
+    if (filters.storageStatus === 'expiring') {
+        clientsToFilter = clientsToFilter.filter(c => {
+            const exp = checkStorageExpiry(c['Окончание']);
+            return exp?.isUrgent === true && !exp?.isExpired;
+        });
+    } else if (filters.storageStatus === 'expired') {
+        clientsToFilter = clientsToFilter.filter(c => {
+            const exp = checkStorageExpiry(c['Окончание']);
+            return exp?.isExpired === true;
+        });
+    } else if (filters.storageStatus === 'in_storage') {
+        clientsToFilter = clientsToFilter.filter(c => 
+            c.hasActiveStorage !== false && 
+            c['Склад хранения'] !== 'У Клиента' && 
+            c['Статус сделки'] !== 'Шины у клиента' &&
+            c['Статус сделки'] !== 'Выдано' &&
+            c['Статус сделки'] !== 'Закрыта' &&
+            c['Статус сделки'] !== 'Завершено'
+        );
+    } else if (filters.storageStatus === 'with_client') {
+        clientsToFilter = clientsToFilter.filter(c => 
+            c.hasActiveStorage === false || 
+            c['Склад хранения'] === 'У Клиента' || 
+            c['Статус сделки'] === 'Шины у клиента' ||
+            c['Статус сделки'] === 'Выдано' ||
+            c['Статус сделки'] === 'Закрыта' ||
+            c['Статус сделки'] === 'Завершено'
+        );
+    } else if (filters.storageStatus === 'debt') {
         clientsToFilter = clientsToFilter.filter(client => (client['Долг'] || 0) > 0);
     }
-    if (filters.expiring && viewTab === 'active') {
+
+    if (filters.debt && filters.storageStatus !== 'debt') {
+        clientsToFilter = clientsToFilter.filter(client => (client['Долг'] || 0) > 0);
+    }
+    if (filters.expiring && filters.storageStatus === 'all') {
         clientsToFilter = clientsToFilter.filter(client => {
             const exp = checkStorageExpiry(client['Окончание']);
             return exp?.isUrgent === true;
@@ -559,7 +635,7 @@ export const ClientsView: React.FC<{
       setCollapsedGroups(all);
   };
   
-  const isFiltersActive = filters.status !== 'all' || filters.warehouse !== 'all' || filters.debt || filters.expiring;
+  const isFiltersActive = filters.status !== 'all' || filters.warehouse !== 'all' || filters.debt || filters.expiring || filters.storageStatus !== 'all';
 
   // Check for duplicate IDs to warn user
   const hasDuplicates = useMemo(() => {
@@ -644,6 +720,99 @@ export const ClientsView: React.FC<{
             </div>
           </div>
 
+          {/* Quick Storage Status Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+            <span className="text-[11px] font-bold uppercase text-gray-400 shrink-0 mr-1 hidden sm:inline">
+              Статус:
+            </span>
+            <button
+              type="button"
+              onClick={() => setFilters(prev => ({ ...prev, storageStatus: 'all', debt: false, expiring: false }))}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap select-none ${
+                filters.storageStatus === 'all' && !filters.debt && !filters.expiring
+                  ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-2xs'
+                  : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              Все ({statusCounts.all})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilters(prev => ({ ...prev, storageStatus: 'expiring', debt: false, expiring: true }))}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap select-none ${
+                filters.storageStatus === 'expiring'
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100'
+              }`}
+            >
+              <span>⚠️ Срок истекает</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-black/10 dark:bg-white/20">
+                {statusCounts.expiring}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilters(prev => ({ ...prev, storageStatus: 'expired', debt: false, expiring: false }))}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap select-none ${
+                filters.storageStatus === 'expired'
+                  ? 'bg-rose-600 text-white shadow-2xs'
+                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100'
+              }`}
+            >
+              <span>🚨 Просрочено</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-black/10 dark:bg-white/20">
+                {statusCounts.expired}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilters(prev => ({ ...prev, storageStatus: 'in_storage', debt: false, expiring: false }))}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap select-none ${
+                filters.storageStatus === 'in_storage'
+                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
+              }`}
+            >
+              <span>📦 На складе</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-black/10 dark:bg-white/20">
+                {statusCounts.inStorage}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilters(prev => ({ ...prev, storageStatus: 'with_client', debt: false, expiring: false }))}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap select-none ${
+                filters.storageStatus === 'with_client'
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <span>🚗 У клиента</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-black/10 dark:bg-white/20">
+                {statusCounts.withClient}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilters(prev => ({ ...prev, storageStatus: 'debt', debt: true, expiring: false }))}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition-all whitespace-nowrap select-none ${
+                filters.storageStatus === 'debt'
+                  ? 'bg-orange-600 text-white shadow-2xs'
+                  : 'bg-orange-50 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 hover:bg-orange-100'
+              }`}
+            >
+              <span>💰 С долгом</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-black/10 dark:bg-white/20">
+                {statusCounts.debt}
+              </span>
+            </button>
+          </div>
+
           {/* Top Row: Search + Grouping + Actions */}
           <div className="flex gap-2 w-full flex-wrap sm:flex-nowrap items-center">
             <div className="relative flex-grow min-w-[200px]">
@@ -687,24 +856,19 @@ export const ClientsView: React.FC<{
                 <FilterIcon className="w-5 h-5"/>
             </button>
 
-            {urgentCount > 0 && viewTab === 'active' && (
-                <button 
-                    type="button"
-                    onClick={() => setFilters(prev => ({ ...prev, expiring: !prev.expiring }))}
-                    className={`flex items-center justify-center gap-1.5 px-3 h-[42px] rounded-md border font-bold text-xs sm:text-sm transition-all whitespace-nowrap shadow-xs active:scale-95 shrink-0 ${
-                        filters.expiring
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm ring-2 ring-rose-400/50'
-                            : 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60'
-                    }`}
-                    title="Показать только клиентов с окончанием хранения менее чем через 7 дней"
-                >
-                    <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                    </span>
-                    <span className="hidden sm:inline">Истекают</span> <span>≤ 7 дн. ({urgentCount})</span>
-                </button>
-            )}
+            {/* Mass Message Notification Trigger */}
+            <button 
+                type="button"
+                onClick={() => setShowBulkMessageModal(true)}
+                className="flex items-center justify-center gap-1.5 px-3 h-[42px] rounded-md border border-indigo-300 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-bold text-xs sm:text-sm transition-all whitespace-nowrap shadow-2xs active:scale-95 shrink-0"
+                title="Массовая отправка уведомлений по шаблонам (Telegram, WhatsApp, SMS)"
+            >
+                <span className="text-base">✉️</span>
+                <span className="hidden sm:inline">Рассылка</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-200/80 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200">
+                    {sortedClients.length}
+                </span>
+            </button>
 
             <button 
                 onClick={() => setShowExportModal(true)}
@@ -727,7 +891,7 @@ export const ClientsView: React.FC<{
 
           {/* Collapsible Filter Panel */}
           {showFilters && (
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-top-2 duration-200">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 animate-in slide-in-from-top-2 duration-200">
                <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Сортировка</label>
                   <select value={sortConfig?.key || ''} onChange={e => handleSortChange(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
@@ -738,7 +902,7 @@ export const ClientsView: React.FC<{
                   </select>
                </div>
                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Статус</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Статус сделки</label>
                   <select value={filters.status} onChange={e => handleFilterChange('status', e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
                       <option value="all">Все статусы</option>
                       {filterOptions.statuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -749,6 +913,29 @@ export const ClientsView: React.FC<{
                    <select value={filters.warehouse} onChange={e => handleFilterChange('warehouse', e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
                       <option value="all">Все склады</option>
                       {filterOptions.warehouses.map(w => <option key={w} value={w}>{w}</option>)}
+                   </select>
+               </div>
+               <div>
+                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Статус хранения</label>
+                   <select 
+                      value={filters.storageStatus} 
+                      onChange={e => {
+                        const val = e.target.value as StorageStatusFilter;
+                        setFilters(prev => ({ 
+                          ...prev, 
+                          storageStatus: val,
+                          expiring: val === 'expiring',
+                          debt: val === 'debt'
+                        }));
+                      }} 
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-1.5 px-3 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                   >
+                      <option value="all">Все ({statusCounts.all})</option>
+                      <option value="expiring">⚠️ Срок истекает ({statusCounts.expiring})</option>
+                      <option value="expired">🚨 Просрочено ({statusCounts.expired})</option>
+                      <option value="in_storage">📦 На складе ({statusCounts.inStorage})</option>
+                      <option value="with_client">🚗 У клиента ({statusCounts.withClient})</option>
+                      <option value="debt">💰 С долгом ({statusCounts.debt})</option>
                    </select>
                </div>
                <div className="flex items-end gap-2">
@@ -791,8 +978,20 @@ export const ClientsView: React.FC<{
                 )}
 
                 {/* Active Filter Chips */}
-                {filters.expiring && <FilterBadge text={`Истекают ≤ 7 дн. (${urgentCount})`} onRemove={() => removeFilter('expiring')} />}
-                {filters.debt && <FilterBadge text="С долгом" onRemove={() => removeFilter('debt')} />}
+                {filters.storageStatus !== 'all' && (
+                    <FilterBadge 
+                        text={`Статус: ${
+                            filters.storageStatus === 'expiring' ? 'Истекает' :
+                            filters.storageStatus === 'expired' ? 'Просрочено' :
+                            filters.storageStatus === 'in_storage' ? 'На складе' :
+                            filters.storageStatus === 'with_client' ? 'У клиента' :
+                            filters.storageStatus === 'debt' ? 'С долгом' : filters.storageStatus
+                        }`} 
+                        onRemove={() => setFilters(prev => ({ ...prev, storageStatus: 'all', expiring: false, debt: false }))} 
+                    />
+                )}
+                {filters.expiring && filters.storageStatus === 'all' && <FilterBadge text={`Истекают ≤ 7 дн. (${urgentCount})`} onRemove={() => removeFilter('expiring')} />}
+                {filters.debt && filters.storageStatus === 'all' && <FilterBadge text="С долгом" onRemove={() => removeFilter('debt')} />}
                 {filters.status !== 'all' && <FilterBadge text={filters.status} onRemove={() => removeFilter('status')} />}
                 {filters.warehouse !== 'all' && <FilterBadge text={filters.warehouse} onRemove={() => removeFilter('warehouse')} />}
                 
@@ -968,6 +1167,15 @@ export const ClientsView: React.FC<{
           showToast(message, 'success');
           refreshData();
         }}
+      />
+
+      {/* Mass Notification Modal */}
+      <BulkMessageModal
+        isOpen={showBulkMessageModal}
+        onClose={() => setShowBulkMessageModal(false)}
+        clients={sortedClients}
+        templates={templates}
+        onRefresh={refreshData}
       />
     </div>
   );

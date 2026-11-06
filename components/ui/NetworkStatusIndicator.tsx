@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { syncManager, SyncStatus } from '../../services/syncManager';
 
 export const NetworkStatusIndicator: React.FC<{ onManualSync?: () => void }> = ({ onManualSync }) => {
@@ -143,7 +144,7 @@ export const NetworkStatusIndicator: React.FC<{ onManualSync?: () => void }> = (
           </div>
 
           {/* Action Button */}
-          <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-2">
             <button
               type="button"
               onClick={handleRetry}
@@ -155,6 +156,15 @@ export const NetworkStatusIndicator: React.FC<{ onManualSync?: () => void }> = (
               </svg>
               <span>{isRetrying ? 'Отправка...' : 'Синхронизировать сейчас (Retry)'}</span>
             </button>
+
+            <Link
+              to="/settings"
+              onClick={() => setIsOpen(false)}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium text-xs transition-colors"
+            >
+              <span>⚡️</span>
+              <span>Диагностика и ключи Supabase</span>
+            </Link>
           </div>
         </div>
       )}

@@ -11,6 +11,7 @@ import { CRM_CODE, ROUTER_CODE, BOT_CODE } from '../data/gas-scripts';
 import { offlineStorage } from '../services/offlineStorage';
 import { syncManager } from '../services/syncManager';
 import { testSupabaseConnection, supabaseService, saveSupabaseConfig, fetchServerPublicConfig } from '../services/supabaseClient';
+import { SupabaseDiagnostics } from './ui/SupabaseDiagnostics';
 
 // --- Icons ---
 const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
@@ -405,133 +406,14 @@ const GeneralSettingsTab: React.FC<{
                     </Button>
                 </div>
 
-                {/* DIRECT SUPABASE INPUTS (METHOD 2: URL + API KEY WITHOUT PASSWORD) */}
-                <div className="p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-3">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-indigo-600 text-white font-extrabold text-[10px] uppercase tracking-wider">
-                                Способ 2 (Без пароля)
-                            </span>
-                            <h5 className="font-bold text-sm text-gray-900 dark:text-white">
-                                Подключение через Supabase URL и API Key
-                            </h5>
-                        </div>
-                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                            Пароль от БД не нужен!
-                        </span>
-                    </div>
-
-                    <p className="text-xs text-gray-600 dark:text-gray-300">
-                        Скопируйте эти два значения из Supabase (<b>Project Settings ➔ API</b>) и вставьте их сюда. Они сохраняются в памяти CRM и работают сразу:
-                    </p>
-
-                    <div className="space-y-3">
-                        <Input 
-                            label="Project URL" 
-                            value={settings.supabaseUrl || ''} 
-                            onChange={e => onChange('supabaseUrl', e.target.value)}
-                            placeholder="https://xxxxxxxxxxxxxxxx.supabase.co"
-                            helperText="Раздел Project Settings ➔ API ➔ Project URL"
-                        />
-                        <Input 
-                            label="Project API Key (anon / public или service_role)" 
-                            type="password"
-                            value={settings.supabaseKey || ''} 
-                            onChange={e => onChange('supabaseKey', e.target.value)}
-                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                            helperText="Раздел Project Settings ➔ API ➔ Project API keys (anon public)"
-                        />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <Button
-                            variant="primary"
-                            onClick={handleTestSupabaseDirect}
-                            disabled={isTestingSupabaseDirect}
-                            className="text-xs !py-2 !px-3 font-bold !bg-indigo-600 hover:!bg-indigo-700"
-                        >
-                            {isTestingSupabaseDirect ? 'Проверка...' : '⚡️ Проверить подключение (Способ 2)'}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={handleImportToSupabaseDirect}
-                            disabled={isImportingDirect}
-                            className="text-xs !py-2 !px-3 font-bold !text-emerald-700 dark:!text-emerald-300 !border-emerald-300 dark:!border-emerald-800"
-                        >
-                            {isImportingDirect ? 'Перенос...' : '🚀 Загрузить 27 клиентов в Supabase в 1 клик'}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* STEP-BY-STEP SUPABASE VISUAL GUIDE */}
-                <div className="mt-4 rounded-xl border border-indigo-200/80 dark:border-indigo-900/50 bg-gradient-to-br from-indigo-50/50 via-white to-gray-50/80 dark:from-indigo-950/20 dark:via-gray-900 dark:to-gray-900/60 p-4 space-y-3.5">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center">⚡️</span>
-                            <h5 className="font-bold text-sm text-gray-900 dark:text-white">
-                                Понятная инструкция: как подключить базу в Supabase
-                            </h5>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setShowSupabaseGuide(!showSupabaseGuide)}
-                            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-                        >
-                            {showSupabaseGuide ? 'Свернуть' : 'Развернуть инструкцию'}
-                        </button>
-                    </div>
-
-                    {showSupabaseGuide && (
-                        <div className="space-y-3 text-xs leading-relaxed text-gray-700 dark:text-gray-300 pt-1">
-                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1">
-                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 1. Откройте проект в Supabase</div>
-                                <p className="text-gray-600 dark:text-gray-300">
-                                    Перейдите на <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 font-bold underline">supabase.com/dashboard</a>. Нажмите <b>New Project</b> (или выберите существующий). Придумайте пароль базы данных (Database Password) и обязательно сохраните его.
-                                </p>
-                            </div>
-
-                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2">
-                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 2. Запустите SQL-схему (создание таблиц)</div>
-                                <p className="text-gray-600 dark:text-gray-300">
-                                    1. В левой колонке Supabase нажмите на иконку <b>SQL Editor</b> (значок терминала <code>&gt;_</code>).<br/>
-                                    2. Нажмите зелёную кнопку <b>+ New query</b> вверху.<br/>
-                                    3. Нажмите кнопку ниже, чтобы скопировать готовую SQL-схему, и вставьте её (Ctrl+V) в поле ввода Supabase:
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={handleCopySql}
-                                    disabled={isCopyingSql}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors"
-                                >
-                                    📋 Скопировать готовую SQL-схему в буфер
-                                </button>
-                                <p className="text-gray-500 text-[11px]">
-                                    4. Нажмите кнопку <b>Run</b> в правом нижнем углу Supabase (или <code>Ctrl + Enter</code>). Таблицы <code>clients</code>, <code>storage_orders</code>, <code>masters</code> и индексы будут созданы.
-                                </p>
-                            </div>
-
-                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1.5">
-                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 3. Скопируйте строку подключения (URI)</div>
-                                <p className="text-gray-600 dark:text-gray-300">
-                                    1. В левом меню в самом низу нажмите <b>Project Settings (шестерёнка)</b>.<br/>
-                                    2. Перейдите в пункт <b>Database</b>.<br/>
-                                    3. Прокрутите страницу вниз до блока <b>Connection string</b> ➔ выберите вкладку <b>URI</b>.<br/>
-                                    4. Скопируйте строку, например:<br/>
-                                    <code className="p-1 rounded bg-gray-100 dark:bg-gray-900 text-indigo-700 dark:text-indigo-300 font-mono block mt-1 select-all break-all text-[11px]">
-                                        postgresql://postgres.xxx:[YOUR-PASSWORD]@aws-0-...pooler.supabase.com:6543/postgres
-                                    </code>
-                                    5. Замените <code>[YOUR-PASSWORD]</code> на ваш реальный пароль от базы данных (без скобок <code>[ ]</code>).
-                                </p>
-                            </div>
-
-                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1">
-                                <div className="font-bold text-indigo-600 dark:text-indigo-400">Шаг 4. Подключение к сайту в Vercel</div>
-                                <p className="text-gray-600 dark:text-gray-300">
-                                    В панели вашего проекта на Vercel откройте <b>Settings ➔ Environment Variables</b> ➔ добавьте переменную <code>POSTGRES_URL</code> и вставьте туда вашу готовую строку. Нажмите кнопку <b>«Проверить состояние базы»</b> выше, чтобы убедиться в подключении.
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                {/* ADVANCED SUPABASE DIAGNOSTICS & SETUP COMPONENT */}
+                <div className="mt-4">
+                    <SupabaseDiagnostics 
+                        onConfigUpdated={(url, key) => {
+                            onChange('supabaseUrl', url);
+                            onChange('supabaseKey', key);
+                        }}
+                    />
                 </div>
             </div>
 
